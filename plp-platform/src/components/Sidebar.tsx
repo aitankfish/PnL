@@ -1,0 +1,165 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import {
+  Plus,
+  Target,
+  Rocket,
+  Bell,
+  User
+} from 'lucide-react';
+import UserInfo from './UserInfo';
+
+interface SidebarItem {
+  id: string;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+  href?: string;
+  badge?: string;
+  isActive?: boolean;
+}
+
+interface SidebarProps {
+  currentPage?: string;
+}
+
+const sidebarItems: SidebarItem[] = [
+  {
+    id: 'create',
+    label: 'Create Project',
+    icon: Plus,
+    href: '/create',
+    badge: 'New'
+  },
+  {
+    id: 'markets',
+    label: 'Browse Markets',
+    icon: Target,
+    href: '/browse'
+  },
+  {
+    id: 'launched',
+    label: 'Launched Projects',
+    icon: Rocket,
+    href: '/launched'
+  },
+  {
+    id: 'notifications',
+    label: 'Notifications',
+    icon: Bell,
+    href: '/notifications',
+    badge: '3'
+  }
+];
+
+export default function Sidebar({ currentPage }: SidebarProps) {
+  const [isVisible, setIsVisible] = useState(true);
+  const [lastScrollY, setLastScrollY] = useState(0);
+  const router = useRouter();
+  const { primaryWallet, setShowAuthFlow } = useDynamicContext();
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const currentScrollY = window.scrollY;
+
+      // Show navigation when scrolling down, hide when scrolling up
+      if (currentScrollY < lastScrollY) {
+        setIsVisible(true);
+      } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
+        setIsVisible(false);
+      }
+
+      setLastScrollY(currentScrollY);
+    };
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [lastScrollY]);
+
+  // Handle wallet button click
+  const handleWalletClick = () => {
+    if (primaryWallet?.address) {
+      // User is connected, navigate to wallet page
+      router.push('/wallet');
+    } else {
+      // User is not connected, show login widget
+      setShowAuthFlow(true);
+    }
+  };
+
+  return (
+    <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-4 transition-transform duration-300 ${
+      isVisible ? 'translate-y-0' : '-translate-y-20'
+    }`}>
+      <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-white/5 p-4 relative overflow-hidden">
+        {/* Space Background Elements */}
+        <div className="absolute inset-0 opacity-20">
+          <div className="absolute top-2 left-8 w-1 h-1 bg-white rounded-full animate-pulse"></div>
+          <div className="absolute top-3 right-12 w-0.5 h-0.5 bg-cyan-400 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
+          <div className="absolute top-4 left-1/3 w-0.5 h-0.5 bg-blue-400 rounded-full animate-pulse" style={{animationDelay: '2s'}}></div>
+          <div className="absolute top-2 right-1/4 w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
+          <div className="absolute top-3 left-2/3 w-0.5 h-0.5 bg-cyan-500 rounded-full animate-pulse" style={{animationDelay: '1.5s'}}></div>
+        </div>
+        <div className="flex items-center justify-between relative z-10">
+          {/* Logo */}
+          <div className="flex items-center">
+            <Link href="/launchpad" className="flex items-center hover:scale-105 transition-transform mr-6 group">
+              <span className="text-2xl font-bold">
+                <span className="text-green-400">P</span>
+                <span className="text-blue-400">&</span>
+                <span className="text-red-400">L</span>
+              </span>
+            </Link>
+          </div>
+
+          {/* Navigation Icons */}
+          <nav className="flex items-center space-x-2">
+            {sidebarItems.map((item) => {
+              const Icon = item.icon;
+              const isActive = currentPage === item.id;
+              
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href || '#'}
+                  className={`
+                    flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-200 group relative
+                    ${isActive 
+                      ? 'bg-white/20 text-white shadow-lg shadow-purple-500/20' 
+                      : 'text-white/70 hover:text-white hover:bg-white/10'
+                    }
+                  `}
+                  title={item.label}
+                >
+                  <Icon className="w-5 h-5" />
+                  {item.badge && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
+                      <span className="text-xs text-white font-bold">!</span>
+                    </div>
+                  )}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* User Information & Wallet Management */}
+          <div className="flex items-center space-x-3">
+            {/* User Info Component - Always show on larger screens */}
+            <UserInfo compact={true} className="hidden lg:flex" />
+            <button
+              onClick={handleWalletClick}
+              className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:scale-105 transition-transform cursor-pointer"
+              title={primaryWallet?.address ? "Wallet & Profile" : "Connect Wallet"}
+            >
+              <User className="w-5 h-5 text-white" />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

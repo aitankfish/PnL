@@ -1,0 +1,15 @@
+# Ignore sensitive files from Cursor AI
+.env
+.env.local
+.env.production
+.env.*.local
+
+# Ignore private keys and secrets
+*.key
+*.pem
+secrets/
+private/
+
+# Ignore database dumps
+*.dump
+*.sql

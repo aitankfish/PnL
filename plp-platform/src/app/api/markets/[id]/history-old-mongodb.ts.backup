@@ -1,0 +1,97 @@
+/**
+ * API endpoint for fetching market trade history
+ *
+ * Returns time-series data for probability chart and recent trades
+ */
+
+import { NextRequest, NextResponse } from 'next/server';
+import { connectToDatabase, getDatabase } from '@/lib/database/index';
+import { COLLECTIONS, TradeHistory } from '@/lib/database/models';
+import { ObjectId } from 'mongodb';
+import { createClientLogger } from '@/lib/logger';
+
+const logger = createClientLogger();
+
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  try {
+    const { id: marketId } = await params;
+
+    logger.info('Fetching trade history', { marketId });
+
+    // Connect to database
+    await connectToDatabase();
+    const db = await getDatabase();
+
+    // Fetch trade history sorted by timestamp (newest first for feed, chronological for chart)
+    const trades = await db
+      .collection<TradeHistory>(COLLECTIONS.TRADE_HISTORY)
+      .find({ marketId: new ObjectId(marketId) })
+      .sort({ createdAt: 1 }) // Ascending for chart
+      .toArray();
+
+    // Transform data for chart (time-series of probability)
+    const chartData = trades.map((trade) => ({
+      timestamp: trade.createdAt.getTime(),
+      time: trade.createdAt.toISOString(),
+      yesPrice: trade.yesPrice,
+      noPrice: trade.noPrice,
+      amount: trade.amount / 1_000_000_000, // Convert to SOL
+      voteType: trade.voteType,
+    }));
+
+    // Get recent trades for activity feed (last 20 trades, reversed)
+    const recentTrades = [...trades]
+      .reverse()
+      .slice(0, 20)
+      .map((trade) => ({
+        id: trade._id?.toString(),
+        traderWallet: trade.traderWallet,
+        voteType: trade.voteType,
+        amount: trade.amount / 1_000_000_000, // Convert to SOL
+        yesPrice: trade.yesPrice,
+        noPrice: trade.noPrice,
+        signature: trade.signature,
+        timestamp: trade.createdAt.getTime(),
+        timeAgo: getTimeAgo(trade.createdAt),
+      }));
+
+    logger.info('Trade history fetched', {
+      marketId,
+      totalTrades: trades.length,
+      recentTrades: recentTrades.length,
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: {
+        chartData,
+        recentTrades,
+        totalTrades: trades.length,
+      },
+    });
+  } catch (error) {
+    logger.error('Failed to fetch trade history:', error);
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Failed to fetch trade history',
+        details: error instanceof Error ? error.message : 'Unknown error',
+      },
+      { status: 500 }
+    );
+  }
+}
+
+// Helper function to calculate "time ago" string
+function getTimeAgo(date: Date): string {
+  const seconds = Math.floor((Date.now() - date.getTime()) / 1000);
+
+  if (seconds < 60) return `${seconds}s ago`;
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+  if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+  return `${Math.floor(seconds / 86400)}d ago`;
+}
