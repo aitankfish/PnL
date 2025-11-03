@@ -271,7 +271,7 @@ export default function MarketDetailsPage() {
 
   // Fetch on-chain market data (resolution status, pool progress)
   const { data: onchainData, mutate: refetchOnchainData } = useSWR(
-    market?.marketAddress ? `/api/markets/${market.marketAddress}/onchain` : null,
+    market?.marketAddress ? `/api/markets/${market.marketAddress}/onchain?network=${network}` : null,
     fetcher,
     {
       refreshInterval: 15000, // Poll every 15 seconds for status updates

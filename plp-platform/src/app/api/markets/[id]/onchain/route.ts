@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
 import { getSolanaConnection } from '@/lib/solana';
 import { createClientLogger } from '@/lib/logger';
+import { SOLANA_NETWORK } from '@/config/solana';
 
 const logger = createClientLogger();
 
@@ -49,7 +50,13 @@ export async function GET(
       );
     }
 
-    logger.info('Fetching on-chain market data', { marketAddress });
+    // Get network from query parameter (frontend passes this based on user selection)
+    // Fallback to environment variable if not provided
+    const { searchParams } = new URL(request.url);
+    const networkParam = searchParams.get('network');
+    const network = (networkParam as 'mainnet-beta' | 'devnet' | null) || SOLANA_NETWORK;
+
+    logger.info('Fetching on-chain market data', { marketAddress, network });
 
     // Convert address to PublicKey
     let marketPubkey;
@@ -68,13 +75,13 @@ export async function GET(
       );
     }
 
-    // Get Solana connection
+    // Get Solana connection with network parameter
     let connection;
     try {
-      connection = await getSolanaConnection();
-      logger.info('Solana connection established');
+      connection = await getSolanaConnection(network);
+      logger.info('Solana connection established', { network });
     } catch (error) {
-      logger.error('Failed to establish Solana connection', { error });
+      logger.error('Failed to establish Solana connection', { error, network });
       return NextResponse.json(
         {
           success: false,
