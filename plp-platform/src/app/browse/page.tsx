@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import AppLayout from '@/components/AppLayout';
 import { useVoting } from '@/lib/hooks/useVoting';
 import { FEES } from '@/config/solana';
 import CountdownTimer from '@/components/CountdownTimer';
@@ -51,6 +50,67 @@ function formatLabel(value: string): string {
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
+}
+
+// Determine detailed market status based on expiry time, pool, and resolution
+function getMarketStatus(market: Market): { status: string; badgeClass: string } {
+  const now = new Date().getTime();
+  const expiryTime = new Date(market.expiryTime).getTime();
+  const isExpired = now > expiryTime;
+
+  // Parse target pool (remove " SOL" and convert to number)
+  const targetPoolValue = parseFloat(market.targetPool.replace(' SOL', ''));
+  const currentPool = (market.totalYesStake + market.totalNoStake) / 1_000_000_000; // Convert lamports to SOL
+  const isPoolFull = currentPool >= targetPoolValue;
+  const poolProgressPercentage = (currentPool / targetPoolValue) * 100;
+
+  // Check resolution status from database (if market has been resolved)
+  if (market.status) {
+    const statusLower = market.status.toLowerCase();
+
+    if (statusLower.includes('yes') && statusLower.includes('win')) {
+      return {
+        status: '🎉 YES Wins',
+        badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
+      };
+    }
+
+    if (statusLower.includes('no') && statusLower.includes('win')) {
+      return {
+        status: '❌ NO Wins',
+        badgeClass: 'bg-red-500/20 text-red-300 border-red-400/30'
+      };
+    }
+
+    if (statusLower.includes('refund') || statusLower.includes('cancelled')) {
+      return {
+        status: '↩️ Refund',
+        badgeClass: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30'
+      };
+    }
+  }
+
+  // Market expired but not yet resolved
+  if (isExpired) {
+    return {
+      status: '⏳ Awaiting Resolution',
+      badgeClass: 'bg-orange-500/20 text-orange-300 border-orange-400/30'
+    };
+  }
+
+  // Pool is full but not expired yet
+  if (isPoolFull || poolProgressPercentage >= 100) {
+    return {
+      status: '🎯 Pool Complete',
+      badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30'
+    };
+  }
+
+  // Active market
+  return {
+    status: '✅ Active',
+    badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
+  };
 }
 
 export default function BrowsePage() {
@@ -108,8 +168,7 @@ export default function BrowsePage() {
     }
   };
   return (
-    <AppLayout currentPage="markets">
-      <div className="p-6 space-y-8">
+    <div className="p-6 space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold text-white mb-2">
@@ -186,7 +245,10 @@ export default function BrowsePage() {
           {/* Markets Grid */}
           {!loading && !error && markets.length > 0 && (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {markets.map((project) => (
+              {markets.map((project) => {
+                const marketStatus = getMarketStatus(project);
+
+                return (
               <Link href={`/market/${project.id}`} key={project.id} className="block">
               <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-102 group cursor-pointer">
                 <CardHeader>
@@ -225,7 +287,7 @@ export default function BrowsePage() {
                     </div>
 
                     {/* Status Badge */}
-                    <Badge className="bg-green-500/20 text-green-300 border-green-400/30 ml-2 flex-shrink-0">{project.status}</Badge>
+                    <Badge className={`${marketStatus.badgeClass} ml-2 flex-shrink-0`}>{marketStatus.status}</Badge>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -315,7 +377,8 @@ export default function BrowsePage() {
                 </CardContent>
               </Card>
               </Link>
-            ))}
+                );
+              })}
           </div>
           )}
         </div>
@@ -336,6 +399,5 @@ export default function BrowsePage() {
           </div>
         </div>
       </div>
-    </AppLayout>
   );
 }

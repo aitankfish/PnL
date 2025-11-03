@@ -5,17 +5,14 @@ import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Textarea } from '@/components/ui/textarea';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
-import { Progress } from '@/components/ui/progress';
 import { config } from '@/lib/config';
 import { createClientLogger } from '@/lib/logger';
 import { useDynamicContext, useAuthenticateConnectedUser } from '@dynamic-labs/sdk-react-core';
 import { ipfsUtils, ProjectMetadata } from '@/lib/ipfs';
 import { VersionedTransaction } from '@solana/web3.js';
 import { sendRawTransaction, getSolanaConnection, setNetwork } from '@/lib/solana';
-import AppLayout from '@/components/AppLayout';
 import { useToast } from '@/lib/hooks/useToast';
 import { useNetwork } from '@/lib/hooks/useNetwork';
 
@@ -292,20 +289,17 @@ export default function CreatePage() {
   // Prevent hydration issues by not rendering until mounted
   if (!isMounted) {
     return (
-      <AppLayout currentPage="create">
-        <div className="min-h-screen bg-black text-white flex items-center justify-center">
-          <div className="text-center">
-            <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500 mx-auto mb-4"></div>
-            <p className="text-white/70">Loading form...</p>
-          </div>
+      <div className="min-h-screen bg-black text-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-500 mx-auto mb-4"></div>
+          <p className="text-white/70">Loading form...</p>
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
   return (
-    <AppLayout currentPage="create">
-      <div className="p-4 md:p-6">
+    <div className="p-4 md:p-6">
         <div className="max-w-7xl mx-auto">
           {/* Header */}
           <div className="mb-6 text-center">
@@ -428,14 +422,14 @@ export default function CreatePage() {
             <div className="flex-1 min-w-0">
               <form onSubmit={handleSubmit} className="space-y-6">
             {/* Basic Information */}
-            <Card className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
+            <Card className="bg-white/10 backdrop-blur-xl border-white/20 text-white overflow-visible">
               <CardHeader>
                 <CardTitle>Basic Information</CardTitle>
                 <CardDescription className="text-white/70">
                   Tell us about your project
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 overflow-visible">
                 <div className="space-y-2">
                   <Label htmlFor="name">Project Name *</Label>
                   <Input
@@ -467,55 +461,55 @@ export default function CreatePage() {
                 <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
                   <div className="space-y-2">
                     <Label className="text-sm">Category *</Label>
-                    <Select value={formData.category} onValueChange={(value) => handleInputChange('category', value)}>
-                      <SelectTrigger className={`h-10 bg-white/10 border-white/20 text-white text-sm ${errors.category ? 'border-red-500' : ''}`}>
-                        <SelectValue placeholder="Select category" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/20">
-                        <SelectItem value="defi">DeFi</SelectItem>
-                        <SelectItem value="nft">NFT</SelectItem>
-                        <SelectItem value="gaming">Gaming</SelectItem>
-                        <SelectItem value="dao">DAO</SelectItem>
-                        <SelectItem value="infrastructure">Infrastructure</SelectItem>
-                        <SelectItem value="social">Social</SelectItem>
-                        <SelectItem value="ai">AI/ML</SelectItem>
-                        <SelectItem value="other">Other</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      value={formData.category}
+                      onChange={(e) => handleInputChange('category', e.target.value)}
+                      className={`h-10 w-full bg-white/10 border border-white/20 text-white text-sm rounded-md px-3 py-2 ${errors.category ? 'border-red-500' : ''}`}
+                    >
+                      <option value="" className="bg-slate-800">Select category</option>
+                      <option value="defi" className="bg-slate-800">DeFi</option>
+                      <option value="nft" className="bg-slate-800">NFT</option>
+                      <option value="gaming" className="bg-slate-800">Gaming</option>
+                      <option value="dao" className="bg-slate-800">DAO</option>
+                      <option value="infrastructure" className="bg-slate-800">Infrastructure</option>
+                      <option value="social" className="bg-slate-800">Social</option>
+                      <option value="ai" className="bg-slate-800">AI/ML</option>
+                      <option value="other" className="bg-slate-800">Other</option>
+                    </select>
                     {errors.category && <p className="text-sm text-red-400">{errors.category}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-sm">Type *</Label>
-                    <Select value={formData.projectType} onValueChange={(value) => handleInputChange('projectType', value)}>
-                      <SelectTrigger className={`h-10 bg-white/10 border-white/20 text-white text-sm ${errors.projectType ? 'border-red-500' : ''}`}>
-                        <SelectValue placeholder="Select type" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/20">
-                        <SelectItem value="protocol">Protocol</SelectItem>
-                        <SelectItem value="application">Application</SelectItem>
-                        <SelectItem value="platform">Platform</SelectItem>
-                        <SelectItem value="service">Service</SelectItem>
-                        <SelectItem value="tool">Tool</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      value={formData.projectType}
+                      onChange={(e) => handleInputChange('projectType', e.target.value)}
+                      className={`h-10 w-full bg-white/10 border border-white/20 text-white text-sm rounded-md px-3 py-2 ${errors.projectType ? 'border-red-500' : ''}`}
+                    >
+                      <option value="" className="bg-slate-800">Select type</option>
+                      <option value="protocol" className="bg-slate-800">Protocol</option>
+                      <option value="application" className="bg-slate-800">Application</option>
+                      <option value="platform" className="bg-slate-800">Platform</option>
+                      <option value="service" className="bg-slate-800">Service</option>
+                      <option value="tool" className="bg-slate-800">Tool</option>
+                    </select>
                     {errors.projectType && <p className="text-sm text-red-400">{errors.projectType}</p>}
                   </div>
 
                   <div className="space-y-2">
                     <Label className="text-sm">Stage *</Label>
-                    <Select value={formData.projectStage} onValueChange={(value) => handleInputChange('projectStage', value)}>
-                      <SelectTrigger className={`h-10 bg-white/10 border-white/20 text-white text-sm ${errors.projectStage ? 'border-red-500' : ''}`}>
-                        <SelectValue placeholder="Select stage" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/20">
-                        <SelectItem value="idea">Idea Stage</SelectItem>
-                        <SelectItem value="prototype">Prototype</SelectItem>
-                        <SelectItem value="mvp">MVP</SelectItem>
-                        <SelectItem value="beta">Beta Testing</SelectItem>
-                        <SelectItem value="launched">Launched</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      value={formData.projectStage}
+                      onChange={(e) => handleInputChange('projectStage', e.target.value)}
+                      className={`h-10 w-full bg-white/10 border border-white/20 text-white text-sm rounded-md px-3 py-2 ${errors.projectStage ? 'border-red-500' : ''}`}
+                    >
+                      <option value="" className="bg-slate-800">Select stage</option>
+                      <option value="idea" className="bg-slate-800">Idea Stage</option>
+                      <option value="prototype" className="bg-slate-800">Prototype</option>
+                      <option value="mvp" className="bg-slate-800">MVP</option>
+                      <option value="beta" className="bg-slate-800">Beta Testing</option>
+                      <option value="launched" className="bg-slate-800">Launched</option>
+                    </select>
                     {errors.projectStage && <p className="text-sm text-red-400">{errors.projectStage}</p>}
                   </div>
 
@@ -548,7 +542,7 @@ export default function CreatePage() {
             </Card>
 
             {/* Token Information - Collapsible */}
-            <Card className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
+            <Card className="bg-white/10 backdrop-blur-xl border-white/20 text-white overflow-visible">
               <CardHeader className="cursor-pointer" onClick={() => setIsTokenSectionExpanded(!isTokenSectionExpanded)}>
                 <div className="flex items-center justify-between">
                   <div>
@@ -575,7 +569,7 @@ export default function CreatePage() {
                 </div>
               </CardHeader>
               {isTokenSectionExpanded && (
-              <CardContent className="space-y-4">
+              <CardContent className="space-y-4 overflow-visible">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="tokenSymbol">Token Symbol *</Label>
@@ -641,16 +635,17 @@ export default function CreatePage() {
                       Target Pool Size *
                       <span className="ml-2 text-xs text-white/60">(SOL to collect)</span>
                     </Label>
-                    <Select value={formData.targetPool} onValueChange={(value) => handleInputChange('targetPool', value)}>
-                      <SelectTrigger className={`bg-white/10 border-white/20 text-white ${errors.targetPool ? 'border-red-500' : ''}`}>
-                        <SelectValue placeholder="Choose target pool size..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/20">
-                        <SelectItem value="5000000000">5 SOL (Small Project)</SelectItem>
-                        <SelectItem value="10000000000">10 SOL (Medium Project)</SelectItem>
-                        <SelectItem value="15000000000">15 SOL (Large Project)</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      id="targetPool"
+                      value={formData.targetPool}
+                      onChange={(e) => handleInputChange('targetPool', e.target.value)}
+                      className={`w-full bg-white/10 border border-white/20 text-white rounded-md px-3 py-2 ${errors.targetPool ? 'border-red-500' : ''}`}
+                    >
+                      <option value="" className="bg-slate-800">Choose target pool size...</option>
+                      <option value="5000000000" className="bg-slate-800">5 SOL (Small Project)</option>
+                      <option value="10000000000" className="bg-slate-800">10 SOL (Medium Project)</option>
+                      <option value="15000000000" className="bg-slate-800">15 SOL (Large Project)</option>
+                    </select>
                     {errors.targetPool && <p className="text-sm text-red-400">{errors.targetPool}</p>}
                     <p className="text-xs text-white/60">
                       More liquidity but needs more YES votes
@@ -659,18 +654,18 @@ export default function CreatePage() {
 
                   <div className="space-y-2">
                     <Label>Market Duration *</Label>
-                    <Select value={formData.marketDuration} onValueChange={(value) => handleInputChange('marketDuration', value)}>
-                      <SelectTrigger className={`bg-white/10 border-white/20 text-white ${errors.marketDuration ? 'border-red-500' : ''}`}>
-                        <SelectValue placeholder="Choose market duration..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-800 border-white/20">
-                        <SelectItem value="1">1 Day</SelectItem>
-                        <SelectItem value="3">3 Days</SelectItem>
-                        <SelectItem value="7">1 Week</SelectItem>
-                        <SelectItem value="14">2 Weeks</SelectItem>
-                        <SelectItem value="30">1 Month</SelectItem>
-                      </SelectContent>
-                    </Select>
+                    <select
+                      value={formData.marketDuration}
+                      onChange={(e) => handleInputChange('marketDuration', e.target.value)}
+                      className={`w-full bg-white/10 border border-white/20 text-white rounded-md px-3 py-2 ${errors.marketDuration ? 'border-red-500' : ''}`}
+                    >
+                      <option value="" className="bg-slate-800">Choose market duration...</option>
+                      <option value="1" className="bg-slate-800">1 Day</option>
+                      <option value="3" className="bg-slate-800">3 Days</option>
+                      <option value="7" className="bg-slate-800">1 Week</option>
+                      <option value="14" className="bg-slate-800">2 Weeks</option>
+                      <option value="30" className="bg-slate-800">1 Month</option>
+                    </select>
                     {errors.marketDuration && <p className="text-sm text-red-400">{errors.marketDuration}</p>}
                     <p className="text-xs text-white/60">
                       Voting period. <span className="text-blue-400">YES: 0.01 SOL min, NO: dynamic</span>
@@ -1139,6 +1134,5 @@ export default function CreatePage() {
           </div>
         </div>
       </div>
-    </AppLayout>
   );
 }

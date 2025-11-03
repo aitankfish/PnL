@@ -1,75 +1,10 @@
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import Link from 'next/link';
-import '../styles/starry-background.css';
 
 export default function HomePage() {
   return (
-    <div className="min-h-screen bg-black relative overflow-hidden">
-      {/* Space Background */}
-      <div className="absolute inset-0">
-        {/* Stars */}
-        <div className="star star-large bg-white"></div>
-        <div className="star star-large bg-blue-200"></div>
-        <div className="star star-large bg-cyan-200"></div>
-        <div className="star star-large bg-white"></div>
-        <div className="star star-large bg-blue-300"></div>
-        <div className="star star-large bg-cyan-300"></div>
-        
-        <div className="star star-medium bg-white"></div>
-        <div className="star star-medium bg-blue-400"></div>
-        <div className="star star-medium bg-cyan-400"></div>
-        <div className="star star-medium bg-white"></div>
-        <div className="star star-medium bg-blue-300"></div>
-        <div className="star star-medium bg-cyan-300"></div>
-        <div className="star star-medium bg-white"></div>
-        <div className="star star-medium bg-blue-400"></div>
-        
-        <div className="star star-small bg-white"></div>
-        <div className="star star-small bg-blue-500"></div>
-        <div className="star star-small bg-cyan-500"></div>
-        <div className="star star-small bg-white"></div>
-        <div className="star star-small bg-blue-400"></div>
-        <div className="star star-small bg-cyan-400"></div>
-        <div className="star star-small bg-white"></div>
-        <div className="star star-small bg-blue-500"></div>
-        <div className="star star-small bg-cyan-500"></div>
-        <div className="star star-small bg-white"></div>
-        <div className="star star-small bg-blue-400"></div>
-        <div className="star star-small bg-cyan-400"></div>
-        
-        {/* Sharp Twinkling Stars */}
-        <div className="star-sharp star-small bg-white"></div>
-        <div className="star-sharp star-small bg-cyan-400"></div>
-        <div className="star-sharp star-medium bg-white"></div>
-        <div className="star-sharp star-small bg-blue-400"></div>
-        <div className="star-sharp star-large bg-white"></div>
-        <div className="star-sharp star-small bg-cyan-500"></div>
-        <div className="star-sharp star-medium bg-white"></div>
-        <div className="star-sharp star-small bg-blue-500"></div>
-        
-        {/* Meteors */}
-        <div className="meteor meteor1"></div>
-        <div className="meteor meteor2"></div>
-        <div className="meteor meteor3"></div>
-        <div className="meteor meteor4"></div>
-        <div className="meteor meteor5"></div>
-        <div className="meteor meteor6"></div>
-        
-        {/* Shooting Stars */}
-        <div className="shooting-star shooting-star1"></div>
-        <div className="shooting-star shooting-star2"></div>
-        <div className="shooting-star shooting-star3"></div>
-        <div className="shooting-star shooting-star4"></div>
-        <div className="shooting-star shooting-star5"></div>
-        
-        {/* Comets */}
-        <div className="comet comet1"></div>
-        <div className="comet comet2"></div>
-        <div className="comet comet3"></div>
-      </div>
-
-      <div className="relative z-10 space-y-8 p-6 md:p-8">
+    <div className="space-y-8 p-6 md:p-8">
         {/* Hero Section */}
         <div className="text-center space-y-5 py-4 md:py-8 max-w-6xl mx-auto">
           <div className="space-y-3">
@@ -325,6 +260,5 @@ export default function HomePage() {
           </div>
         </div>
       </div>
-    </div>
   );
 }

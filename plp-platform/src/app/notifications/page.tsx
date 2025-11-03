@@ -20,7 +20,6 @@ import {
   Trash2
 } from 'lucide-react';
 import Link from 'next/link';
-import AppLayout from '@/components/AppLayout';
 
 // Mock data for notifications
 const mockNotifications = [
@@ -216,8 +215,7 @@ export default function NotificationsPage() {
   };
 
   return (
-    <AppLayout currentPage="notifications">
-      <div className="p-6 space-y-6">
+    <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
@@ -420,6 +418,5 @@ export default function NotificationsPage() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
   );
 }

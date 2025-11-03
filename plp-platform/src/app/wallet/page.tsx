@@ -23,7 +23,6 @@ import {
   ExternalLink,
   TrendingDown
 } from 'lucide-react';
-import AppLayout from '@/components/AppLayout';
 import { Connection, PublicKey, LAMPORTS_PER_SOL } from '@solana/web3.js';
 import { RPC_ENDPOINT, SOLANA_NETWORK } from '@/config/solana';
 import useSWR from 'swr';
@@ -194,8 +193,7 @@ export default function WalletPage() {
   };
 
   return (
-    <AppLayout currentPage="wallet">
-      <div className="min-h-screen p-6 space-y-6">
+    <div className="min-h-screen p-6 space-y-6">
         {/* Header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
@@ -804,6 +802,5 @@ export default function WalletPage() {
           </div>
         </div>
       </div>
-    </AppLayout>
   );
 }

@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { CheckCircle, XCircle, Loader2, ArrowLeft, ExternalLink, Users, Target, MapPin, Briefcase, Globe, Github, Twitter, MessageCircle, Send } from 'lucide-react';
 import Link from 'next/link';
-import AppLayout from '@/components/AppLayout';
 import { FEES, SOLANA_NETWORK } from '@/config/solana';
 import { useVoting } from '@/lib/hooks/useVoting';
 import { useClaiming } from '@/lib/hooks/useClaiming';
@@ -81,6 +80,7 @@ interface MarketDetails {
       discord?: string;
       github?: string;
       telegram?: string;
+      linkedin?: string;
     };
     additionalNotes?: string;
   };
@@ -105,6 +105,85 @@ function formatLabel(value: string): string {
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
+}
+
+// Determine detailed market status based on on-chain data
+function getDetailedMarketStatus(
+  market: MarketDetails,
+  onchainData?: { success: boolean; data?: any }
+): { status: string; badgeClass: string } {
+  // If we have on-chain data, use it for detailed status
+  if (onchainData?.success && onchainData.data) {
+    const { resolution, isExpired, poolProgressPercentage } = onchainData.data;
+
+    // Check resolution status first
+    if (resolution === 'YesWins') {
+      return {
+        status: '🎉 YES Wins',
+        badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
+      };
+    }
+
+    if (resolution === 'NoWins') {
+      return {
+        status: '❌ NO Wins',
+        badgeClass: 'bg-red-500/20 text-red-300 border-red-400/30'
+      };
+    }
+
+    if (resolution === 'Refund') {
+      return {
+        status: '↩️ Refund',
+        badgeClass: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30'
+      };
+    }
+
+    // Unresolved market - check if expired
+    if (resolution === 'Unresolved') {
+      if (isExpired) {
+        return {
+          status: '⏳ Awaiting Resolution',
+          badgeClass: 'bg-orange-500/20 text-orange-300 border-orange-400/30'
+        };
+      }
+
+      // Pool is full but not expired
+      if (poolProgressPercentage >= 100) {
+        return {
+          status: '🎯 Pool Complete',
+          badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30'
+        };
+      }
+
+      // Active market
+      return {
+        status: '✅ Active',
+        badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
+      };
+    }
+  }
+
+  // Fallback to basic expiry check if no on-chain data
+  const now = new Date().getTime();
+  const expiryTime = new Date(market.expiryTime).getTime();
+  const isExpired = now >= expiryTime;
+
+  // Parse target pool
+  const targetPoolValue = parseFloat(market.targetPool.replace(' SOL', ''));
+  const currentPool = (market.totalYesStake + market.totalNoStake) / 1_000_000_000;
+  const isPoolFull = currentPool >= targetPoolValue;
+
+  if (isExpired || isPoolFull) {
+    return {
+      status: 'Expired',
+      badgeClass: 'bg-red-500/20 text-red-300 border-red-400/30'
+    };
+  }
+
+  return {
+    status: 'Active',
+    badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
+  };
 }
 
 export default function MarketDetailsPage() {
@@ -566,27 +645,23 @@ export default function MarketDetailsPage() {
 
   if (loading) {
     return (
-      <AppLayout currentPage="markets">
-        <div className="flex items-center justify-center min-h-screen">
-          <Loader2 className="w-12 h-12 animate-spin text-white" />
-        </div>
-      </AppLayout>
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-12 h-12 animate-spin text-white" />
+      </div>
     );
   }
 
   if (error || !market) {
     return (
-      <AppLayout currentPage="markets">
-        <div className="p-6 max-w-4xl mx-auto">
-          <div className="text-center py-12">
-            <p className="text-red-400 text-xl mb-4">{error || 'Market not found'}</p>
-            <Button onClick={() => router.push('/browse')} className="bg-gradient-to-r from-purple-500 to-pink-500">
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back to Markets
-            </Button>
-          </div>
+      <div className="p-6 max-w-4xl mx-auto">
+        <div className="text-center py-12">
+          <p className="text-red-400 text-xl mb-4">{error || 'Market not found'}</p>
+          <Button onClick={() => router.push('/browse')} className="bg-gradient-to-r from-purple-500 to-pink-500">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back to Markets
+          </Button>
         </div>
-      </AppLayout>
+      </div>
     );
   }
 
@@ -594,9 +669,11 @@ export default function MarketDetailsPage() {
     ? Math.round((market.yesVotes / (market.yesVotes + market.noVotes)) * 100)
     : 50;
 
+  // Calculate dynamic market status
+  const marketStatus = getDetailedMarketStatus(market, onchainData);
+
   return (
-    <AppLayout currentPage="markets">
-      <div className="p-4 max-w-6xl mx-auto space-y-4">
+    <div className="p-4 max-w-6xl mx-auto space-y-4">
         {/* Back Button */}
         <Button
           variant="ghost"
@@ -629,7 +706,7 @@ export default function MarketDetailsPage() {
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
                     <CardTitle className="text-2xl text-white">{market.name}</CardTitle>
-                    <Badge className="bg-green-500/20 text-green-300 border-green-400/30">{market.status}</Badge>
+                    <Badge className={marketStatus.badgeClass}>{marketStatus.status}</Badge>
                     {/* Phase Badge */}
                     {onchainData?.success && (
                       <Badge className={`${
@@ -1550,26 +1627,25 @@ export default function MarketDetailsPage() {
             </CardContent>
           </Card>
         )}
+
+        {/* Error Dialog */}
+        <ErrorDialog
+          open={errorDialog.open}
+          onClose={() => setErrorDialog({ ...errorDialog, open: false })}
+          title={errorDialog.title}
+          message={errorDialog.message}
+          details={errorDialog.details}
+        />
+
+        {/* Success Dialog */}
+        <SuccessDialog
+          open={successDialog.open}
+          onClose={() => setSuccessDialog({ ...successDialog, open: false })}
+          title={successDialog.title}
+          message={successDialog.message}
+          signature={successDialog.signature}
+          details={successDialog.details}
+        />
       </div>
-
-      {/* Error Dialog */}
-      <ErrorDialog
-        open={errorDialog.open}
-        onClose={() => setErrorDialog({ ...errorDialog, open: false })}
-        title={errorDialog.title}
-        message={errorDialog.message}
-        details={errorDialog.details}
-      />
-
-      {/* Success Dialog */}
-      <SuccessDialog
-        open={successDialog.open}
-        onClose={() => setSuccessDialog({ ...successDialog, open: false })}
-        title={successDialog.title}
-        message={successDialog.message}
-        signature={successDialog.signature}
-        details={successDialog.details}
-      />
-    </AppLayout>
   );
 }

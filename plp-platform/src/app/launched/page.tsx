@@ -15,7 +15,6 @@ import {
   Zap
 } from 'lucide-react';
 import Link from 'next/link';
-import AppLayout from '@/components/AppLayout';
 
 // Mock data for launched projects
 const launchedProjects = [
@@ -175,8 +174,7 @@ export default function LaunchedPage() {
   }, 0) / totalProjects;
 
   return (
-    <AppLayout currentPage="launched">
-      <div className="p-6 space-y-8">
+    <div className="p-6 space-y-8">
         {/* Header */}
         <div className="text-center space-y-4">
           <h1 className="text-4xl font-bold text-white mb-2">
@@ -403,6 +401,5 @@ export default function LaunchedPage() {
           </CardContent>
         </Card>
       </div>
-    </AppLayout>
   );
 }

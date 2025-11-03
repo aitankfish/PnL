@@ -19,7 +19,6 @@ import {
   Award,
   Loader2
 } from 'lucide-react';
-import AppLayout from '@/components/AppLayout';
 
 interface Market {
   id: string;
@@ -148,8 +147,7 @@ export default function LaunchpadPage() {
   ];
 
   return (
-    <AppLayout currentPage="dashboard">
-      <div className="p-6">
+    <div className="p-6">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-bold mb-2">
@@ -479,6 +477,5 @@ export default function LaunchpadPage() {
           </Card>
         </div>
       </div>
-    </AppLayout>
   );
 }

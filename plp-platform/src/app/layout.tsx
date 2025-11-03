@@ -4,6 +4,7 @@ import './globals.css';
 import { WalletProvider } from '@/lib/wallet';
 import { ToastProvider } from '@/lib/hooks/useToast';
 import { NetworkProvider } from '@/contexts/NetworkContext';
+import AppLayoutWrapper from '@/components/AppLayoutWrapper';
 
 const inter = Inter({ subsets: ['latin'] });
 
@@ -31,26 +32,28 @@ export default function RootLayout({
         <WalletProvider>
           <NetworkProvider>
             <ToastProvider>
-              <div className="min-h-screen flex flex-col">
-                {/* Main Content */}
-                <main className="flex-1">
-                  {children}
-                </main>
+              <AppLayoutWrapper>
+                <div className="min-h-screen flex flex-col">
+                  {/* Main Content */}
+                  <main className="flex-1">
+                    {children}
+                  </main>
 
-                {/* Footer */}
-                <footer className="py-6">
-                  <div className="container px-4 sm:px-6">
-                    <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6">
-                      <p className="text-center text-sm leading-loose text-gray-400">
-                        Let the Market Decide - Built on Solana
-                      </p>
-                      <p className="text-center text-sm text-gray-400">
-                        © 2025 P&L Platform. All rights reserved.
-                      </p>
+                  {/* Footer */}
+                  <footer className="py-6">
+                    <div className="container px-4 sm:px-6">
+                      <div className="flex flex-col md:flex-row items-center justify-center gap-2 md:gap-6">
+                        <p className="text-center text-sm leading-loose text-gray-400">
+                          Let the Market Decide - Built on Solana
+                        </p>
+                        <p className="text-center text-sm text-gray-400">
+                          © 2025 P&L Platform. All rights reserved.
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                </footer>
-              </div>
+                  </footer>
+                </div>
+              </AppLayoutWrapper>
             </ToastProvider>
           </NetworkProvider>
         </WalletProvider>

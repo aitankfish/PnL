@@ -107,7 +107,7 @@ export default function Sidebar({ currentPage }: SidebarProps) {
         <div className="flex items-center justify-between relative z-10">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/launchpad" className="flex items-center hover:scale-105 transition-transform mr-6 group">
+            <Link href="/launchpad" prefetch={true} className="flex items-center hover:scale-105 transition-transform mr-6 group">
               <span className="text-2xl font-bold">
                 <span className="text-green-400">P</span>
                 <span className="text-blue-400">&</span>
