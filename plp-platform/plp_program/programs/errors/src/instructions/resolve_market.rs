@@ -1,8 +1,9 @@
 use anchor_lang::prelude::*;
+use anchor_spl::token::{self, Token, TokenAccount};
+use anchor_spl::associated_token::AssociatedToken;
 use crate::constants::*;
 use crate::errors::ErrorCode;
 use crate::state::*;
-use crate::utils::pump_fun_create_and_buy_token;
 
 /// Resolve a market after expiry
 ///
@@ -32,11 +33,60 @@ pub struct ResolveMarket<'info> {
     )]
     pub treasury: Account<'info, Treasury>,
 
+    /// Token mint (created by pump.fun in previous instruction of same transaction)
+    /// Only used/validated when resolution = YesWins
+    /// CHECK: Validated during YesWins flow
+    #[account(mut)]
+    pub token_mint: UncheckedAccount<'info>,
+
+    /// Market's token account to receive bought tokens
+    /// Must be ATA of market PDA for the token_mint
+    /// CHECK: Validated as ATA during YesWins flow
+    #[account(mut)]
+    pub market_token_account: UncheckedAccount<'info>,
+
+    // -------------------------
+    // Pump.fun accounts (for buy CPI when YES wins)
+    // -------------------------
+
+    /// Pump.fun global config PDA
+    /// CHECK: Pump.fun program validates this
+    #[account(mut)]
+    pub pump_global: UncheckedAccount<'info>,
+
+    /// Pump.fun bonding curve PDA for this token
+    /// Derived from ["bonding-curve", token_mint]
+    /// CHECK: Pump.fun program validates this
+    #[account(mut)]
+    pub bonding_curve: UncheckedAccount<'info>,
+
+    /// Bonding curve's associated token account
+    /// Holds the tokens in the bonding curve
+    /// CHECK: Pump.fun program validates this
+    #[account(mut)]
+    pub bonding_curve_token_account: UncheckedAccount<'info>,
+
+    /// Pump.fun fee recipient
+    /// CHECK: Pump.fun program validates this
+    #[account(mut)]
+    pub pump_fee_recipient: UncheckedAccount<'info>,
+
+    /// Pump.fun event authority PDA
+    /// CHECK: Pump.fun program validates this
+    pub pump_event_authority: UncheckedAccount<'info>,
+
+    /// Pump.fun program
+    /// CHECK: Hardcoded to pump.fun program ID
+    pub pump_program: UncheckedAccount<'info>,
+
     /// Anyone can trigger resolution after expiry (permissionless)
     #[account(mut)]
     pub caller: Signer<'info>,
 
     pub system_program: Program<'info, System>,
+    pub token_program: Program<'info, Token>,
+    pub associated_token_program: Program<'info, AssociatedToken>,
+    pub rent: Sysvar<'info, Rent>,
 }
 
 pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
@@ -44,11 +94,33 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
     let treasury = &mut ctx.accounts.treasury;
 
     // -------------------------
-    // 1) Validate expiry
+    // 1) Validate resolution permission
     // -------------------------
 
     let now = Clock::get()?.unix_timestamp;
-    require!(now >= market.expiry_time, ErrorCode::MarketNotExpired);
+    let is_expired = now >= market.expiry_time;
+    let is_founder = ctx.accounts.caller.key() == market.founder;
+    let in_funding_phase = market.phase == MarketPhase::Funding;
+    let pool_is_full = market.pool_balance >= market.target_pool;
+    let no_is_winning = market.total_no_shares > market.total_yes_shares;
+
+    // Allow resolution if:
+    // - Market has expired (anyone can resolve), OR
+    // - Founder is resolving in Funding phase (early resolution for successful markets), OR
+    // - Pool is full AND NO is winning (permissionless resolution for failed markets)
+    require!(
+        is_expired ||
+        (is_founder && in_funding_phase) ||
+        (pool_is_full && no_is_winning),
+        ErrorCode::CannotResolveYet
+    );
+
+    msg!("🔍 Resolution authorization:");
+    msg!("   Is expired: {}", is_expired);
+    msg!("   Is founder: {}", is_founder);
+    msg!("   In funding phase: {}", in_funding_phase);
+    msg!("   Pool is full: {}", pool_is_full);
+    msg!("   NO is winning: {}", no_is_winning);
 
     // -------------------------
     // 2) Determine resolution outcome
@@ -104,26 +176,68 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
             msg!("   SOL for token launch: {} lamports", market.pool_balance);
 
             // -------------------------
-            // Launch token on Pump.fun and buy with remaining SOL
+            // Buy tokens on Pump.fun with remaining SOL
             // -------------------------
+            // NOTE: Token was already created in previous instruction of same transaction
+            // by founder using pump.fun create instruction
 
-            // Extract token name/symbol from IPFS CID or use defaults
-            // TODO: Parse from metadata_uri if needed
-            let token_name = format!("PLP-{}", &market.ipfs_cid[..8]);
-            let token_symbol = format!("PLP{}", &market.ipfs_cid[..4].to_uppercase());
+            // Verify pump.fun program ID
+            let expected_pump_program = solana_program::pubkey!("6EF8rrecthR5Dkzon8Nwu78hRvfCKubJ14M5uBEwF6P");
+            require!(
+                ctx.accounts.pump_program.key() == expected_pump_program,
+                ErrorCode::Unauthorized
+            );
 
-            // Call Pump.fun to create token and buy with all SOL
-            let (token_mint, total_tokens) = pump_fun_create_and_buy_token(
-                &token_name,
-                &token_symbol,
-                &market.metadata_uri,
-                market.pool_balance,
+            msg!("   Token mint: {}", ctx.accounts.token_mint.key());
+            msg!("   Buying tokens with {} lamports", market.pool_balance);
+
+            // Call pump.fun buy via CPI
+            // Market PDA buys tokens with its pool SOL
+            let founder_key = market.founder;
+            let ipfs_hash = anchor_lang::solana_program::hash::hash(market.ipfs_cid.as_bytes());
+            let market_seeds = &[
+                b"market",
+                founder_key.as_ref(),
+                ipfs_hash.as_ref(),
+                &[market.bump],
+            ];
+            let signer_seeds = &[&market_seeds[..]];
+
+            pump::cpi::buy(
+                CpiContext::new_with_signer(
+                    ctx.accounts.pump_program.to_account_info(),
+                    pump::cpi::accounts::Buy {
+                        global: ctx.accounts.pump_global.to_account_info(),
+                        fee_recipient: ctx.accounts.pump_fee_recipient.to_account_info(),
+                        mint: ctx.accounts.token_mint.to_account_info(),
+                        bonding_curve: ctx.accounts.bonding_curve.to_account_info(),
+                        associated_bonding_curve: ctx.accounts.bonding_curve_token_account.to_account_info(),
+                        associated_user: ctx.accounts.market_token_account.to_account_info(),
+                        user: market.to_account_info(),
+                        system_program: ctx.accounts.system_program.to_account_info(),
+                        token_program: ctx.accounts.token_program.to_account_info(),
+                        rent: ctx.accounts.rent.to_account_info(),
+                        event_authority: ctx.accounts.pump_event_authority.to_account_info(),
+                        program: ctx.accounts.pump_program.to_account_info(),
+                    },
+                    signer_seeds,
+                ),
+                market.pool_balance, // amount of tokens to buy (in lamports of SOL)
+                market.pool_balance, // max SOL cost (use all pool SOL)
             )?;
 
-            // Set token mint in market
-            market.token_mint = Some(token_mint);
+            // Get total tokens bought by checking market's token account balance
+            let market_token_acct = TokenAccount::try_deserialize(
+                &mut &ctx.accounts.market_token_account.try_borrow_data()?[..]
+            )?;
+            let total_tokens = market_token_acct.amount;
 
-            msg!("   Token mint: {}", token_mint);
+            // Set token mint in market state
+            market.token_mint = Some(ctx.accounts.token_mint.key());
+
+            // Update pool balance to 0 (all SOL was used to buy tokens)
+            market.pool_balance = 0;
+
             msg!("   Total tokens acquired: {}", total_tokens);
 
             // -------------------------

@@ -21,3 +21,4 @@ default = []
 anchor-lang = { version = "0.30.1", features = ["init-if-needed"] }
 anchor-spl = "0.30.1"
 solana-program = "1.18.26"
+pump = { git = "https://github.com/s6nqou/pump-anchor", package = "pump", features = ["cpi"] }
