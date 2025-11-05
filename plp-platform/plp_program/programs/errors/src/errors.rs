@@ -6,6 +6,8 @@ pub enum ErrorCode {
     MarketExpired,
     #[msg("Market is not yet expired.")]
     MarketNotExpired,
+    #[msg("Cannot resolve market yet - must be expired or founder in funding phase.")]
+    CannotResolveYet,
     #[msg("Market has already been resolved.")]
     AlreadyResolved,
     #[msg("User already has a position on the opposite side (one position per wallet).")]

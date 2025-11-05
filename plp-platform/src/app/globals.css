@@ -113,7 +113,7 @@
 }
 
 @layer base {
-  * {
+  *:not(html):not(body):not(main):not(footer):not(header):not(nav):not(section):not(article):not(aside):not(div[class*="min-h-screen"]):not(div[class*="container"]):not(div[class*="flex"]):not(div[class*="space-y"]):not(div[class*="p-"]):not(div[class*="pt-"]):not(div[class*="pb-"]) {
     @apply border-border outline-ring/50;
   }
   body {
@@ -159,20 +159,20 @@ body > div[style*="z-index"] {
   all: unset !important;
 }
 
-/* Target the modal overlay/backdrop with maximum specificity */
-body div[role="dialog"],
+/* Target the modal overlay/backdrop with maximum specificity - but NOT Radix dialogs */
 body .dynamic-modal-overlay,
-body [class*="modal"][class*="overlay"],
-body div[class*="Overlay"],
-body div[data-testid*="overlay"] {
+body [class*="modal"][class*="overlay"]:not([data-slot]),
+body div[class*="Overlay"]:not([data-slot]),
+body div[data-testid*="overlay"],
+body div[role="dialog"]:has([class*="dynamic"]) {
   background: rgba(0, 0, 0, 0.92) !important;
   backdrop-filter: blur(12px) !important;
   -webkit-backdrop-filter: blur(12px) !important;
   position: relative !important;
 }
 
-/* Add animated stars to modal backdrop */
-body div[role="dialog"]::before,
+/* Add animated stars to modal backdrop - only for Dynamic wallet */
+body div[role="dialog"]:has([class*="dynamic"])::before,
 body .dynamic-modal-overlay::before {
   content: '' !important;
   position: absolute !important;
@@ -195,8 +195,8 @@ body .dynamic-modal-overlay::before {
   z-index: 1 !important;
 }
 
-/* Nebula effect */
-body div[role="dialog"]::after,
+/* Nebula effect - only for Dynamic wallet */
+body div[role="dialog"]:has([class*="dynamic"])::after,
 body .dynamic-modal-overlay::after {
   content: '' !important;
   position: absolute !important;
@@ -214,21 +214,19 @@ body .dynamic-modal-overlay::after {
   z-index: 1 !important;
 }
 
-/* Ensure modal content is above the effects */
-body div[role="dialog"] > *,
+/* Ensure modal content is above the effects - only for Dynamic wallet */
+body div[role="dialog"]:has([class*="dynamic"]) > *,
 body .dynamic-modal-overlay > * {
   position: relative !important;
   z-index: 2 !important;
 }
 
-/* Style the actual modal card with all possible selectors */
-body div[role="dialog"] > div,
-body div[role="dialog"] div[class*="modal"],
-body div[role="dialog"] div[class*="Modal"],
-body div[role="dialog"] div[class*="card"],
-body div[role="dialog"] div[class*="Card"],
-body [class*="modal"][class*="card"],
-body [class*="Modal"],
+/* Style the actual modal card with all possible selectors - only for Dynamic wallet */
+body div[role="dialog"]:has([class*="dynamic"]) > div,
+body div[role="dialog"]:has([class*="dynamic"]) div[class*="modal"],
+body div[role="dialog"]:has([class*="dynamic"]) div[class*="Modal"],
+body div[role="dialog"]:has([class*="dynamic"]) div[class*="card"],
+body div[role="dialog"]:has([class*="dynamic"]) div[class*="Card"],
 body [data-dynamic-modal],
 body .dynamic__auth-modal,
 body div[class*="DynamicModal"],
@@ -242,11 +240,8 @@ body div[data-testid*="modal"] {
     0 0 200px rgba(100, 200, 255, 0.08) !important;
 }
 
-/* Animate all primary buttons with space theme */
-body div[role="dialog"] button,
-body button[class*="primary"],
-body button[class*="Primary"],
-body button[class*="Button"]:not([class*="secondary"]):not([class*="Secondary"]),
+/* Animate all primary buttons with space theme - only for Dynamic wallet */
+body div[role="dialog"]:has([class*="dynamic"]) button,
 body .dynamic__button:not(.dynamic__button--secondary) {
   background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%) !important;
   transition: all 0.3s ease !important;
@@ -254,10 +249,7 @@ body .dynamic__button:not(.dynamic__button--secondary) {
   border-radius: 12px !important;
 }
 
-body div[role="dialog"] button:hover,
-body button[class*="primary"]:hover,
-body button[class*="Primary"]:hover,
-body button[class*="Button"]:not([class*="secondary"]):not([class*="Secondary"]):hover,
+body div[role="dialog"]:has([class*="dynamic"]) button:hover,
 body .dynamic__button:not(.dynamic__button--secondary):hover {
   transform: translateY(-2px) !important;
   box-shadow: 0 8px 24px rgba(59, 130, 246, 0.5) !important;

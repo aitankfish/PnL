@@ -70,12 +70,12 @@ export async function POST(request: NextRequest) {
     const { PROGRAM_ID } = await import('@/config/solana');
 
     // Create instruction
+    // According to extend_market.rs, only market and founder are needed
     const { TransactionInstruction } = await import('@solana/web3.js');
     const extendIx = new TransactionInstruction({
       keys: [
         { pubkey: marketPubkey, isSigner: false, isWritable: true },       // market
         { pubkey: founderPubkey, isSigner: true, isWritable: true },       // founder (only founder can extend)
-        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
       ],
       programId: PROGRAM_ID,
       data,

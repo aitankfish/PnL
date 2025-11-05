@@ -1,4 +1,4 @@
-//! Constant Product AMM for Prediction Markets
+\//! Constant Product AMM for Prediction Markets
 //!
 //! Formula: x * y = k (constant product)
 //!

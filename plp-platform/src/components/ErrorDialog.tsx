@@ -28,8 +28,11 @@ export default function ErrorDialog({
   details,
 }: ErrorDialogProps) {
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="bg-gradient-to-br from-gray-900/95 to-gray-800/95 backdrop-blur-xl border-red-500/30 max-w-md">
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }} modal>
+      <DialogContent
+        className="bg-gradient-to-br from-gray-900/95 to-gray-800/95 backdrop-blur-xl border-red-500/30 max-w-md"
+        showCloseButton={false}
+      >
         <DialogHeader>
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 bg-red-500/20 rounded-full">

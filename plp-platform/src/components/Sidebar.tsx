@@ -95,7 +95,7 @@ export default function Sidebar({ currentPage }: SidebarProps) {
     <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-4 transition-transform duration-300 ${
       isVisible ? 'translate-y-0' : '-translate-y-20'
     }`}>
-      <div className="bg-black/20 backdrop-blur-xl border border-white/10 rounded-2xl shadow-2xl shadow-white/5 p-4 relative overflow-hidden">
+      <div className="bg-black/20 backdrop-blur-xl rounded-2xl shadow-2xl shadow-white/5 p-4 relative overflow-hidden">
         {/* Space Background Elements */}
         <div className="absolute inset-0 opacity-20">
           <div className="absolute top-2 left-8 w-1 h-1 bg-white rounded-full animate-pulse"></div>

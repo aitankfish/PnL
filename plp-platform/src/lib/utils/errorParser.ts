@@ -147,6 +147,15 @@ export function parseError(error: unknown): ParsedError {
     };
   }
 
+  // Check for "No position found" error (already claimed)
+  if (errorString.includes('No position found') || errorString.includes('position not found')) {
+    return {
+      title: 'No Position Found',
+      message: 'You have already claimed your rewards or closed your position for this market.',
+      details: 'Your position account no longer exists on the blockchain.',
+    };
+  }
+
   // Check for user rejected transaction
   if (errorString.includes('User rejected') || errorString.includes('user rejected')) {
     return {

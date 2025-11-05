@@ -23,6 +23,8 @@ import CountdownTimer from '@/components/CountdownTimer';
 import { parseError } from '@/lib/utils/errorParser';
 import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
 import useSWR from 'swr';
+import ErrorDialog from '@/components/ErrorDialog';
+import SuccessDialog from '@/components/SuccessDialog';
 
 // Lazy load heavy components to reduce initial bundle size
 const ProbabilityChart = dynamic(() => import('@/components/ProbabilityChart'), {
@@ -37,14 +39,6 @@ const LiveActivityFeed = dynamic(() => import('@/components/LiveActivityFeed'), 
 
 const MarketHolders = dynamic(() => import('@/components/MarketHolders'), {
   loading: () => <div className="h-96 bg-white/5 animate-pulse rounded-lg" />,
-  ssr: false,
-});
-
-const ErrorDialog = dynamic(() => import('@/components/ErrorDialog'), {
-  ssr: false,
-});
-
-const SuccessDialog = dynamic(() => import('@/components/SuccessDialog'), {
   ssr: false,
 });
 
@@ -936,20 +930,88 @@ export default function MarketDetailsPage() {
                               </Button>
                             </div>
                           )}
+
+                          {/* Resolve Button - Anyone can resolve when NO wins and pool is full */}
+                          {Number(onchainData.data.totalNoShares) > Number(onchainData.data.totalYesShares) && (
+                            <div className="mt-4 bg-gradient-to-br from-red-500/10 via-orange-500/10 to-yellow-500/10 border border-red-400/30 rounded-lg p-4">
+                              <div className="mb-3">
+                                <h4 className="text-red-400 text-sm font-semibold mb-1">❌ NO Wins - Market Failed</h4>
+                                <p className="text-gray-300 text-xs mb-2">
+                                  The target pool was reached but NO won the vote. This market will not launch a token.
+                                </p>
+                                <p className="text-gray-400 text-xs mb-2">
+                                  <span className="font-semibold text-green-400">NO voters will win SOL rewards</span> (95% pool, proportional to shares).
+                                </p>
+                                <p className="text-gray-400 text-xs">
+                                  Anyone can resolve this market now to unlock NO voter rewards.
+                                </p>
+                              </div>
+                              <Button
+                                onClick={handleResolve}
+                                disabled={isResolving || !primaryWallet}
+                                className="w-full bg-gradient-to-r from-red-500 to-orange-500 hover:from-red-600 hover:to-orange-600 text-white font-semibold"
+                              >
+                                {isResolving ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Resolving...
+                                  </>
+                                ) : (
+                                  <>
+                                    🔧 Resolve Market (NO Wins)
+                                  </>
+                                )}
+                              </Button>
+                              {!primaryWallet && (
+                                <p className="text-yellow-400 text-xs mt-2 text-center">Connect wallet to resolve</p>
+                              )}
+                            </div>
+                          )}
                         </div>
                       ) : (
                         /* Pool Not Filled - Active Market */
-                        <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                          <div>
-                            <h4 className="text-green-400 text-sm font-semibold">✅ Active Market</h4>
-                            <p className="text-gray-300 text-xs">
-                              {onchainData.data.phase === 'Prediction' ? 'Voting is open' : 'Funding in progress'}
-                            </p>
+                        <div className="space-y-4">
+                          <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                            <div>
+                              <h4 className="text-green-400 text-sm font-semibold">✅ Active Market</h4>
+                              <p className="text-gray-300 text-xs">
+                                {onchainData.data.phase === 'Prediction' ? 'Voting is open' : 'Funding in progress'}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-gray-400 text-xs">Expires in</div>
+                              <CountdownTimer expiryTime={market.expiryTime} size="lg" />
+                            </div>
                           </div>
-                          <div className="text-right">
-                            <div className="text-gray-400 text-xs">Expires in</div>
-                            <CountdownTimer expiryTime={market.expiryTime} size="lg" />
-                          </div>
+
+                          {/* Resolve Button for Funding Phase - Founder can resolve early */}
+                          {onchainData.data.phase === 'Funding' &&
+                           primaryWallet?.address === onchainData.data.founder && (
+                            <div className="bg-gradient-to-br from-green-500/10 via-cyan-500/10 to-blue-500/10 border border-green-400/30 rounded-lg p-4">
+                              <div className="mb-3">
+                                <h4 className="text-green-400 text-sm font-semibold mb-1">💰 Funding Phase Active</h4>
+                                <p className="text-gray-300 text-xs">
+                                  Your market is in the Funding Phase. You can continue accepting additional contributions or resolve the market now to launch the token.
+                                </p>
+                              </div>
+                              <Button
+                                onClick={handleResolve}
+                                disabled={isResolving}
+                                className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-white font-semibold"
+                              >
+                                {isResolving ? (
+                                  <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Resolving...
+                                  </>
+                                ) : (
+                                  <>
+                                    🚀 Resolve Market & Launch Token
+                                  </>
+                                )}
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       )}
                     </>
@@ -1631,7 +1693,7 @@ export default function MarketDetailsPage() {
         {/* Error Dialog */}
         <ErrorDialog
           open={errorDialog.open}
-          onClose={() => setErrorDialog({ ...errorDialog, open: false })}
+          onClose={() => setErrorDialog(prev => ({ ...prev, open: false }))}
           title={errorDialog.title}
           message={errorDialog.message}
           details={errorDialog.details}
@@ -1640,7 +1702,7 @@ export default function MarketDetailsPage() {
         {/* Success Dialog */}
         <SuccessDialog
           open={successDialog.open}
-          onClose={() => setSuccessDialog({ ...successDialog, open: false })}
+          onClose={() => setSuccessDialog(prev => ({ ...prev, open: false }))}
           title={successDialog.title}
           message={successDialog.message}
           signature={successDialog.signature}

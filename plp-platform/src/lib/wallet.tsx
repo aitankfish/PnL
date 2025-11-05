@@ -5,6 +5,7 @@
 
 'use client';
 
+import { memo, useMemo } from 'react';
 import { DynamicContextProvider } from '@dynamic-labs/sdk-react-core';
 import { SolanaWalletConnectors } from '@dynamic-labs/solana';
 
@@ -12,7 +13,7 @@ interface WalletProviderProps {
   children: React.ReactNode;
 }
 
-export function WalletProvider({ children }: WalletProviderProps) {
+function WalletProviderInner({ children }: WalletProviderProps) {
   // Use appropriate Dynamic environment ID based on NODE_ENV
   // Production uses live environment, development uses sandbox
   const isProduction = process.env.NODE_ENV === 'production';
@@ -20,15 +21,9 @@ export function WalletProvider({ children }: WalletProviderProps) {
     ? process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || '08c4eb87-d159-4fed-82cd-e20233f87984'
     : process.env.NEXT_PUBLIC_DYNAMIC_SANDBOX_ID || process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || '08c4eb87-d159-4fed-82cd-e20233f87984';
 
-  // Log which environment is being used (only in development)
-  if (!isProduction) {
-    console.log(`🔧 Using Dynamic ${isProduction ? 'LIVE' : 'SANDBOX'} environment:`, environmentId);
-  }
-
-  return (
-    <DynamicContextProvider
-      settings={{
-        environmentId: environmentId,
+  // Memoize settings to prevent unnecessary re-initializations
+  const settings = useMemo(() => ({
+    environmentId: environmentId,
         walletConnectors: [SolanaWalletConnectors],
         initialAuthenticationMode: 'connect-and-sign',
         eventsCallbacks: {
@@ -69,9 +64,14 @@ export function WalletProvider({ children }: WalletProviderProps) {
           // Typography
           fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
         },
-      }}
-    >
+  }), [environmentId]);
+
+  return (
+    <DynamicContextProvider settings={settings}>
       {children}
     </DynamicContextProvider>
   );
 }
+
+// Memoize the provider to prevent unnecessary re-renders
+export const WalletProvider = memo(WalletProviderInner);

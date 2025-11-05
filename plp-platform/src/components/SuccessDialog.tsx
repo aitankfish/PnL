@@ -41,8 +41,11 @@ export default function SuccessDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-md bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border-green-500/30 text-white">
+    <Dialog open={open} onOpenChange={(isOpen) => { if (!isOpen) onClose(); }} modal>
+      <DialogContent
+        className="sm:max-w-md bg-gradient-to-br from-gray-900/95 via-gray-800/95 to-gray-900/95 backdrop-blur-xl border-green-500/30 text-white"
+        showCloseButton={false}
+      >
         <DialogHeader>
           <div className="flex items-center space-x-3 mb-2">
             <div className="p-2 bg-green-500/20 rounded-full">

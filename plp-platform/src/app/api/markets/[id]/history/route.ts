@@ -6,9 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, getDatabase } from '@/lib/database/index';
+import { connectToDatabase, PredictionMarket } from '@/lib/mongodb';
+import { connectToDatabase as connectRawDb, getDatabase } from '@/lib/database/index';
 import { COLLECTIONS } from '@/lib/database/models';
-import { ObjectId } from 'mongodb';
 import { createClientLogger } from '@/lib/logger';
 import { getMarketVoteHistory, ParsedVote } from '@/lib/helius';
 import { SOLANA_NETWORK } from '@/config/solana';
@@ -31,14 +31,12 @@ export async function GET(
 
     logger.info('Fetching trade history', { marketId, network, source: isMainnet ? 'helius' : 'mongodb' });
 
-    // Connect to database to get market address
-    await connectToDatabase();
-    const db = getDatabase();
+    // Connect to both database systems
+    await connectToDatabase(); // Mongoose connection
+    await connectRawDb(); // Raw MongoDB driver connection
 
-    // Get market document to find on-chain address
-    const market = await db
-      .collection(COLLECTIONS.PREDICTION_MARKETS)
-      .findOne({ _id: new ObjectId(marketId) });
+    // Get market document to find on-chain address (using Mongoose model)
+    const market = await PredictionMarket.findById(marketId).lean();
 
     if (!market) {
       return NextResponse.json(
@@ -72,6 +70,7 @@ export async function GET(
     } else {
       // On devnet: use MongoDB (Helius doesn't index devnet)
       logger.info('Fetching votes from MongoDB (devnet)', { marketId, marketAddress });
+      const db = getDatabase();
       const trades = await db.collection(COLLECTIONS.TRADE_HISTORY)
         .find({ marketAddress })
         .sort({ createdAt: -1 })

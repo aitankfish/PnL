@@ -8,6 +8,14 @@ import { createClientLogger } from './logger';
 
 const logger = createClientLogger();
 
+/**
+ * Redact API keys from RPC URLs before logging
+ * Masks everything after 'api-key=' or similar patterns
+ */
+function redactApiKey(url: string): string {
+  return url.replace(/(api[-_]key=)[^&\s]+/gi, '$1***REDACTED***');
+}
+
 // RPC endpoint configuration with fallbacks
 const RPC_ENDPOINTS: Record<string, string[]> = {
   devnet: [
@@ -87,33 +95,33 @@ class SolanaConnectionManager {
     
     for (const endpoint of endpoints) {
       try {
-        logger.info(`🔌 Trying RPC endpoint: ${endpoint}`);
-        
+        logger.info(`🔌 Trying RPC endpoint: ${redactApiKey(endpoint)}`);
+
         // Check if we already have a working connection for this endpoint
         if (this.connections.has(endpoint)) {
           const connection = this.connections.get(endpoint)!;
           // Test the connection
           await connection.getVersion();
-          logger.info(`✅ Using cached connection: ${endpoint}`);
+          logger.info(`✅ Using cached connection: ${redactApiKey(endpoint)}`);
           this.currentEndpoint = endpoint;
           return connection;
         }
 
         // Create new connection
         const connection = new Connection(endpoint, 'confirmed');
-        
+
         // Test the connection
         await connection.getVersion();
-        
+
         // Cache the working connection
         this.connections.set(endpoint, connection);
         this.currentEndpoint = endpoint;
-        
-        logger.info(`✅ Successfully connected to: ${endpoint}`);
+
+        logger.info(`✅ Successfully connected to: ${redactApiKey(endpoint)}`);
         return connection;
         
       } catch (error) {
-        logger.warn(`❌ Failed to connect to ${endpoint}:`, error);
+        logger.warn(`❌ Failed to connect to ${redactApiKey(endpoint)}: ${error}`);
         continue;
       }
     }
@@ -151,10 +159,10 @@ class SolanaConnectionManager {
     _options?: { commitment?: 'processed' | 'confirmed' | 'finalized' }
   ): Promise<unknown> {
     const connection = await this.getConnection();
-    
+
     try {
-      logger.info(`🧪 Simulating transaction with endpoint: ${this.currentEndpoint}`);
-      
+      logger.info(`🧪 Simulating transaction with endpoint: ${redactApiKey(this.currentEndpoint)}`);
+
       // Handle different transaction types
       if ('message' in transaction) {
         // VersionedTransaction
@@ -164,7 +172,7 @@ class SolanaConnectionManager {
         return await connection.simulateTransaction(transaction, []);
       }
     } catch (error) {
-      logger.warn(`❌ Simulation failed with ${this.currentEndpoint}, trying fallback...`, error);
+      logger.warn(`❌ Simulation failed with ${redactApiKey(this.currentEndpoint)}, trying fallback: ${error}`);
       
       // Try with a different endpoint
       const newConnection = await this.refreshConnection();
@@ -186,10 +194,10 @@ class SolanaConnectionManager {
     options?: { skipPreflight?: boolean; preflightCommitment?: 'processed' | 'confirmed' | 'finalized' }
   ): Promise<string> {
     const connection = await this.getConnection();
-    
+
     try {
-      logger.info(`📤 Sending transaction with endpoint: ${this.currentEndpoint}`);
-      
+      logger.info(`📤 Sending transaction with endpoint: ${redactApiKey(this.currentEndpoint)}`);
+
       // Handle different transaction types
       if ('message' in transaction) {
         // VersionedTransaction
@@ -199,7 +207,7 @@ class SolanaConnectionManager {
         return await connection.sendTransaction(transaction, (signers || []) as Signer[], options);
       }
     } catch (error) {
-      logger.warn(`❌ Transaction failed with ${this.currentEndpoint}, trying fallback...`, error);
+      logger.warn(`❌ Transaction failed with ${redactApiKey(this.currentEndpoint)}, trying fallback: ${error}`);
 
       // Try with a different endpoint
       const newConnection = await this.refreshConnection();
@@ -221,7 +229,7 @@ class SolanaConnectionManager {
     try {
       return await connection.getAccountInfo(publicKey);
     } catch (error) {
-      logger.warn(`❌ getAccountInfo failed with ${this.currentEndpoint}, trying fallback...`, error);
+      logger.warn(`❌ getAccountInfo failed with ${redactApiKey(this.currentEndpoint)}, trying fallback: ${error}`);
       
       const newConnection = await this.refreshConnection();
       return await newConnection.getAccountInfo(publicKey);
@@ -237,7 +245,7 @@ class SolanaConnectionManager {
     try {
       return await connection.getBalance(publicKey);
     } catch (error) {
-      logger.warn(`❌ getBalance failed with ${this.currentEndpoint}, trying fallback...`, error);
+      logger.warn(`❌ getBalance failed with ${redactApiKey(this.currentEndpoint)}, trying fallback: ${error}`);
       
       const newConnection = await this.refreshConnection();
       return await newConnection.getBalance(publicKey);
@@ -270,9 +278,9 @@ class SolanaConnectionManager {
     options?: { skipPreflight?: boolean; maxRetries?: number; preflightCommitment?: 'processed' | 'confirmed' | 'finalized' }
   ): Promise<string> {
     const connection = await this.getConnection();
-    
+
     try {
-      logger.info(`📤 Sending raw transaction with ${this.currentEndpoint}`);
+      logger.info(`📤 Sending raw transaction with ${redactApiKey(this.currentEndpoint)}`);
       
       const signature = await connection.sendRawTransaction(rawTransaction, {
         skipPreflight: options?.skipPreflight || false,
@@ -282,10 +290,10 @@ class SolanaConnectionManager {
       
       logger.info(`✅ Transaction sent successfully: ${signature}`);
       return signature;
-      
+
     } catch (error) {
-      logger.warn(`❌ Transaction failed with ${this.currentEndpoint}, trying fallback...`, error);
-      
+      logger.warn(`❌ Transaction failed with ${redactApiKey(this.currentEndpoint)}, trying fallback: ${error}`);
+
       // Try with fallback RPC
       const newConnection = await this.refreshConnection();
       const signature = await newConnection.sendRawTransaction(rawTransaction, {

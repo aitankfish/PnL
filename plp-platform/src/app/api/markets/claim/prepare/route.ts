@@ -18,6 +18,7 @@ import {
   ComputeBudgetProgram,
   TransactionInstruction,
 } from '@solana/web3.js';
+import { TOKEN_PROGRAM_ID } from '@solana/spl-token';
 import { getProgram, getPositionPDA } from '@/lib/anchor-program';
 import { createClientLogger } from '@/lib/logger';
 import { getSolanaConnection } from '@/lib/solana';
@@ -164,13 +165,23 @@ export async function POST(request: NextRequest) {
     // Get program ID
     const { PROGRAM_ID } = await import('@/config/solana');
 
-    // Create instruction
+    // Create instruction with ALL 7 required accounts
+    // Order must match ClaimRewards struct in Rust program:
+    // 1. market, 2. position, 3. market_token_account, 4. user_token_account,
+    // 5. user, 6. system_program, 7. token_program
+    //
+    // For NoWins/Refund: Use user wallet as placeholder for token accounts
+    // (they're not used but must be mutable accounts)
+    // For YesWins: Would need actual ATAs (TODO: implement token account derivation)
     const claimIx = new TransactionInstruction({
       keys: [
         { pubkey: marketPubkey, isSigner: false, isWritable: true },   // market
         { pubkey: positionPda, isSigner: false, isWritable: true },    // position (will be closed)
+        { pubkey: userPubkey, isSigner: false, isWritable: true }, // market_token_account (placeholder for NoWins/Refund)
+        { pubkey: userPubkey, isSigner: false, isWritable: true }, // user_token_account (placeholder for NoWins/Refund)
         { pubkey: userPubkey, isSigner: true, isWritable: true },      // user
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
+        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // token_program
       ],
       programId: PROGRAM_ID,
       data,

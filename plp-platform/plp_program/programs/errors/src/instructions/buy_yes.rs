@@ -63,11 +63,25 @@ pub fn handler(ctx: Context<BuyYes>, sol_amount: u64) -> Result<()> {
         ErrorCode::InvestmentTooSmall
     );
 
+    // -------------------------
+    // Calculate fees first to check capacity properly
+    // -------------------------
+
+    let trade_fee = (sol_amount * TRADE_FEE_BPS) / BPS_DIVISOR;
+    let net_amount = sol_amount
+        .checked_sub(trade_fee)
+        .ok_or(ErrorCode::MathError)?;
+
     // Check pool cap only in Prediction phase
     // In Funding phase (after extension), trading can continue beyond target
     if market.phase == MarketPhase::Prediction {
+        let new_pool_balance = market
+            .pool_balance
+            .checked_add(net_amount)
+            .ok_or(ErrorCode::MathError)?;
+
         require!(
-            market.pool_balance < market.target_pool,
+            new_pool_balance <= market.target_pool,
             ErrorCode::CapReached
         );
     }
@@ -79,17 +93,7 @@ pub fn handler(ctx: Context<BuyYes>, sol_amount: u64) -> Result<()> {
     );
 
     // -------------------------
-    // 2) Calculate fees and net amount
-    // -------------------------
-
-    // Trade fee: 1.5% of sol_amount
-    let trade_fee = (sol_amount * TRADE_FEE_BPS) / BPS_DIVISOR;
-    let net_amount = sol_amount
-        .checked_sub(trade_fee)
-        .ok_or(ErrorCode::MathError)?;
-
-    // -------------------------
-    // 3) Transfer fee to treasury
+    // 2) Transfer fee to treasury
     // -------------------------
 
     let fee_transfer = system_program::Transfer {
@@ -114,7 +118,7 @@ pub fn handler(ctx: Context<BuyYes>, sol_amount: u64) -> Result<()> {
         .ok_or(ErrorCode::MathError)?;
 
     // -------------------------
-    // 4) Transfer net amount to market (stays in market account for tracking)
+    // 3) Transfer net amount to market (stays in market account for tracking)
     // -------------------------
 
     let net_transfer = system_program::Transfer {
@@ -137,7 +141,7 @@ pub fn handler(ctx: Context<BuyYes>, sol_amount: u64) -> Result<()> {
         .ok_or(ErrorCode::MathError)?;
 
     // -------------------------
-    // 5) Calculate shares using Constant Product AMM
+    // 4) Calculate shares using Constant Product AMM
     // -------------------------
 
     let shares = calculate_shares_from_sol(
@@ -150,7 +154,7 @@ pub fn handler(ctx: Context<BuyYes>, sol_amount: u64) -> Result<()> {
     require!(shares > 0, ErrorCode::MathError);
 
     // -------------------------
-    // 6) Update market and position state
+    // 5) Update market and position state
     // -------------------------
 
     // Update AMM pools
