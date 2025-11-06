@@ -112,11 +112,13 @@ const PredictionMarketSchema = new mongoose.Schema({
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Project',
     required: true,
+    index: true, // Index for faster lookups
   },
   marketAddress: {
     type: String,
     required: true,
     unique: true,
+    index: true, // Index for faster lookups
   },
   marketName: {
     type: String,
@@ -141,9 +143,15 @@ const PredictionMarketSchema = new mongoose.Schema({
   marketState: {
     type: Number,
     default: 0, // 0=Active, 1=Resolved, 2=Canceled, 3=AutoCanceled
+    index: true, // Index for faster filtering by state
   },
   winningOption: {
     type: Boolean, // true=YES wins, false=NO wins, null=unresolved
+  },
+  resolution: {
+    type: String,
+    enum: ['Unresolved', 'YesWins', 'NoWins', 'Refund'],
+    default: 'Unresolved',
   },
   targetPool: {
     type: Number,
@@ -189,8 +197,12 @@ const PredictionMarketSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
+    index: true, // Index for faster sorting
   },
 });
+
+// Compound index for common queries (marketState + createdAt sorting)
+PredictionMarketSchema.index({ marketState: 1, createdAt: -1 });
 
 // Prediction Participants Schema
 const PredictionParticipantSchema = new mongoose.Schema({
@@ -237,6 +249,64 @@ const PredictionParticipantSchema = new mongoose.Schema({
 // Add indexes for better performance
 PredictionParticipantSchema.index({ marketId: 1, participantWallet: 1, voteOption: 1 }, { unique: true });
 
+// Notification Schema
+const NotificationSchema = new mongoose.Schema({
+  userId: {
+    type: String, // Wallet address
+    required: true,
+    index: true,
+  },
+  type: {
+    type: String,
+    required: true,
+    enum: ['vote_result', 'token_launched', 'vote_reminder', 'reward_earned', 'project_update', 'weekly_digest', 'community_milestone', 'market_resolved'],
+  },
+  title: {
+    type: String,
+    required: true,
+    maxlength: 255,
+  },
+  message: {
+    type: String,
+    required: true,
+    maxlength: 1000,
+  },
+  priority: {
+    type: String,
+    enum: ['high', 'medium', 'low'],
+    default: 'medium',
+  },
+  isRead: {
+    type: Boolean,
+    default: false,
+    index: true,
+  },
+  marketId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'PredictionMarket',
+  },
+  projectId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Project',
+  },
+  actionUrl: {
+    type: String,
+  },
+  metadata: {
+    type: Map,
+    of: mongoose.Schema.Types.Mixed, // For flexible data like token amounts, etc.
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    index: true,
+  },
+});
+
+// Compound indexes for efficient queries
+NotificationSchema.index({ userId: 1, createdAt: -1 });
+NotificationSchema.index({ userId: 1, isRead: 1 });
+
 // Export models - Force recreation to pick up schema changes
 if (mongoose.models.Project) {
   delete mongoose.models.Project;
@@ -247,10 +317,14 @@ if (mongoose.models.PredictionMarket) {
 if (mongoose.models.PredictionParticipant) {
   delete mongoose.models.PredictionParticipant;
 }
+if (mongoose.models.Notification) {
+  delete mongoose.models.Notification;
+}
 
 export const Project = mongoose.model('Project', ProjectSchema);
 export const PredictionMarket = mongoose.model('PredictionMarket', PredictionMarketSchema);
 export const PredictionParticipant = mongoose.model('PredictionParticipant', PredictionParticipantSchema);
+export const Notification = mongoose.model('Notification', NotificationSchema);
 
 // Type definitions
 export interface IProject {

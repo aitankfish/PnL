@@ -4,11 +4,11 @@ import React from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Rocket, 
-  TrendingUp, 
-  DollarSign, 
-  Users, 
+import {
+  Rocket,
+  TrendingUp,
+  DollarSign,
+  Users,
   Calendar,
   ExternalLink,
   Star,
@@ -159,20 +159,6 @@ const launchedProjects = [
 ];
 
 export default function LaunchedPage() {
-  const totalProjects = launchedProjects.length;
-  const totalMarketCap = launchedProjects.reduce((sum, project) => {
-    const cap = parseFloat(project.marketCap.replace(/[$,]/g, ''));
-    return sum + cap;
-  }, 0);
-  const totalVolume = launchedProjects.reduce((sum, project) => {
-    const vol = parseFloat(project.volume.replace(/[$,]/g, ''));
-    return sum + vol;
-  }, 0);
-  const avgChange = launchedProjects.reduce((sum, project) => {
-    const change = parseFloat(project.change.replace(/[+%]/g, ''));
-    return sum + change;
-  }, 0) / totalProjects;
-
   return (
     <div className="p-6 space-y-8">
         {/* Header */}
@@ -183,37 +169,6 @@ export default function LaunchedPage() {
           <p className="text-white/70 text-lg">
             Explore tokens that have been successfully launched through our prediction markets
           </p>
-        </div>
-
-        {/* Stats */}
-        <div className="grid gap-6 md:grid-cols-4">
-          <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/20 cursor-pointer group">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-3xl font-bold text-white group-hover:text-green-300 transition-colors">{totalProjects}</CardTitle>
-              <CardDescription className="text-gray-300 group-hover:text-white transition-colors">Total Launched</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/20 cursor-pointer group">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-3xl font-bold text-white group-hover:text-blue-300 transition-colors">${(totalMarketCap / 1000).toFixed(1)}M</CardTitle>
-              <CardDescription className="text-gray-300 group-hover:text-white transition-colors">Total Market Cap</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/20 cursor-pointer group">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-3xl font-bold text-white group-hover:text-purple-300 transition-colors">${(totalVolume / 1000).toFixed(1)}M</CardTitle>
-              <CardDescription className="text-gray-300 group-hover:text-white transition-colors">Total Volume</CardDescription>
-            </CardHeader>
-          </Card>
-
-          <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/20 cursor-pointer group">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-3xl font-bold text-white group-hover:text-orange-300 transition-colors">+{avgChange.toFixed(0)}%</CardTitle>
-              <CardDescription className="text-gray-300 group-hover:text-white transition-colors">Avg Performance</CardDescription>
-            </CardHeader>
-          </Card>
         </div>
 
         {/* Projects Grid */}
@@ -373,33 +328,6 @@ export default function LaunchedPage() {
             </div>
           </div>
         </div>
-
-        {/* Success Stats */}
-        <Card className="bg-gradient-to-r from-green-500/10 to-cyan-500/10 backdrop-blur-xl border-green-500/20 text-white">
-          <CardContent className="p-8">
-            <div className="text-center space-y-4">
-              <div className="flex items-center justify-center space-x-2 mb-4">
-                <Star className="w-8 h-8 text-yellow-400" />
-                <h3 className="text-2xl font-bold text-white">Platform Success Metrics</h3>
-                <Star className="w-8 h-8 text-yellow-400" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                <div>
-                  <div className="text-3xl font-bold text-green-400">100%</div>
-                  <div className="text-white/70">Launch Success Rate</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-blue-400">+{avgChange.toFixed(0)}%</div>
-                  <div className="text-white/70">Average Token Performance</div>
-                </div>
-                <div>
-                  <div className="text-3xl font-bold text-purple-400">{Math.round((totalProjects * 89) / totalProjects)}%</div>
-                  <div className="text-white/70">Average Community Approval</div>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
   );
 }

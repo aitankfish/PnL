@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useTransition } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -62,6 +63,8 @@ function formatLabel(value: string): string {
 }
 
 export default function LaunchpadPage() {
+  const router = useRouter();
+  const [isPending, startTransition] = useTransition();
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -195,7 +198,7 @@ export default function LaunchpadPage() {
                     const yesPercentage = totalVotes > 0 ? Math.round((market.yesVotes / totalVotes) * 100) : 0;
 
                     return (
-                      <Link href={`/market/${market.id}`} key={market.id}>
+                      <Link href={`/market/${market.id}`} key={market.id} prefetch={true}>
                         <div className="p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-102 group cursor-pointer">
                           <div className="flex items-start justify-between mb-3">
                             <div className="flex-1">
@@ -243,13 +246,16 @@ export default function LaunchpadPage() {
 
                           <Button
                             size="sm"
-                            className="w-full mt-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
+                            disabled={isPending}
+                            className="w-full mt-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 disabled:opacity-70 disabled:cursor-not-allowed"
                             onClick={(e) => {
                               e.preventDefault();
-                              window.location.href = `/market/${market.id}`;
+                              startTransition(() => {
+                                router.push(`/market/${market.id}`);
+                              });
                             }}
                           >
-                            Vote Now
+                            {isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Vote Now'}
                           </Button>
                         </div>
                       </Link>
@@ -258,7 +264,7 @@ export default function LaunchpadPage() {
                 )}
                 
                 <Button asChild variant="outline" className="w-full border-white/20 text-white hover:bg-white/10 hover:border-white/30">
-                  <Link href="/browse">
+                  <Link href="/browse" prefetch={true}>
                     <TrendingUp className="w-4 h-4 mr-2" />
                     View All Markets
                   </Link>
@@ -310,6 +316,26 @@ export default function LaunchpadPage() {
                       <div className="p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105 group">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
+                            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center">
+                              <Rocket className="w-5 h-5 text-white" />
+                            </div>
+                            <div>
+                              <div className="text-sm text-gray-400">Total Launched</div>
+                              <div className="text-xl font-bold text-white group-hover:text-green-300 transition-colors">
+                                {launchedProjects.length}
+                              </div>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <div className="text-green-400 text-sm font-medium">Success</div>
+                            <div className="text-xs text-gray-400">projects</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105 group">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center space-x-3">
                             <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
                               <DollarSign className="w-5 h-5 text-white" />
                             </div>
@@ -330,39 +356,19 @@ export default function LaunchpadPage() {
                       <div className="p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105 group">
                         <div className="flex items-center justify-between">
                           <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-blue-500 rounded-lg flex items-center justify-center">
+                            <div className="w-10 h-10 bg-gradient-to-r from-blue-500 to-indigo-500 rounded-lg flex items-center justify-center">
                               <Users className="w-5 h-5 text-white" />
                             </div>
                             <div>
                               <div className="text-sm text-gray-400">Total Votes</div>
-                              <div className="text-xl font-bold text-white group-hover:text-green-300 transition-colors">
+                              <div className="text-xl font-bold text-white group-hover:text-blue-300 transition-colors">
                                 {totalVotes.toLocaleString()}
                               </div>
                             </div>
                           </div>
                           <div className="text-right">
-                            <div className="text-green-400 text-sm font-medium">Active</div>
+                            <div className="text-blue-400 text-sm font-medium">Active</div>
                             <div className="text-xs text-gray-400">community</div>
-                          </div>
-                        </div>
-                      </div>
-
-                      <div className="p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105 group">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 bg-gradient-to-r from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
-                              <Rocket className="w-5 h-5 text-white" />
-                            </div>
-                            <div>
-                              <div className="text-sm text-gray-400">Avg Pool Size</div>
-                              <div className="text-xl font-bold text-white group-hover:text-orange-300 transition-colors">
-                                {activeProjects > 0 ? (totalVolume / activeProjects).toFixed(1) : '0.0'} SOL
-                              </div>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <div className="text-orange-400 text-sm font-medium">Per Market</div>
-                            <div className="text-xs text-gray-400">average</div>
                           </div>
                         </div>
                       </div>
@@ -447,7 +453,7 @@ export default function LaunchpadPage() {
                 ))}
                 
                 <Button asChild variant="outline" className="w-full border-white/20 text-white hover:bg-white/10 hover:border-white/30">
-                  <Link href="/analytics">
+                  <Link href="/analytics" prefetch={true}>
                     <BarChart3 className="w-4 h-4 mr-2" />
                     View Analytics
                   </Link>
@@ -467,7 +473,7 @@ export default function LaunchpadPage() {
                   <p className="text-white/70">Create a prediction market and let the community decide your token&apos;s future</p>
                 </div>
                 <Button asChild size="lg" className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 transform hover:scale-105 transition-all duration-200 shadow-lg hover:shadow-purple-500/40">
-                  <Link href="/create">
+                  <Link href="/create" prefetch={true}>
                     <Plus className="w-5 h-5 mr-2" />
                     Create Project
                   </Link>

@@ -4,13 +4,14 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { 
-  Bell, 
-  CheckCircle, 
-  XCircle, 
-  Rocket, 
-  TrendingUp, 
-  Users, 
+import { useNotifications } from '@/hooks/useNotifications';
+import {
+  Bell,
+  CheckCircle,
+  XCircle,
+  Rocket,
+  TrendingUp,
+  Users,
   DollarSign,
   Clock,
   Star,
@@ -21,8 +22,8 @@ import {
 } from 'lucide-react';
 import Link from 'next/link';
 
-// Mock data for notifications
-const mockNotifications = [
+// Mock data for notifications (kept for reference, but using hook now)
+const mockNotifications_unused = [
   {
     id: 1,
     type: 'vote_result',
@@ -145,18 +146,9 @@ const mockNotifications = [
   }
 ];
 
-const notificationTypes = [
-  { id: 'all', label: 'All', count: mockNotifications.length },
-  { id: 'unread', label: 'Unread', count: mockNotifications.filter(n => !n.isRead).length },
-  { id: 'vote_result', label: 'Vote Results', count: mockNotifications.filter(n => n.type === 'vote_result').length },
-  { id: 'token_launched', label: 'Token Launched', count: mockNotifications.filter(n => n.type === 'token_launched').length },
-  { id: 'reward_earned', label: 'Rewards', count: mockNotifications.filter(n => n.type === 'reward_earned').length },
-  { id: 'vote_reminder', label: 'Reminders', count: mockNotifications.filter(n => n.type === 'vote_reminder').length }
-];
-
 export default function NotificationsPage() {
   const [selectedFilter, setSelectedFilter] = useState('all');
-  const [notifications, setNotifications] = useState(mockNotifications);
+  const { notifications, unreadCount, markAsRead, markAllAsRead, deleteNotification } = useNotifications();
 
   const filteredNotifications = notifications.filter(notification => {
     if (selectedFilter === 'all') return true;
@@ -164,27 +156,14 @@ export default function NotificationsPage() {
     return notification.type === selectedFilter;
   });
 
-  const unreadCount = notifications.filter(n => !n.isRead).length;
-
-  const markAsRead = (id: number) => {
-    setNotifications(prev => 
-      prev.map(notification => 
-        notification.id === id 
-          ? { ...notification, isRead: true }
-          : notification
-      )
-    );
-  };
-
-  const markAllAsRead = () => {
-    setNotifications(prev => 
-      prev.map(notification => ({ ...notification, isRead: true }))
-    );
-  };
-
-  const deleteNotification = (id: number) => {
-    setNotifications(prev => prev.filter(notification => notification.id !== id));
-  };
+  const notificationTypes = [
+    { id: 'all', label: 'All', count: notifications.length },
+    { id: 'unread', label: 'Unread', count: notifications.filter(n => !n.isRead).length },
+    { id: 'vote_result', label: 'Vote Results', count: notifications.filter(n => n.type === 'vote_result').length },
+    { id: 'token_launched', label: 'Token Launched', count: notifications.filter(n => n.type === 'token_launched').length },
+    { id: 'reward_earned', label: 'Rewards', count: notifications.filter(n => n.type === 'reward_earned').length },
+    { id: 'vote_reminder', label: 'Reminders', count: notifications.filter(n => n.type === 'vote_reminder').length }
+  ];
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
@@ -391,32 +370,6 @@ export default function NotificationsPage() {
             ))
           )}
         </div>
-
-        {/* Quick Actions */}
-        <Card className="bg-gradient-to-r from-purple-500/10 to-pink-500/10 backdrop-blur-xl border-purple-500/20 text-white">
-          <CardContent className="p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-xl font-bold text-white mb-2">Stay Active in the Community</h2>
-                <p className="text-white/70">Participate in prediction markets and earn rewards</p>
-              </div>
-              <div className="flex space-x-3">
-                <Button asChild variant="outline" className="border-white/20 text-white hover:bg-white/10 hover:border-white/30">
-                  <Link href="/browse">
-                    <TrendingUp className="w-4 h-4 mr-2" />
-                    Browse Markets
-                  </Link>
-                </Button>
-                <Button asChild className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
-                  <Link href="/create">
-                    <Rocket className="w-4 h-4 mr-2" />
-                    Launch Project
-                  </Link>
-                </Button>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
       </div>
   );
 }

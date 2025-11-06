@@ -221,21 +221,9 @@ function DepositModal({ isOpen, onClose, address }: { isOpen: boolean; onClose: 
   );
 }
 
-function SettingsModal({ isOpen, onClose, wallet, username, onUsernameChange, profilePhotoUrl, onPhotoUpload, isUploadingPhoto, onLogout }: any) {
+function SettingsModal({ isOpen, onClose, wallet, onLogout }: any) {
   const [showPrivateKey, setShowPrivateKey] = useState(false);
   const [exportWarningShown, setExportWarningShown] = useState(false);
-  const [isEditingUsername, setIsEditingUsername] = useState(false);
-  const [tempUsername, setTempUsername] = useState('');
-
-  const handleUsernameEdit = () => {
-    setTempUsername(username);
-    setIsEditingUsername(true);
-  };
-
-  const handleUsernameSave = () => {
-    onUsernameChange(tempUsername);
-    setIsEditingUsername(false);
-  };
 
   if (!isOpen) return null;
 
@@ -244,74 +232,14 @@ function SettingsModal({ isOpen, onClose, wallet, username, onUsernameChange, pr
       <Card className="w-full max-w-md bg-gray-900 border-white/20 text-white max-h-[90vh] overflow-y-auto">
         <CardContent className="p-6 space-y-6">
           <div className="flex items-center justify-between">
-            <h3 className="text-xl font-semibold">Settings</h3>
+            <h3 className="text-xl font-semibold">Security Settings</h3>
             <button onClick={onClose} className="text-gray-400 hover:text-white">
               <X className="w-5 h-5" />
             </button>
           </div>
 
-          {/* Profile Section */}
-          <div className="space-y-4">
-            <h4 className="font-semibold text-sm text-gray-400">Profile</h4>
-
-            {/* Profile Photo */}
-            <div className="flex items-center space-x-4">
-              <div className="relative group">
-                <div className="w-16 h-16 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden">
-                  {isUploadingPhoto ? (
-                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-                  ) : profilePhotoUrl ? (
-                    <img src={profilePhotoUrl} alt="Profile" className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-8 h-8 text-white" />
-                  )}
-                </div>
-                <button
-                  onClick={onPhotoUpload}
-                  disabled={isUploadingPhoto}
-                  className="absolute bottom-0 right-0 w-5 h-5 bg-cyan-500 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-                >
-                  <Camera className="w-3 h-3 text-white" />
-                </button>
-              </div>
-              <div className="flex-1">
-                <Label className="text-sm text-gray-400">Profile Photo</Label>
-                <p className="text-xs text-gray-500 mt-1">Click the icon to upload</p>
-              </div>
-            </div>
-
-            {/* Username */}
-            <div className="space-y-2">
-              <Label className="text-sm text-gray-400">Username</Label>
-              {isEditingUsername ? (
-                <div className="flex items-center space-x-2">
-                  <Input
-                    value={tempUsername}
-                    onChange={(e) => setTempUsername(e.target.value)}
-                    className="bg-white/5 border-white/10 text-white"
-                    placeholder="Enter username"
-                  />
-                  <button onClick={handleUsernameSave} className="text-green-400 hover:text-green-300">
-                    <Check className="w-4 h-4" />
-                  </button>
-                  <button onClick={() => setIsEditingUsername(false)} className="text-red-400 hover:text-red-300">
-                    <X className="w-4 h-4" />
-                  </button>
-                </div>
-              ) : (
-                <div className="flex items-center justify-between p-3 bg-white/5 rounded-lg border border-white/10">
-                  <span>{username || 'Not set'}</span>
-                  <button onClick={handleUsernameEdit} className="text-cyan-400 hover:text-cyan-300">
-                    <Edit2 className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
           {/* Security Section */}
           <div className="space-y-4">
-            <h4 className="font-semibold text-sm text-gray-400">Security</h4>
 
             {!exportWarningShown ? (
               <div className="space-y-3">
@@ -409,6 +337,7 @@ export default function WalletPage() {
   const [showSendModal, setShowSendModal] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [addressCopied, setAddressCopied] = useState(false);
 
   // Fetch user profile
   const { data: profileData, mutate: mutateProfile } = useSWR(
@@ -578,6 +507,13 @@ export default function WalletPage() {
     }
   };
 
+  const copyAddress = () => {
+    if (!primaryWallet?.address) return;
+    navigator.clipboard.writeText(primaryWallet.address);
+    setAddressCopied(true);
+    setTimeout(() => setAddressCopied(false), 2000);
+  };
+
   if (!primaryWallet) {
     return (
       <div className="min-h-screen flex items-center justify-center p-6">
@@ -606,22 +542,66 @@ export default function WalletPage() {
 
   return (
     <div className="min-h-screen p-6">
-      {/* Balance Display */}
-      <div className="flex flex-col items-center justify-center mb-8">
-        <h2 className="text-6xl font-bold text-white mb-2">
-          ${isPriceLoading ? '...' : usdValue}
-        </h2>
-        <p className="text-gray-400 mb-6">
-          {balanceLoading ? '...' : solBalance.toFixed(4)} SOL
-          {solPrice && !isPriceLoading && (
-            <span className="text-xs text-gray-500 ml-2">
-              @ ${solPrice.toFixed(2)}
-            </span>
+      {/* Profile & Balance Section */}
+      <div className="max-w-5xl mx-auto mb-8">
+        {/* Balance Display */}
+        <div className="text-center mb-6">
+          <h2 className="text-5xl font-bold text-white mb-1">
+            ${isPriceLoading ? '...' : usdValue}
+          </h2>
+          <p className="text-gray-400 text-lg">
+            {balanceLoading ? '...' : solBalance.toFixed(4)} SOL
+            {solPrice && !isPriceLoading && (
+              <span className="text-sm text-gray-500 ml-2">
+                @ ${solPrice.toFixed(2)}
+              </span>
+            )}
+          </p>
+          <button
+            onClick={copyAddress}
+            className="text-xs text-gray-500 mt-2 hover:text-cyan-400 transition-colors cursor-pointer inline-flex items-center gap-1"
+          >
+            {primaryWallet.address.slice(0, 8)}...{primaryWallet.address.slice(-6)}
+            {addressCopied ? (
+              <Check className="w-3 h-3 text-green-400" />
+            ) : (
+              <Copy className="w-3 h-3" />
+            )}
+          </button>
+          {addressCopied && (
+            <p className="text-xs text-green-400 mt-1">Copied!</p>
           )}
-        </p>
+        </div>
 
-        {/* Action Buttons */}
-        <div className="flex items-center space-x-2">
+        {/* Profile Photo + Username Input + Action Buttons */}
+        <div className="flex items-center justify-center space-x-2">
+          {/* Profile Photo */}
+          <div className="relative group">
+            <div className="w-14 h-14 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden ring-2 ring-white/20">
+              {isUploadingPhoto ? (
+                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+              ) : profilePhotoUrl ? (
+                <img src={profilePhotoUrl} alt="Profile" className="w-full h-full object-cover" />
+              ) : (
+                <User className="w-7 h-7 text-white" />
+              )}
+            </div>
+            <button
+              onClick={handlePhotoUpload}
+              disabled={isUploadingPhoto}
+              className="absolute bottom-0 right-0 w-5 h-5 bg-cyan-500 rounded-full flex items-center justify-center hover:bg-cyan-600 transition-colors shadow-lg disabled:opacity-50"
+            >
+              <Camera className="w-3 h-3 text-white" />
+            </button>
+          </div>
+
+          <Input
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+            onBlur={() => handleUsernameChange(username)}
+            className="bg-white/5 border-white/10 text-white font-medium w-40 h-9"
+            placeholder="username"
+          />
           <Button
             onClick={handleRefresh}
             disabled={balanceLoading}
@@ -642,15 +622,6 @@ export default function WalletPage() {
             Buy SOL
           </Button>
           <Button
-            onClick={() => setShowSettingsModal(true)}
-            variant="outline"
-            size="sm"
-            className="border-white/10 text-white hover:bg-white/5"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Settings
-          </Button>
-          <Button
             onClick={() => setShowDepositModal(true)}
             variant="outline"
             size="sm"
@@ -668,6 +639,15 @@ export default function WalletPage() {
             <Send className="w-4 h-4 mr-2" />
             Withdraw
           </Button>
+          <Button
+            onClick={() => setShowSettingsModal(true)}
+            variant="outline"
+            size="sm"
+            className="border-white/10 text-white hover:bg-white/5"
+          >
+            <Settings className="w-4 h-4 mr-2" />
+            Security
+          </Button>
         </div>
       </div>
 
@@ -677,14 +657,15 @@ export default function WalletPage() {
           <CardContent className="p-0">
             <div className="flex items-center justify-between p-4 hover:bg-white/5 transition-colors">
               <div className="flex items-center space-x-3">
-                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-yellow-400 to-orange-500 flex items-center justify-center">
-                  <span className="text-2xl">◎</span>
+                <div className="w-12 h-12 rounded-full bg-gradient-to-r from-purple-500 to-cyan-500 flex items-center justify-center p-2">
+                  <img
+                    src="https://raw.githubusercontent.com/solana-labs/token-list/main/assets/mainnet/So11111111111111111111111111111111111111112/logo.png"
+                    alt="Solana"
+                    className="w-full h-full"
+                  />
                 </div>
                 <div>
                   <h3 className="text-white font-semibold">Solana</h3>
-                  <p className="text-gray-400 text-sm">
-                    {primaryWallet.address.slice(0, 8)}...{primaryWallet.address.slice(-6)}
-                  </p>
                 </div>
               </div>
               <div className="text-right">
@@ -725,11 +706,6 @@ export default function WalletPage() {
         isOpen={showSettingsModal}
         onClose={() => setShowSettingsModal(false)}
         wallet={(primaryWallet as any)._privyWallet}
-        username={username}
-        onUsernameChange={handleUsernameChange}
-        profilePhotoUrl={profilePhotoUrl}
-        onPhotoUpload={handlePhotoUpload}
-        isUploadingPhoto={isUploadingPhoto}
         onLogout={logout}
       />
     </div>

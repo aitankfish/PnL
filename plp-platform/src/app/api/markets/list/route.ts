@@ -11,30 +11,43 @@ import { createClientLogger } from '@/lib/logger';
 
 const logger = createClientLogger();
 
+// Helper function to convert IPFS URL to gateway URL
+function convertToGatewayUrl(imageUrl: string | undefined): string | undefined {
+  if (!imageUrl) return undefined;
+
+  const gatewayUrl = process.env.PINATA_GATEWAY_URL;
+  if (!gatewayUrl) return imageUrl.startsWith('http') ? imageUrl : undefined;
+
+  // If it's an IPFS URL (ipfs://...), convert to gateway URL
+  if (imageUrl.startsWith('ipfs://')) {
+    const ipfsHash = imageUrl.replace('ipfs://', '');
+    return `https://${gatewayUrl}/ipfs/${ipfsHash}`;
+  }
+
+  // If it's already a full URL, keep it as is
+  if (imageUrl.startsWith('http')) {
+    return imageUrl;
+  }
+
+  // If it's just a hash (bafyXXX or QmXXX), add gateway
+  return `https://${gatewayUrl}/ipfs/${imageUrl}`;
+}
+
 export async function GET(_request: NextRequest) {
   try {
     // Connect to MongoDB
     await connectToDatabase();
 
-    // Fetch all active markets with their projects
+    // Fetch all active markets with their projects in a single query using populate
     const markets = await PredictionMarket.find({ marketState: 0 }) // 0 = Active
+      .populate('projectId') // Populate project data in one query
       .sort({ createdAt: -1 }) // Most recent first
       .limit(50) // Limit to 50 markets
       .lean();
 
-    // Fetch associated projects
-    const projectIds = markets.map((m) => m.projectId);
-    const projects = await Project.find({ _id: { $in: projectIds } }).lean();
-
-    // Create a map of projects by ID for quick lookup
-    const projectMap = new Map<string, typeof projects[0]>();
-    projects.forEach((p) => {
-      projectMap.set(p._id.toString(), p);
-    });
-
     // Combine market and project data
     const marketsWithProjects = markets.map((market) => {
-      const project = projectMap.get(market.projectId.toString());
+      const project = market.projectId as any; // populated project
 
       // Calculate time left
       const now = new Date();
@@ -52,27 +65,6 @@ export async function GET(_request: NextRequest) {
         timeLeft = 'Ending soon';
       }
 
-      // Convert IPFS URL to gateway URL if needed
-      let imageUrl = project?.projectImageUrl;
-      if (imageUrl && process.env.PINATA_GATEWAY_URL) {
-        const gatewayUrl = process.env.PINATA_GATEWAY_URL;
-
-        // If it's an IPFS URL (ipfs://...), convert to gateway URL
-        if (imageUrl.startsWith('ipfs://')) {
-          const ipfsHash = imageUrl.replace('ipfs://', '');
-          imageUrl = `https://${gatewayUrl}/ipfs/${ipfsHash}`;
-        }
-        // If it's already a full URL with a gateway, keep it as is
-        else if (!imageUrl.startsWith('http')) {
-          // If it's just a hash (bafyXXX or QmXXX), add gateway
-          imageUrl = `https://${gatewayUrl}/ipfs/${imageUrl}`;
-        }
-      } else if (imageUrl && !imageUrl.startsWith('http')) {
-        // If no gateway URL configured and not a full URL, log warning
-        logger.warn('PINATA_GATEWAY_URL not configured, cannot convert IPFS hash to URL', { imageUrl });
-        imageUrl = undefined; // Don't use invalid URL
-      }
-
       return {
         id: market._id.toString(),
         marketAddress: market.marketAddress,
@@ -88,21 +80,28 @@ export async function GET(_request: NextRequest) {
         totalNoStake: market.totalNoStake || 0,
         timeLeft,
         expiryTime: market.expiryTime,
-        status: market.marketState === 0 ? 'active' : 'resolved',
+        status: market.resolution || (market.marketState === 0 ? 'active' : 'resolved'),
         metadataUri: market.metadataUri,
-        projectImageUrl: imageUrl,
+        projectImageUrl: convertToGatewayUrl(project?.projectImageUrl),
       };
     });
 
     logger.info('Fetched markets', { count: marketsWithProjects.length });
 
-    return NextResponse.json({
-      success: true,
-      data: {
-        markets: marketsWithProjects,
-        total: marketsWithProjects.length,
+    return NextResponse.json(
+      {
+        success: true,
+        data: {
+          markets: marketsWithProjects,
+          total: marketsWithProjects.length,
+        }
+      },
+      {
+        headers: {
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=30',
+        },
       }
-    });
+    );
 
   } catch (error) {
     logger.error('Failed to fetch markets:', error);
