@@ -9,7 +9,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Label } from '@/components/ui/label';
 import { config } from '@/lib/config';
 import { createClientLogger } from '@/lib/logger';
-import { useDynamicContext, useAuthenticateConnectedUser } from '@dynamic-labs/sdk-react-core';
+import { useWallet } from '@/hooks/useWallet';
+import { useWallets } from '@privy-io/react-auth';
 import { ipfsUtils, ProjectMetadata } from '@/lib/ipfs';
 import { VersionedTransaction } from '@solana/web3.js';
 import { sendRawTransaction, getSolanaConnection, setNetwork } from '@/lib/solana';
@@ -17,19 +18,6 @@ import { useToast } from '@/lib/hooks/useToast';
 import { useNetwork } from '@/lib/hooks/useNetwork';
 
 const logger = createClientLogger();
-
-// Dynamic Labs signer interface
-interface DynamicSigner {
-  signTransaction: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-}
-
-// Dynamic Labs wallet interface with getSigner method
-interface DynamicWalletWithSigner {
-  getSigner: () => Promise<DynamicSigner>;
-  _connector?: {
-    signTransaction: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-  };
-}
 
 // Form data interface
 interface ProjectFormData {
@@ -86,9 +74,9 @@ export default function CreatePage() {
   const [isMounted, setIsMounted] = useState(false);
   const [isTokenSectionExpanded, setIsTokenSectionExpanded] = useState(true);
 
-  // Get connected wallet and user from Dynamic
-  const { primaryWallet, user } = useDynamicContext();
-  const { authenticateUser } = useAuthenticateConnectedUser();
+  // Get connected wallet and user from Privy
+  const { primaryWallet, user, authenticated } = useWallet();
+  const { wallets } = useWallets();
 
   // Detect network from Dynamic widget
   const { network, isMainnet, isDevnet } = useNetwork();
@@ -877,52 +865,30 @@ export default function CreatePage() {
                     
         console.log('Transaction prepared, now signing with user wallet...');
         
-        // Step 4.5: Check Dynamic Labs authentication state
-        console.log('🔍 Dynamic Labs Authentication Debug:');
+        // Step 4.5: Check Privy authentication state
+        console.log('🔍 Privy Authentication Debug:');
         console.log('User object:', user);
-        console.log('User authenticated:', !!user);
+        console.log('Authenticated:', authenticated);
         console.log('Primary wallet:', primaryWallet);
         console.log('Wallet address:', primaryWallet?.address);
         console.log('Wallet authenticated:', primaryWallet?.isAuthenticated);
-        
-        // Check if user needs authentication
-        if (!user) {
-          console.log('❌ User not authenticated - attempting to authenticate...');
-          
-          try {
-            console.log('🔐 Triggering authentication...');
-            await authenticateUser();
-            console.log('✅ Authentication triggered successfully');
-            
-            // Check again after authentication attempt
-            if (!user) {
-              console.log('❌ Still not authenticated after trigger');
-              alert('Authentication failed. Please try disconnecting and reconnecting your wallet.');
-              setIsSubmitting(false);
-              return;
-            }
-          } catch (authError) {
-            console.log('❌ Authentication trigger failed:', authError);
-            alert('Failed to authenticate wallet. Please try disconnecting and reconnecting your wallet.');
-            setIsSubmitting(false);
-            return;
-          }
+
+        // Check if user is authenticated
+        if (!authenticated || !primaryWallet) {
+          console.log('❌ User not authenticated or wallet not connected');
+          alert('Please connect your wallet first.');
+          setIsSubmitting(false);
+          return;
         }
-        
+
         console.log('✅ User is authenticated, proceeding with transaction signing...');
         
-        // Step 4.6: SEPARATED ARCHITECTURE - Dynamic Labs for signing only, our RPC for execution
-        console.log('🔐 Using SEPARATED ARCHITECTURE: Dynamic Labs for signing only...');
-                    
-                    let signature;
-                    
-                    try {
-                        // STEP 1: Get Dynamic Labs signer (for signing only)
-                        console.log('🚀 Getting Dynamic Labs signer for transaction signing...');
+        // Step 4.6: Sign transaction with Privy wallet
+        console.log('🔐 Signing transaction with Privy wallet...');
 
-                        const signer = await (primaryWallet as unknown as DynamicWalletWithSigner).getSigner();
-                        console.log('✅ Got signer from Dynamic Labs:', typeof signer);
-                        
+                    let signature;
+
+                    try {
                         // Get serialized transaction from API response
                         const rawTx = transactionResult.data.serializedTransaction;
                         console.log('📊 Serialized transaction length:', rawTx?.length);
@@ -942,10 +908,18 @@ export default function CreatePage() {
                             hasStaticAccountKeys: properTransaction.message?.staticAccountKeys?.length || 0
                         });
                         
-                        // STEP 2: Sign transaction with Dynamic Labs (NO sending)
-                        console.log('✍️ Signing transaction with Dynamic Labs...');
-                        const signedTransaction = await signer.signTransaction(properTransaction);
-                        console.log('✅ Transaction signed by Dynamic Labs!');
+                        // STEP 2: Sign transaction with Privy wallet
+                        console.log('✍️ Signing transaction with Privy wallet...');
+
+                        // Get the Privy wallet object
+                        const privyWallet = (primaryWallet as any)._privyWallet;
+                        if (!privyWallet) {
+                          throw new Error('Privy wallet not found');
+                        }
+
+                        // Sign the transaction using Privy's signing method
+                        const signedTransaction = await privyWallet.signTransaction(properTransaction);
+                        console.log('✅ Transaction signed by Privy wallet!');
                         
                         // STEP 3: Send signed transaction to Solana via our RPC system
                         console.log('📤 Sending signed transaction to Solana via our RPC...');
@@ -979,52 +953,12 @@ export default function CreatePage() {
                         
                     } catch (signerError: unknown) {
                         const errorMessage = signerError instanceof Error ? signerError.message : 'Unknown error';
-                        console.log('❌ Dynamic Labs signing failed:', errorMessage);
+                        console.log('❌ Privy wallet signing failed:', errorMessage);
 
-                        // Fallback: Try with _connector approach
-                        try {
-                            console.log('🔄 Fallback: Trying _connector approach...');
-
-                            const connector = (primaryWallet as unknown as DynamicWalletWithSigner)._connector;
-                            console.log('📊 Connector type:', connector?.constructor?.name);
-                            
-                            // Get serialized transaction from API response
-                            const rawTx = transactionResult.data.serializedTransaction;
-                            if (!rawTx) {
-                                throw new Error('No serializedTransaction provided by server');
-                            }
-                            const txBuffer = Buffer.from(rawTx, 'base64');
-                            const properTransaction = VersionedTransaction.deserialize(txBuffer);
-                            
-                            // Sign with connector
-                            if (!connector) {
-                                throw new Error('Connector not available');
-                            }
-                            const signedTransaction = await connector.signTransaction(properTransaction);
-                            console.log('✅ Transaction signed via _connector!');
-                            
-                            // Send via our RPC
-                            signature = await sendRawTransaction(signedTransaction.serialize(), {
-                                skipPreflight: true,
-                                maxRetries: 3,
-                                preflightCommitment: 'confirmed'
-                            });
-                            console.log(`✅ Transaction submitted via _connector + our RPC on ${network}:`, signature);
-
-                            // Wait for confirmation
-                            const connection = await getSolanaConnection(network);
-                            await connection.confirmTransaction(signature, 'confirmed');
-                            console.log(`✅ Transaction confirmed on ${network} blockchain!`);
-                            
-                        } catch (connectorError: unknown) {
-                            const errorMessage = connectorError instanceof Error ? connectorError.message : 'Unknown error';
-                            console.log('❌ _connector fallback failed:', errorMessage);
-                            
-                            // Final fallback: Mock signature for development
-                            console.log('🔄 Final fallback: Using mock signature for development...');
-                            signature = `mock_signature_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-                            console.log('⚠️ Using mock signature:', signature);
-                        }
+                        // Show error to user
+                        alert(`Failed to sign transaction: ${errorMessage}`);
+                        setIsSubmitting(false);
+                        return;
                     }
                     
                     console.log('✅ SEPARATED ARCHITECTURE transaction flow completed!');

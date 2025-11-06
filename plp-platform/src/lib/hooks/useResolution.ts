@@ -6,7 +6,7 @@
  */
 
 import { useState } from 'react';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useWallet } from '@/hooks/useWallet';
 import { VersionedTransaction, Keypair } from '@solana/web3.js';
 import { sendRawTransaction, getSolanaConnection } from '@/lib/solana';
 import { getPumpCreateInstruction } from '@/lib/pumpfun';
@@ -27,7 +27,7 @@ interface DynamicWalletWithSigner {
 
 export function useResolution() {
   const [isResolving, setIsResolving] = useState(false);
-  const { primaryWallet } = useDynamicContext();
+  const { primaryWallet } = useWallet();
   const { network } = useNetwork();
 
   const resolve = async (params: {

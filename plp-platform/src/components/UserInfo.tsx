@@ -1,12 +1,13 @@
 /**
  * User Information Component
- * Displays user data fetched from Dynamic Labs API
+ * Displays user data fetched from MongoDB profile
  */
 
 'use client';
 
 import React from 'react';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useWallet } from '@/hooks/useWallet';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { Badge } from '@/components/ui/badge';
 import {
   User,
@@ -31,21 +32,9 @@ export default function UserInfo({
   compact = false,
   className = ''
 }: UserInfoProps) {
-  const { user: contextUser, primaryWallet, isLoggedIn, isAuthenticating } = useDynamicContext();
+  const { user: contextUser, primaryWallet, authenticated: isLoggedIn, loading: isAuthenticating } = useWallet();
   const { network, isMainnet, isDevnet, isDevelopment, setNetwork } = useNetwork();
-
-  // Debug logging - only in development and throttled
-  React.useEffect(() => {
-    if (process.env.NODE_ENV === 'development') {
-      // Only log once on mount or when wallet connects/disconnects
-      if (primaryWallet?.address) {
-        console.log('UserInfo - Connected:', {
-          address: primaryWallet.address.slice(0, 8) + '...',
-          network
-        });
-      }
-    }
-  }, [primaryWallet?.address, network]);
+  const { displayName } = useUserProfile();
 
   // Use Dynamic context data directly
   const user = contextUser;
@@ -59,7 +48,16 @@ export default function UserInfo({
   // Fetch actual SOL balance from the wallet
   React.useEffect(() => {
     const fetchBalance = async () => {
-      if (!primaryWallet?.address || fetchingRef.current) {
+      // Only proceed if we have a wallet and it's authenticated
+      if (!primaryWallet?.address || !isLoggedIn || fetchingRef.current) {
+        setWalletBalance(null);
+        return;
+      }
+
+      // Ensure it's a Solana wallet
+      if (primaryWallet.chainType !== 'solana') {
+        console.warn('UserInfo: Wallet is not a Solana wallet, skipping balance fetch');
+        setWalletBalance(null);
         return;
       }
 
@@ -74,7 +72,16 @@ export default function UserInfo({
         const rpcEndpoint = network === 'mainnet-beta' ? RPC_MAINNET : RPC_DEVNET;
 
         const connection = new Connection(rpcEndpoint, 'confirmed');
-        const publicKey = new PublicKey(primaryWallet.address);
+
+        // Validate Solana address before creating PublicKey
+        let publicKey;
+        try {
+          publicKey = new PublicKey(primaryWallet.address);
+        } catch (err) {
+          console.error('Invalid Solana address:', primaryWallet.address);
+          setWalletBalance(null);
+          return;
+        }
 
         const balance = await connection.getBalance(publicKey);
         const balanceInSOL = balance / LAMPORTS_PER_SOL;
@@ -99,7 +106,7 @@ export default function UserInfo({
       clearTimeout(timeout);
       clearInterval(interval);
     };
-  }, [primaryWallet?.address, network]);
+  }, [primaryWallet?.address, primaryWallet?.chainType, isLoggedIn, network]);
 
   // Get balance from primaryWallet if available
   const getWalletBalance = () => {
@@ -139,12 +146,6 @@ export default function UserInfo({
   if (compact) {
     return (
       <div className={`flex flex-col items-end space-y-2 ${className || ''}`}>
-        <span className="text-sm font-medium text-white">
-          {user?.firstName && user?.lastName
-            ? `${user.firstName} ${user.lastName}`
-            : user?.email?.split('@')[0] || primaryWallet?.address?.slice(0, 6) + '...' || 'User'
-          }
-        </span>
         {showBalances && (
           <div className="flex flex-col items-end space-y-1.5">
             <span className="text-xs text-cyan-400 font-mono font-semibold">
@@ -179,35 +180,39 @@ export default function UserInfo({
   return (
     <div className={`space-y-4 ${className || ''}`}>
       {/* User Profile */}
-      <div className="flex items-center space-x-3 p-3 bg-white/5 rounded-lg border border-white/10">
-        <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
-          {user.profileImageUrl ? (
-            <img 
-              src={user.profileImageUrl} 
-              alt="Profile" 
-              className="w-12 h-12 rounded-full object-cover"
-            />
-          ) : (
-            <User className="w-6 h-6 text-white" />
-          )}
-        </div>
-        <div className="flex-1">
-          <h3 className="text-lg font-semibold text-white">
-            {user.firstName && user.lastName 
-              ? `${user.firstName} ${user.lastName}` 
-              : user.email?.split('@')[0] || 'User'
-            }
-          </h3>
-          {user.email && (
-            <p className="text-sm text-gray-300">{user.email}</p>
-          )}
-          <div className="flex items-center space-x-2 mt-1">
-            <Badge className="bg-green-500/20 text-green-300 border-green-400/30">
-              Member since {new Date(user.createdAt).toLocaleDateString()}
-            </Badge>
+      {user && (
+        <div className="flex items-center space-x-3 p-3 bg-white/5 rounded-lg border border-white/10">
+          <div className="w-12 h-12 bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center">
+            {user.profileImageUrl ? (
+              <img
+                src={user.profileImageUrl}
+                alt="Profile"
+                className="w-12 h-12 rounded-full object-cover"
+              />
+            ) : (
+              <User className="w-6 h-6 text-white" />
+            )}
+          </div>
+          <div className="flex-1">
+            <h3 className="text-lg font-semibold text-white">
+              {user.firstName && user.lastName
+                ? `${user.firstName} ${user.lastName}`
+                : user.email?.split('@')[0] || 'User'
+              }
+            </h3>
+            {user.email && (
+              <p className="text-sm text-gray-300">{user.email}</p>
+            )}
+            {user.createdAt && (
+              <div className="flex items-center space-x-2 mt-1">
+                <Badge className="bg-green-500/20 text-green-300 border-green-400/30">
+                  Member since {new Date(user.createdAt).toLocaleDateString()}
+                </Badge>
+              </div>
+            )}
           </div>
         </div>
-      </div>
+      )}
 
       {/* Wallets */}
       {showWallets && wallets.length > 0 && (
@@ -217,15 +222,15 @@ export default function UserInfo({
             <span>Connected Wallets ({wallets.length})</span>
           </h4>
           <div className="space-y-2">
-            {wallets.slice(0, 3).map((wallet) => (
-              <div key={wallet.id} className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
+            {wallets.slice(0, 3).map((wallet: any) => (
+              <div key={wallet.id || wallet.address} className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
                 <div className="flex items-center space-x-2">
                   <div className="w-6 h-6 bg-gradient-to-r from-purple-500 to-pink-500 rounded flex items-center justify-center">
                     <span className="text-xs text-white font-bold">
-                      {wallet.connector.shortName.charAt(0)}
+                      {wallet.walletClientType?.charAt(0).toUpperCase() || 'W'}
                     </span>
                   </div>
-                  <span className="text-sm text-white">{wallet.connector.name}</span>
+                  <span className="text-sm text-white">{wallet.walletClientType || 'Wallet'}</span>
                 </div>
                 <span className="text-xs text-gray-400 font-mono">
                   {wallet.address.slice(0, 6)}...{wallet.address.slice(-4)}
@@ -241,44 +246,13 @@ export default function UserInfo({
         </div>
       )}
 
-      {/* Balances */}
-      {showBalances && balances.length > 0 && (
-        <div className="space-y-2">
-          <h4 className="text-sm font-medium text-gray-300 flex items-center space-x-2">
-            <DollarSign className="w-4 h-4" />
-            <span>Balances</span>
-          </h4>
-          <div className="space-y-2">
-            {balances.slice(0, 3).map((balance, index) => (
-              <div key={index} className="flex items-center justify-between p-2 bg-white/5 rounded border border-white/10">
-                <div className="flex items-center space-x-2">
-                  <div className="w-6 h-6 bg-gradient-to-r from-green-500 to-emerald-500 rounded flex items-center justify-center">
-                    <span className="text-xs text-white font-bold">
-                      {balance.nativeCurrency.symbol.charAt(0)}
-                    </span>
-                  </div>
-                  <span className="text-sm text-white">{balance.nativeCurrency.symbol}</span>
-                </div>
-                <div className="text-right">
-                  <div className="text-sm font-medium text-white">{balance.balanceFormatted}</div>
-                  <div className="text-xs text-green-400">${balance.balanceUSD}</div>
-                </div>
-              </div>
-            ))}
-            {balances.length > 3 && (
-              <div className="text-xs text-gray-400 text-center">
-                +{balances.length - 3} more tokens
-              </div>
-            )}
-          </div>
+      {/* Activity Indicator */}
+      {user?.updatedAt && (
+        <div className="flex items-center space-x-2 text-xs text-gray-400">
+          <Activity className="w-3 h-3" />
+          <span>Last active: {new Date(user.updatedAt).toLocaleDateString()}</span>
         </div>
       )}
-
-      {/* Activity Indicator */}
-      <div className="flex items-center space-x-2 text-xs text-gray-400">
-        <Activity className="w-3 h-3" />
-        <span>Last active: {new Date(user.updatedAt).toLocaleDateString()}</span>
-      </div>
     </div>
   );
 }

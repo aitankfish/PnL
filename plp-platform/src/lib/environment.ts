@@ -86,7 +86,7 @@ class EnvironmentManager {
     const actionsPlatformId = 'ACTYY7k4vRAhzHw5gazNtEDdYEk1hC8751enx5K7Rwc'; // Use default Actions Protocol platform
 
     // IPFS configuration
-    const ipfsEnabled = !!(process.env.PINATA_API_KEY && process.env.PINATA_SECRET_KEY);
+    const ipfsEnabled = !!(process.env.NEXT_PUBLIC_PINATA_JWT || (process.env.NEXT_PUBLIC_PINATA_API_KEY && process.env.NEXT_PUBLIC_PINATA_SECRET_KEY));
 
     return {
       network,
@@ -111,7 +111,7 @@ class EnvironmentManager {
       
       ipfs: {
         enabled: ipfsEnabled,
-        gatewayUrl: process.env.PINATA_GATEWAY_URL || 'https://gateway.pinata.cloud',
+        gatewayUrl: process.env.NEXT_PUBLIC_PINATA_GATEWAY_URL || 'https://gateway.pinata.cloud',
       },
       
       features: {

@@ -77,6 +77,8 @@ export interface UserProfile {
   walletAddress: string;
   email?: string;
   username?: string;
+  profilePhotoUrl?: string; // IPFS URL for profile photo
+  bio?: string; // Short bio (optional)
   reputationScore: number;
   totalPredictions: number;
   correctPredictions: number;

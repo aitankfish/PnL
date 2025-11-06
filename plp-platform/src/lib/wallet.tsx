@@ -1,75 +1,74 @@
 /**
- * Dynamic Wallet Provider Setup
- * Configures Dynamic wallet connection for Solana
+ * Privy Wallet Provider Setup
+ * Configures Privy wallet connection for Solana with custom UI
  */
 
 'use client';
 
-import { memo, useMemo } from 'react';
-import { DynamicContextProvider } from '@dynamic-labs/sdk-react-core';
-import { SolanaWalletConnectors } from '@dynamic-labs/solana';
+import { memo } from 'react';
+import { PrivyProvider } from '@privy-io/react-auth';
+import type { PrivyClientConfig } from '@privy-io/react-auth';
+import { createSolanaRpc, createSolanaRpcSubscriptions } from '@solana/kit';
 
 interface WalletProviderProps {
   children: React.ReactNode;
 }
 
 function WalletProviderInner({ children }: WalletProviderProps) {
-  // Use appropriate Dynamic environment ID based on NODE_ENV
-  // Production uses live environment, development uses sandbox
-  const isProduction = process.env.NODE_ENV === 'production';
-  const environmentId = isProduction 
-    ? process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || '08c4eb87-d159-4fed-82cd-e20233f87984'
-    : process.env.NEXT_PUBLIC_DYNAMIC_SANDBOX_ID || process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || '08c4eb87-d159-4fed-82cd-e20233f87984';
+  // Get Privy App ID from environment variables
+  const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || '';
 
-  // Memoize settings to prevent unnecessary re-initializations
-  const settings = useMemo(() => ({
-    environmentId: environmentId,
-        walletConnectors: [SolanaWalletConnectors],
-        initialAuthenticationMode: 'connect-and-sign',
-        eventsCallbacks: {
-          onAuthSuccess: (args) => {
-            console.log('Wallet connected:', args.user);
-          },
-          onAuthFailure: (args) => {
-            console.error('Wallet connection failed:', args.error);
-          },
-          onLogout: () => {
-            console.log('Wallet disconnected');
-          },
+  if (!appId) {
+    console.warn('NEXT_PUBLIC_PRIVY_APP_ID is not set. Wallet functionality will be limited.');
+  }
+
+  const config: PrivyClientConfig = {
+    // Appearance customization to match space theme
+    appearance: {
+      theme: 'dark',
+      accentColor: '#3b82f6',
+      logo: '/logo.png',
+      landingHeader: 'Connect to P&L',
+      loginMessage: 'Connect your Solana wallet to get started',
+      showWalletLoginFirst: true,
+    },
+
+    // Login methods configuration - wallet first for Solana
+    loginMethods: ['wallet', 'email', 'google', 'twitter', 'discord'],
+
+    // Embedded wallet configuration - Solana embedded wallets
+    embeddedWallets: {
+      solana: {
+        createOnLogin: 'all-users', // Changed from 'users-without-wallets' to always load/create wallets
+      },
+      showWalletUIs: false, // No prompt on signature (replaces noPromptOnSignature)
+    },
+
+    // Solana network configuration - Required for embedded wallet UIs
+    solana: {
+      rpcs: {
+        'solana:mainnet': {
+          rpc: createSolanaRpc(process.env.NEXT_PUBLIC_HELIUS_MAINNET_RPC || 'https://api.mainnet-beta.solana.com'),
+          rpcSubscriptions: createSolanaRpcSubscriptions('wss://api.mainnet-beta.solana.com'),
         },
-        // Custom design tokens to match space theme
-        design: {
-          // Modal backdrop
-          overlay: {
-            background: 'rgba(0, 0, 0, 0.92)',
-            backdropFilter: 'blur(12px)',
-          },
-          // Modal card
-          modal: {
-            background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%)',
-            borderRadius: '24px',
-            border: '1px solid rgba(100, 200, 255, 0.2)',
-            boxShadow: '0 0 60px rgba(100, 200, 255, 0.15), 0 0 120px rgba(59, 130, 246, 0.1)',
-          },
-          // Colors
-          colors: {
-            primary: '#3b82f6',
-            primaryHover: '#2563eb',
-            text: '#ffffff',
-            textSecondary: '#cbd5e1',
-            background: '#0f172a',
-            backgroundSecondary: '#1e293b',
-            border: 'rgba(100, 200, 255, 0.2)',
-          },
-          // Typography
-          fontFamily: 'Inter, system-ui, -apple-system, sans-serif',
+        'solana:devnet': {
+          rpc: createSolanaRpc(process.env.NEXT_PUBLIC_HELIUS_DEVNET_RPC || 'https://api.devnet.solana.com'),
+          rpcSubscriptions: createSolanaRpcSubscriptions('wss://api.devnet.solana.com'),
         },
-  }), [environmentId]);
+      },
+    },
+
+    // Legal and privacy
+    legal: {
+      termsAndConditionsUrl: 'https://yoursite.com/terms',
+      privacyPolicyUrl: 'https://yoursite.com/privacy',
+    },
+  };
 
   return (
-    <DynamicContextProvider settings={settings}>
+    <PrivyProvider appId={appId} config={config}>
       {children}
-    </DynamicContextProvider>
+    </PrivyProvider>
   );
 }
 

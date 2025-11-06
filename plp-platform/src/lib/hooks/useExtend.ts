@@ -5,7 +5,7 @@
  */
 
 import { useState } from 'react';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useWallet } from '@/hooks/useWallet';
 import { VersionedTransaction } from '@solana/web3.js';
 import { sendRawTransaction, getSolanaConnection } from '@/lib/solana';
 import { useNetwork } from './useNetwork';
@@ -25,7 +25,7 @@ interface DynamicWalletWithSigner {
 
 export function useExtend() {
   const [isExtending, setIsExtending] = useState(false);
-  const { primaryWallet } = useDynamicContext();
+  const { primaryWallet } = useWallet();
   const { network } = useNetwork();
 
   const extend = async (params: {

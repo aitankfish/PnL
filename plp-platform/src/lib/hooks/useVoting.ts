@@ -10,7 +10,7 @@
  */
 
 import { useState, useCallback } from 'react';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useWallet } from '@/hooks/useWallet';
 import { VersionedTransaction } from '@solana/web3.js';
 import { sendRawTransaction, getSolanaConnection } from '@/lib/solana';
 import { createClientLogger } from '@/lib/logger';
@@ -33,7 +33,7 @@ export interface VoteResult {
 }
 
 export function useVoting() {
-  const { primaryWallet, user } = useDynamicContext();
+  const { primaryWallet, user } = useWallet();
   const [isVoting, setIsVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -85,7 +85,11 @@ export function useVoting() {
       try {
         // Get Dynamic Labs signer
         logger.info('Getting Dynamic Labs signer...');
-        const signer = await (primaryWallet as any).getSigner();
+        // Get Privy wallet for signing
+        const privyWallet = (primaryWallet as any)._privyWallet;
+        if (!privyWallet) {
+          throw new Error('Privy wallet not found');
+        }
 
         // Deserialize transaction
         const rawTx = prepareResult.data.serializedTransaction;
@@ -98,8 +102,8 @@ export function useVoting() {
 
         logger.info('Transaction deserialized, signing...');
 
-        // Sign with Dynamic Labs
-        const signedTransaction = await signer.signTransaction(transaction);
+        // Sign with Privy wallet
+        const signedTransaction = await privyWallet.signTransaction(transaction);
         logger.info('Transaction signed successfully');
 
         // Step 3: Send to Solana (with fallback)
@@ -129,33 +133,8 @@ export function useVoting() {
         logger.info('Transaction confirmed!');
 
       } catch (signerError: any) {
-        logger.warn('Signer approach failed, trying _connector fallback...', signerError.message);
-
-        // Fallback: Try _connector approach (same as create page)
-        try {
-          const connector = (primaryWallet as any)._connector;
-          const rawTx = prepareResult.data.serializedTransaction;
-          const txBuffer = Buffer.from(rawTx, 'base64');
-          const transaction = VersionedTransaction.deserialize(txBuffer);
-
-          const signedTransaction = await (connector as any).signTransaction(transaction);
-          logger.info('Transaction signed via _connector');
-
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: true,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed',
-          });
-          logger.info('Transaction sent via _connector:', signature);
-
-          const connection = await getSolanaConnection();
-          await connection.confirmTransaction(signature, 'confirmed');
-          logger.info('Transaction confirmed!');
-
-        } catch (connectorError: any) {
-          logger.error('Both signing methods failed:', connectorError.message);
-          throw new Error(`Failed to sign transaction: ${connectorError.message}`);
-        }
+        logger.error('Privy wallet signing failed:', signerError.message);
+        throw new Error(`Failed to sign transaction: ${signerError.message}`);
       }
 
       // Step 5: Complete vote in MongoDB

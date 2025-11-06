@@ -3,7 +3,8 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useWallet } from '@/hooks/useWallet';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import {
   Plus,
   Target,
@@ -59,7 +60,8 @@ export default function Sidebar({ currentPage }: SidebarProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const router = useRouter();
-  const { primaryWallet, setShowAuthFlow } = useDynamicContext();
+  const { ready, authenticated, login, primaryWallet } = useWallet();
+  const { displayName, profilePhotoUrl } = useUserProfile();
 
   useEffect(() => {
     const handleScroll = () => {
@@ -82,12 +84,15 @@ export default function Sidebar({ currentPage }: SidebarProps) {
 
   // Handle wallet button click
   const handleWalletClick = () => {
-    if (primaryWallet?.address) {
-      // User is connected, navigate to wallet page
-      router.push('/wallet');
+    if (!ready) return; // Wait for wallet provider to be ready
+
+    if (!authenticated) {
+      // User is not authenticated, show login modal
+      login();
     } else {
-      // User is not connected, show login widget
-      setShowAuthFlow(true);
+      // User is authenticated, navigate to wallet page
+      // (wallet page will handle wallet creation if needed)
+      router.push('/wallet');
     }
   };
 
@@ -152,10 +157,20 @@ export default function Sidebar({ currentPage }: SidebarProps) {
             <UserInfo compact={true} className="hidden lg:flex" />
             <button
               onClick={handleWalletClick}
-              className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:scale-105 transition-transform cursor-pointer"
-              title={primaryWallet?.address ? "Wallet & Profile" : "Connect Wallet"}
+              className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:scale-105 transition-transform cursor-pointer overflow-hidden relative group"
+              title={authenticated ? `${displayName} - Wallet & Profile` : "Connect Wallet"}
             >
-              <User className="w-5 h-5 text-white" />
+              {authenticated && profilePhotoUrl ? (
+                <img
+                  src={profilePhotoUrl}
+                  alt={displayName}
+                  className="w-full h-full object-cover"
+                />
+              ) : (
+                <User className="w-5 h-5 text-white" />
+              )}
+              {/* Hover overlay */}
+              <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />
             </button>
           </div>
         </div>

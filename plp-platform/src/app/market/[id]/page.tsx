@@ -21,7 +21,7 @@ import { getPositionPDA } from '@/lib/anchor-program';
 import { PublicKey } from '@solana/web3.js';
 import CountdownTimer from '@/components/CountdownTimer';
 import { parseError } from '@/lib/utils/errorParser';
-import { useDynamicContext } from '@dynamic-labs/sdk-react-core';
+import { useWallet } from '@/hooks/useWallet';
 import useSWR from 'swr';
 import ErrorDialog from '@/components/ErrorDialog';
 import SuccessDialog from '@/components/SuccessDialog';
@@ -183,7 +183,7 @@ function getDetailedMarketStatus(
 export default function MarketDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { primaryWallet } = useDynamicContext();
+  const { primaryWallet } = useWallet();
   const { network } = useNetwork(); // Get current network from wallet
   const [market, setMarket] = useState<MarketDetails | null>(null);
   const [loading, setLoading] = useState(true);
