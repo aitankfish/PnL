@@ -10,6 +10,8 @@ import { useRouter } from 'next/navigation';
 import { useVoting } from '@/lib/hooks/useVoting';
 import { FEES } from '@/config/solana';
 import CountdownTimer from '@/components/CountdownTimer';
+import ErrorDialog from '@/components/ErrorDialog';
+import { parseError } from '@/lib/utils/errorParser';
 
 interface Market {
   id: string;
@@ -122,6 +124,19 @@ export default function BrowsePage() {
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const { vote, isVoting } = useVoting();
 
+  // Error dialog state
+  const [errorDialog, setErrorDialog] = useState<{
+    open: boolean;
+    title: string;
+    message: string;
+    details?: string;
+  }>({
+    open: false,
+    title: '',
+    message: '',
+    details: undefined,
+  });
+
   // Categories for filtering
   const categories = ['All', 'DeFi', 'Gaming', 'NFT', 'AI/ML', 'Social', 'Infrastructure', 'DAO', 'Other'];
 
@@ -164,11 +179,17 @@ export default function BrowsePage() {
     setVotingState(null);
 
     if (result.success) {
-      alert(`✅ Voted ${voteType.toUpperCase()}!\n\nTransaction: ${result.signature}\n\nYour vote has been recorded on-chain.`);
-      // Refresh markets to show updated counts
+      // Success - silently refresh the markets list
       fetchMarkets();
     } else {
-      alert(`❌ Vote failed: ${result.error}\n\nPlease try again.`);
+      // Error - show error dialog
+      const parsedError = parseError(result.error);
+      setErrorDialog({
+        open: true,
+        title: parsedError.title,
+        message: parsedError.message,
+        details: parsedError.details,
+      });
     }
   };
   // Get hot projects - prioritize live/active markets, top 2 by votes
@@ -629,6 +650,15 @@ export default function BrowsePage() {
             </Link>
           </div>
         </div>
+
+        {/* Error Dialog */}
+        <ErrorDialog
+          open={errorDialog.open}
+          onClose={() => setErrorDialog({ ...errorDialog, open: false })}
+          title={errorDialog.title}
+          message={errorDialog.message}
+          details={errorDialog.details}
+        />
       </div>
   );
 }
