@@ -18,7 +18,11 @@ const nextConfig: NextConfig = {
 
   // Experimental features for better performance
   experimental: {
-    optimizePackageImports: ['@solana/web3.js', 'lucide-react'],
+    optimizePackageImports: ['@solana/web3.js', 'lucide-react', '@privy-io/react-auth', '@solana/kit'],
+    turbo: {
+      // Enable Turbopack features for faster dev mode
+      rules: {},
+    },
   },
 
   // Webpack configuration

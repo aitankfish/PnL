@@ -1,16 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useTransition, useMemo, memo } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { useNotifications } from '@/hooks/useNotifications';
 import {
   Plus,
   Target,
   Rocket,
   Bell,
-  User
+  User,
+  Loader2
 } from 'lucide-react';
 import UserInfo from './UserInfo';
 
@@ -51,30 +53,40 @@ const sidebarItems: SidebarItem[] = [
     id: 'notifications',
     label: 'Notifications',
     icon: Bell,
-    href: '/notifications',
-    badge: '3'
+    href: '/notifications'
   }
 ];
 
-export default function Sidebar({ currentPage }: SidebarProps) {
+function Sidebar({ currentPage }: SidebarProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
+  const [isPending, startTransition] = useTransition();
   const router = useRouter();
   const { ready, authenticated, login, primaryWallet } = useWallet();
   const { displayName, profilePhotoUrl } = useUserProfile();
+  const { unreadCount } = useNotifications();
 
   useEffect(() => {
+    let ticking = false;
+
     const handleScroll = () => {
-      const currentScrollY = window.scrollY;
+      if (!ticking) {
+        window.requestAnimationFrame(() => {
+          const currentScrollY = window.scrollY;
 
-      // Show navigation when scrolling down, hide when scrolling up
-      if (currentScrollY < lastScrollY) {
-        setIsVisible(true);
-      } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
-        setIsVisible(false);
+          // Show navigation when scrolling down, hide when scrolling up
+          if (currentScrollY < lastScrollY) {
+            setIsVisible(true);
+          } else if (currentScrollY > lastScrollY && currentScrollY > 100) {
+            setIsVisible(false);
+          }
+
+          setLastScrollY(currentScrollY);
+          ticking = false;
+        });
+
+        ticking = true;
       }
-
-      setLastScrollY(currentScrollY);
     };
 
     window.addEventListener('scroll', handleScroll, { passive: true });
@@ -90,9 +102,10 @@ export default function Sidebar({ currentPage }: SidebarProps) {
       // User is not authenticated, show login modal
       login();
     } else {
-      // User is authenticated, navigate to wallet page
-      // (wallet page will handle wallet creation if needed)
-      router.push('/wallet');
+      // User is authenticated, navigate to wallet page with smooth transition
+      startTransition(() => {
+        router.push('/wallet');
+      });
     }
   };
 
@@ -126,22 +139,30 @@ export default function Sidebar({ currentPage }: SidebarProps) {
             {sidebarItems.map((item) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
-              
+              const showNotificationBadge = item.id === 'notifications' && unreadCount > 0;
+              const showNewBadge = item.badge === 'New';
+
               return (
                 <Link
                   key={item.id}
                   href={item.href || '#'}
+                  prefetch={true}
                   className={`
                     flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-200 group relative
-                    ${isActive 
-                      ? 'bg-white/20 text-white shadow-lg shadow-purple-500/20' 
+                    ${isActive
+                      ? 'bg-white/20 text-white shadow-lg shadow-purple-500/20'
                       : 'text-white/70 hover:text-white hover:bg-white/10'
                     }
                   `}
                   title={item.label}
                 >
                   <Icon className="w-5 h-5" />
-                  {item.badge && (
+                  {showNotificationBadge && (
+                    <div className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 rounded-full flex items-center justify-center">
+                      <span className="text-xs text-white font-bold">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                    </div>
+                  )}
+                  {showNewBadge && (
                     <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
                       <span className="text-xs text-white font-bold">!</span>
                     </div>
@@ -157,10 +178,13 @@ export default function Sidebar({ currentPage }: SidebarProps) {
             <UserInfo compact={true} className="hidden lg:flex" />
             <button
               onClick={handleWalletClick}
-              className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:scale-105 transition-transform cursor-pointer overflow-hidden relative group"
+              disabled={isPending}
+              className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:scale-105 transition-transform cursor-pointer overflow-hidden relative group disabled:opacity-70 disabled:cursor-not-allowed"
               title={authenticated ? `${displayName} - Wallet & Profile` : "Connect Wallet"}
             >
-              {authenticated && profilePhotoUrl ? (
+              {isPending ? (
+                <Loader2 className="w-5 h-5 text-white animate-spin" />
+              ) : authenticated && profilePhotoUrl ? (
                 <img
                   src={profilePhotoUrl}
                   alt={displayName}
@@ -178,3 +202,5 @@ export default function Sidebar({ currentPage }: SidebarProps) {
     </div>
   );
 }
+
+export default memo(Sidebar);

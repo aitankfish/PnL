@@ -13,6 +13,7 @@ import { getProgram } from '@/lib/anchor-program';
 import { connectToDatabase, getDatabase } from '@/lib/database/index';
 import { COLLECTIONS } from '@/lib/database/models';
 import { ObjectId } from 'mongodb';
+import { connectToDatabase as connectMongoose, Notification, PredictionParticipant } from '@/lib/mongodb';
 
 const logger = createClientLogger();
 
@@ -86,6 +87,95 @@ export async function POST(request: NextRequest) {
       marketId,
       resolution: resolutionOutcome,
     });
+
+    // Create notifications for all participants
+    try {
+      await connectMongoose();
+
+      // Fetch all participants for this market
+      const participants = await PredictionParticipant.find({ marketId }).lean();
+
+      if (participants.length > 0) {
+        logger.info(`Creating notifications for ${participants.length} participants`);
+
+        // Get market details for notification message
+        const market = await db.collection(COLLECTIONS.PREDICTION_MARKETS).findOne(
+          { _id: new ObjectId(marketId) }
+        );
+
+        if (market) {
+          const marketName = market.marketName || 'Market';
+
+          // Create notifications based on resolution outcome
+          const notifications = participants.map(participant => {
+            let title = '';
+            let message = '';
+            let priority: 'high' | 'medium' | 'low' = 'high';
+
+            if (resolutionOutcome === 'YesWins') {
+              if (participant.voteOption === true) {
+                // YES voter won
+                title = `You Won! ${marketName}`;
+                message = `Congratulations! Your YES vote was correct. Token airdrop is being processed!`;
+                priority = 'high';
+              } else {
+                // NO voter lost
+                title = `Market Resolved - ${marketName}`;
+                message = `The market resolved YES. Your NO prediction was incorrect.`;
+                priority = 'medium';
+              }
+            } else if (resolutionOutcome === 'NoWins') {
+              if (participant.voteOption === false) {
+                // NO voter won
+                title = `You Won! ${marketName}`;
+                message = `Congratulations! Your NO vote was correct. You'll receive SOL rewards!`;
+                priority = 'high';
+              } else {
+                // YES voter lost
+                title = `Market Resolved - ${marketName}`;
+                message = `The market resolved NO. Your YES prediction was incorrect.`;
+                priority = 'medium';
+              }
+            } else if (resolutionOutcome === 'Refund') {
+              title = `Market Refunded - ${marketName}`;
+              message = `The market was refunded. You can claim your original stake back.`;
+              priority = 'medium';
+            } else {
+              // Unresolved or Unknown
+              title = `Market Status Update - ${marketName}`;
+              message = `The market status has been updated. Check the market page for details.`;
+              priority = 'low';
+            }
+
+            return {
+              userId: participant.participantWallet,
+              type: 'market_resolved',
+              title,
+              message,
+              priority,
+              marketId: new ObjectId(marketId),
+              actionUrl: `/market/${marketId}`,
+              metadata: {
+                resolution: resolutionOutcome,
+                voteOption: participant.voteOption ? 'yes' : 'no',
+                won: (resolutionOutcome === 'YesWins' && participant.voteOption) ||
+                     (resolutionOutcome === 'NoWins' && !participant.voteOption),
+                action: 'claim_reward',
+              },
+            };
+          });
+
+          // Bulk insert notifications
+          await Notification.insertMany(notifications);
+          logger.info(`Created ${notifications.length} resolution notifications`);
+        }
+      }
+    } catch (error) {
+      logger.error('Failed to create resolution notifications (non-fatal)', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      // Don't fail the request if notification creation fails
+    }
 
     return NextResponse.json({
       success: true,

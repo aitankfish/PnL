@@ -42,7 +42,7 @@ export async function GET(_request: NextRequest) {
     const markets = await PredictionMarket.find({ marketState: 0 }) // 0 = Active
       .populate('projectId') // Populate project data in one query
       .sort({ createdAt: -1 }) // Most recent first
-      .limit(50) // Limit to 50 markets
+      .limit(20) // Limit to 20 markets for faster initial load
       .lean();
 
     // Combine market and project data

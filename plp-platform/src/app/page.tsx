@@ -17,10 +17,10 @@ export default function HomePage() {
           </div>
           <div className="flex flex-col sm:flex-row justify-center gap-3 pt-2 animate-in fade-in duration-700 delay-200">
             <Button asChild size="lg" className="text-base md:text-lg px-8 py-5 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 text-white hover:scale-105 transition-all duration-300">
-              <Link href="/launchpad">Explore Markets</Link>
+              <Link href="/launchpad" prefetch={true}>Explore Markets</Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="text-base md:text-lg px-8 py-5 border-2 border-white/20 text-white hover:bg-white/10 hover:scale-105 transition-all duration-300">
-              <Link href="/create">Launch Your Project</Link>
+              <Link href="/create" prefetch={true}>Launch Your Project</Link>
             </Button>
           </div>
         </div>
@@ -252,10 +252,10 @@ export default function HomePage() {
           </div>
           <div className="flex flex-col sm:flex-row justify-center gap-4 pt-2">
             <Button asChild size="lg" className="text-lg px-10 py-6 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white hover:scale-105 transition-all duration-300">
-              <Link href="/create">Create Prediction Market</Link>
+              <Link href="/create" prefetch={true}>Create Prediction Market</Link>
             </Button>
             <Button asChild size="lg" variant="outline" className="text-lg px-10 py-6 border-2 border-white/20 text-white hover:bg-white/10 hover:scale-105 transition-all duration-300">
-              <Link href="/browse">Browse Projects</Link>
+              <Link href="/browse" prefetch={true}>Browse Projects</Link>
             </Button>
           </div>
         </div>

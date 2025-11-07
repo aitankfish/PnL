@@ -6,7 +6,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase as connectMongoose, PredictionMarket } from '@/lib/mongodb';
+import { connectToDatabase as connectMongoose, PredictionMarket, Notification } from '@/lib/mongodb';
 import { connectToDatabase, getDatabase } from '@/lib/database/index';
 import { COLLECTIONS, TradeHistory } from '@/lib/database/models';
 import { createClientLogger } from '@/lib/logger';
@@ -111,6 +111,31 @@ export async function POST(request: NextRequest) {
         error: error instanceof Error ? error.message : String(error)
       });
       // Don't fail the request if trade history write fails
+    }
+
+    // Create notification for the voter
+    try {
+      await Notification.create({
+        userId: traderWallet,
+        type: 'vote_result',
+        title: `Vote Recorded - ${updatedMarket.marketName}`,
+        message: `Your ${voteType.toUpperCase()} vote of ${amount} SOL was successfully recorded!`,
+        priority: 'medium',
+        marketId: updatedMarket._id,
+        actionUrl: `/market/${updatedMarket._id}`,
+        metadata: {
+          voteType,
+          amount: lamports,
+          signature,
+          action: 'view_project',
+        },
+      });
+      logger.info('Vote notification created', { traderWallet, marketId });
+    } catch (error) {
+      logger.error('Failed to create vote notification (non-fatal)', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      // Don't fail the request if notification creation fails
     }
 
     logger.info('Vote completed successfully', {

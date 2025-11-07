@@ -64,25 +64,25 @@ function getMarketStatus(market: Market): { status: string; badgeClass: string }
   const isPoolFull = currentPool >= targetPoolValue;
   const poolProgressPercentage = (currentPool / targetPoolValue) * 100;
 
-  // Check resolution status from database (if market has been resolved)
-  if (market.status) {
+  // Check resolution status from database (if market has been resolved and synced)
+  if (market.status && market.status !== 'Unresolved' && market.status !== 'active') {
     const statusLower = market.status.toLowerCase();
 
-    if (statusLower.includes('yes') && statusLower.includes('win')) {
+    if (statusLower === 'yeswins' || (statusLower.includes('yes') && statusLower.includes('win'))) {
       return {
         status: '🎉 YES Wins',
         badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
       };
     }
 
-    if (statusLower.includes('no') && statusLower.includes('win')) {
+    if (statusLower === 'nowins' || (statusLower.includes('no') && statusLower.includes('win'))) {
       return {
         status: '❌ NO Wins',
         badgeClass: 'bg-red-500/20 text-red-300 border-red-400/30'
       };
     }
 
-    if (statusLower.includes('refund') || statusLower.includes('cancelled')) {
+    if (statusLower === 'refund' || statusLower.includes('refund') || statusLower.includes('cancelled')) {
       return {
         status: '↩️ Refund',
         badgeClass: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30'
@@ -90,7 +90,7 @@ function getMarketStatus(market: Market): { status: string; badgeClass: string }
     }
   }
 
-  // Market expired but not yet resolved
+  // Market expired but not yet resolved/synced
   if (isExpired) {
     return {
       status: '⏳ Awaiting Resolution',
@@ -119,7 +119,11 @@ export default function BrowsePage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [votingState, setVotingState] = useState<{ marketId: string; voteType: 'yes' | 'no' } | null>(null);
+  const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const { vote, isVoting } = useVoting();
+
+  // Categories for filtering
+  const categories = ['All', 'DeFi', 'Gaming', 'NFT', 'AI/ML', 'Social', 'Infrastructure', 'DAO', 'Other'];
 
   // Minimum vote amount from config
   const QUICK_VOTE_AMOUNT = FEES.MINIMUM_INVESTMENT / 1_000_000_000; // 0.01 SOL
@@ -167,51 +171,266 @@ export default function BrowsePage() {
       alert(`❌ Vote failed: ${result.error}\n\nPlease try again.`);
     }
   };
+  // Get hot projects - prioritize live/active markets, top 2 by votes
+  const getHotProjects = () => {
+    if (markets.length === 0) return [];
+
+    // First try to get active/live markets
+    const activeMarkets = markets.filter(m => {
+      const status = getMarketStatus(m);
+      return status.status === '✅ Active' || status.status === '🎯 Pool Complete';
+    });
+
+    // Sort by total votes
+    const sortByVotes = (a: Market, b: Market) => {
+      const aVotes = a.yesVotes + a.noVotes;
+      const bVotes = b.yesVotes + b.noVotes;
+      return bVotes - aVotes;
+    };
+
+    // If we have active markets, use them. Otherwise use all markets
+    const marketsToUse = activeMarkets.length > 0 ? activeMarkets : markets;
+
+    // Return top 2
+    return marketsToUse.sort(sortByVotes).slice(0, 2);
+  };
+
+  const hotProjects = getHotProjects();
+
+  // Filter out hot projects from regular markets list
+  const hotProjectIds = hotProjects.map(p => p.id);
+  let regularMarkets = markets.filter(m => !hotProjectIds.includes(m.id));
+
+  // Apply category filter
+  if (selectedCategory !== 'All') {
+    regularMarkets = regularMarkets.filter(m => {
+      const categoryLower = m.category.toLowerCase();
+      const selectedLower = selectedCategory.toLowerCase();
+      return categoryLower === selectedLower ||
+             (selectedCategory === 'AI/ML' && (categoryLower === 'ai/ml' || categoryLower === 'ai'));
+    });
+  }
+
   return (
     <div className="p-6 space-y-8">
         {/* Header */}
-        <div className="text-center space-y-4">
-          <h1 className="text-4xl font-bold text-white mb-2">
-            Active Prediction Markets
+        <div className="text-center">
+          <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 tracking-tight">
+            Vote on projects. Earn rewards. Shape Web3.
           </h1>
-          <p className="text-white/70 text-lg">
-            Browse and participate in active prediction markets. Vote YES or NO on whether projects should launch tokens.
-          </p>
         </div>
 
-        {/* Stats */}
-        <div className="grid gap-6 md:grid-cols-3">
-          <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/20 cursor-pointer group">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-4xl font-bold text-white group-hover:text-cyan-300 transition-colors">
-                {loading ? '...' : markets.length}
-              </CardTitle>
-              <CardDescription className="text-gray-300 group-hover:text-white transition-colors">Active Markets</CardDescription>
-            </CardHeader>
-          </Card>
+        {/* Hot Projects Section */}
+        {!loading && hotProjects.length > 0 && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-center space-x-3">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-orange-500 to-transparent"></div>
+              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 flex items-center space-x-2 animate-pulse">
+                <span>🔥</span>
+                <span>Hottest Markets</span>
+                <span>🔥</span>
+              </h2>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-orange-500 to-transparent"></div>
+            </div>
 
-          <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/20 cursor-pointer group">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-4xl font-bold text-white group-hover:text-cyan-300 transition-colors">
-                {loading ? '...' : markets.reduce((sum, m) => sum + m.yesVotes + m.noVotes, 0)}
-              </CardTitle>
-              <CardDescription className="text-gray-300 group-hover:text-white transition-colors">Total Votes</CardDescription>
-            </CardHeader>
-          </Card>
+            <div className="grid gap-6 md:grid-cols-2">
+              {hotProjects.map((hotProject, index) => {
+                // First card: Orange/Red theme, Second card: Purple/Blue theme
+                const isFirstCard = index === 0;
+                const cardColors = isFirstCard ? {
+                  gradient: 'from-orange-500/10 via-red-500/10 to-pink-500/10',
+                  border: 'border-orange-500/50',
+                  borderHover: 'hover:border-orange-400',
+                  shadow: 'shadow-orange-500/20',
+                  cornerBorder: 'border-orange-400',
+                  imageBg: 'bg-orange-500',
+                  imageRing: 'ring-orange-400',
+                  imageRingHover: 'group-hover:ring-orange-300',
+                  titleHover: 'group-hover:text-orange-300',
+                  fallbackGradient: 'from-orange-500/20 to-pink-500/20'
+                } : {
+                  gradient: 'from-purple-500/10 via-blue-500/10 to-cyan-500/10',
+                  border: 'border-purple-500/50',
+                  borderHover: 'hover:border-purple-400',
+                  shadow: 'shadow-purple-500/20',
+                  cornerBorder: 'border-purple-400',
+                  imageBg: 'bg-purple-500',
+                  imageRing: 'ring-purple-400',
+                  imageRingHover: 'group-hover:ring-purple-300',
+                  titleHover: 'group-hover:text-purple-300',
+                  fallbackGradient: 'from-purple-500/20 to-cyan-500/20'
+                };
 
-          <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-105 hover:shadow-lg hover:shadow-white/20 cursor-pointer group">
-            <CardHeader className="text-center pb-2">
-              <CardTitle className="text-4xl font-bold text-white group-hover:text-cyan-300 transition-colors">
-                {loading ? '...' : markets.reduce((sum, m) => sum + parseFloat(m.targetPool), 0).toFixed(1)} SOL
-              </CardTitle>
-              <CardDescription className="text-gray-300 group-hover:text-white transition-colors">Total Pool</CardDescription>
-            </CardHeader>
-          </Card>
-        </div>
+                return (
+                <Link href={`/market/${hotProject.id}`} key={hotProject.id} prefetch={true} className="block">
+              <Card className={`relative bg-gradient-to-br ${cardColors.gradient} backdrop-blur-xl border-2 ${cardColors.border} text-white ${cardColors.borderHover} transition-all duration-500 hover:scale-[1.02] group cursor-pointer overflow-hidden shadow-2xl ${cardColors.shadow}`}>
+                {/* Animated gradient overlay */}
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/5 to-transparent transform translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000"></div>
+
+                {/* Pulsing corners */}
+                <div className={`absolute top-0 left-0 w-4 h-4 border-t-2 border-l-2 ${cardColors.cornerBorder} animate-pulse`}></div>
+                <div className={`absolute top-0 right-0 w-4 h-4 border-t-2 border-r-2 ${cardColors.cornerBorder} animate-pulse`}></div>
+                <div className={`absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 ${cardColors.cornerBorder} animate-pulse`}></div>
+                <div className={`absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 ${cardColors.cornerBorder} animate-pulse`}></div>
+
+                <CardHeader>
+                  <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start space-x-3 flex-1">
+                      {/* Project Image */}
+                      {hotProject.projectImageUrl ? (
+                        <div className="flex-shrink-0 relative">
+                          <div className={`absolute inset-0 ${cardColors.imageBg} rounded-lg blur-md opacity-50 animate-pulse`}></div>
+                          <img
+                            src={hotProject.projectImageUrl}
+                            alt={hotProject.name}
+                            className={`relative w-16 h-16 rounded-lg object-cover ring-2 ${cardColors.imageRing} ${cardColors.imageRingHover} transition-all transform group-hover:scale-110`}
+                            onError={(e) => {
+                              const target = e.target as HTMLImageElement;
+                              target.style.display = 'none';
+                              const fallback = target.nextElementSibling as HTMLElement;
+                              if (fallback) fallback.style.display = 'flex';
+                            }}
+                          />
+                          <div className={`hidden w-16 h-16 rounded-lg bg-gradient-to-br ${cardColors.fallbackGradient} items-center justify-center ring-2 ${cardColors.imageRing} ${cardColors.imageRingHover} transition-all flex-shrink-0`}>
+                            <span className="text-2xl font-bold text-white/70">{hotProject.name.charAt(0)}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className={`w-16 h-16 rounded-lg bg-gradient-to-br ${cardColors.fallbackGradient} flex items-center justify-center ring-2 ${cardColors.imageRing} ${cardColors.imageRingHover} transition-all flex-shrink-0`}>
+                          <span className="text-2xl font-bold text-white/70">{hotProject.name.charAt(0)}</span>
+                        </div>
+                      )}
+
+                      {/* Project Info */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center space-x-3 mb-2">
+                          <CardTitle className={`text-2xl text-white ${cardColors.titleHover} transition-colors truncate`}>{hotProject.name}</CardTitle>
+                          <Badge className={`${getMarketStatus(hotProject).badgeClass} ml-2 flex-shrink-0`}>{getMarketStatus(hotProject).status}</Badge>
+                        </div>
+                        <CardDescription className="text-gray-300 group-hover:text-white transition-colors line-clamp-2">{hotProject.description}</CardDescription>
+                      </div>
+                    </div>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Category:</span>
+                      <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30">{formatLabel(hotProject.category)}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Stage:</span>
+                      <span className="text-white">{formatLabel(hotProject.stage)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Token:</span>
+                      <span className="font-mono font-bold text-white">${hotProject.tokenSymbol}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-gray-400">Pool:</span>
+                      <span className="font-bold text-white">{hotProject.targetPool}</span>
+                    </div>
+                  </div>
+
+                  {/* Voting Stats */}
+                  <div className="space-y-2">
+                    <div className="flex justify-between text-sm">
+                      <div className="flex items-center space-x-1">
+                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <span className="text-green-400">YES: {hotProject.yesVotes}</span>
+                      </div>
+                      <div className="flex items-center space-x-1">
+                        <span className="text-red-400">NO: {hotProject.noVotes}</span>
+                        <XCircle className="w-4 h-4 text-red-400" />
+                      </div>
+                    </div>
+                    <div className="w-full bg-gray-700 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-green-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${(hotProject.yesVotes / (hotProject.yesVotes + hotProject.noVotes)) * 100}%` }}
+                      ></div>
+                    </div>
+                    <div className="text-center">
+                      <span className="text-lg font-bold text-white">
+                        {Math.round((hotProject.yesVotes / (hotProject.yesVotes + hotProject.noVotes)) * 100)}%
+                      </span>
+                      <span className="text-sm text-gray-400 ml-1">YES</span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between text-sm pt-2 border-t border-white/10">
+                    <span className="text-gray-400">Time Left:</span>
+                    <CountdownTimer expiryTime={hotProject.expiryTime} />
+                  </div>
+
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleQuickVote(hotProject, 'yes');
+                      }}
+                      disabled={votingState !== null}
+                      className="flex-1 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      size="sm"
+                    >
+                      {votingState?.marketId === hotProject.id && votingState?.voteType === 'yes' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'Vote YES'
+                      )}
+                    </Button>
+                    <Button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        handleQuickVote(hotProject, 'no');
+                      }}
+                      disabled={votingState !== null}
+                      variant="outline"
+                      className="flex-1 border-white/20 text-white hover:bg-white/10 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                      size="sm"
+                    >
+                      {votingState?.marketId === hotProject.id && votingState?.voteType === 'no' ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        'Vote NO'
+                      )}
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+                </Link>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Projects List */}
         <div className="space-y-6">
-          <h2 className="text-3xl font-bold text-white">Live Markets</h2>
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <h2 className="text-3xl font-bold text-white">Live Markets</h2>
+
+            {/* Category Filter Pills */}
+            <div className="flex flex-wrap gap-2">
+              {categories.map((category) => (
+                <button
+                  key={category}
+                  onClick={() => setSelectedCategory(category)}
+                  className={`
+                    px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300
+                    ${selectedCategory === category
+                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/50 scale-105'
+                      : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white hover:scale-105'
+                    }
+                  `}
+                >
+                  {category}
+                </button>
+              ))}
+            </div>
+          </div>
 
           {/* Loading State */}
           {loading && (
@@ -237,19 +456,30 @@ export default function BrowsePage() {
               <p className="text-white/70 text-lg mb-4">No active markets yet.</p>
               <p className="text-white/50 mb-6">Be the first to launch a prediction market!</p>
               <Button asChild className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
-                <Link href="/create">Launch Your Project</Link>
+                <Link href="/create" prefetch={true}>Launch Your Project</Link>
+              </Button>
+            </div>
+          )}
+
+          {/* Show empty state for regular markets if only hot project exists */}
+          {!loading && !error && markets.length > 0 && regularMarkets.length === 0 && (
+            <div className="text-center py-12">
+              <p className="text-white/70 text-lg mb-4">All markets are featured above!</p>
+              <p className="text-white/50 mb-6">Check back soon for more exciting projects.</p>
+              <Button asChild className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+                <Link href="/create" prefetch={true}>Launch Your Project</Link>
               </Button>
             </div>
           )}
 
           {/* Markets Grid */}
-          {!loading && !error && markets.length > 0 && (
+          {!loading && !error && regularMarkets.length > 0 && (
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {markets.map((project) => {
+              {regularMarkets.map((project) => {
                 const marketStatus = getMarketStatus(project);
 
                 return (
-              <Link href={`/market/${project.id}`} key={project.id} className="block">
+              <Link href={`/market/${project.id}`} key={project.id} prefetch={true} className="block">
               <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-102 group cursor-pointer">
                 <CardHeader>
                   <div className="flex items-start justify-between mb-3">
@@ -392,6 +622,7 @@ export default function BrowsePage() {
           <div className="flex justify-center">
             <Link
               href="/create"
+              prefetch={true}
               className="inline-flex items-center justify-center px-8 py-3 text-lg font-semibold text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-md hover:from-purple-600 hover:to-pink-600 transition-all duration-200 hover:scale-105 cursor-pointer"
             >
               Launch Your Project
