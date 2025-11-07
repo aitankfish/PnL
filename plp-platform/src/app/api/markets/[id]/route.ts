@@ -125,10 +125,18 @@ export async function GET(
 
     logger.info('Fetched market details', { marketId: id });
 
-    return NextResponse.json({
-      success: true,
-      data: marketDetails,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: marketDetails,
+      },
+      {
+        headers: {
+          // Cache for 15 seconds, serve stale for 30 seconds while revalidating
+          'Cache-Control': 'public, s-maxage=15, stale-while-revalidate=30',
+        },
+      }
+    );
 
   } catch (error) {
     logger.error('Failed to fetch market details:', error);

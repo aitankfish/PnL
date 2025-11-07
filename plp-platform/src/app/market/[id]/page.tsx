@@ -237,8 +237,9 @@ export default function MarketDetailsPage() {
     params.id ? `/api/markets/${params.id}/history?network=${network}` : null,
     fetcher,
     {
-      refreshInterval: 10000, // Poll every 10 seconds for live updates
+      refreshInterval: 20000, // Poll every 20 seconds (reduced from 10s)
       revalidateOnFocus: true,
+      dedupingInterval: 10000, // Dedupe requests within 10s
     }
   );
 
@@ -250,6 +251,7 @@ export default function MarketDetailsPage() {
     fetcher,
     {
       revalidateOnFocus: true,
+      dedupingInterval: 5000, // Dedupe requests within 5s
     }
   );
 
@@ -258,8 +260,9 @@ export default function MarketDetailsPage() {
     params.id ? `/api/markets/${params.id}/holders?network=${network}` : null,
     fetcher,
     {
-      refreshInterval: 10000, // Poll every 10 seconds for live updates
+      refreshInterval: 30000, // Poll every 30 seconds (reduced from 10s)
       revalidateOnFocus: true,
+      dedupingInterval: 15000, // Dedupe requests within 15s
     }
   );
 
@@ -268,8 +271,9 @@ export default function MarketDetailsPage() {
     market?.marketAddress ? `/api/markets/${market.marketAddress}/onchain?network=${network}` : null,
     fetcher,
     {
-      refreshInterval: 15000, // Poll every 15 seconds for status updates
+      refreshInterval: 20000, // Poll every 20 seconds (reduced from 15s)
       revalidateOnFocus: true,
+      dedupingInterval: 10000, // Dedupe requests within 10s
     }
   );
 

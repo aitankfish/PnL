@@ -345,10 +345,18 @@ export async function GET(
       isResolved: resolutionStatus !== 'Unresolved',
     };
 
-    return NextResponse.json({
-      success: true,
-      data: onchainData,
-    });
+    return NextResponse.json(
+      {
+        success: true,
+        data: onchainData,
+      },
+      {
+        headers: {
+          // Cache for 10 seconds, serve stale for 20 seconds while revalidating
+          'Cache-Control': 'public, s-maxage=10, stale-while-revalidate=20',
+        },
+      }
+    );
 
   } catch (error) {
     logger.error('Failed to fetch on-chain market data:', error);
