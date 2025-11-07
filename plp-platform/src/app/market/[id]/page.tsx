@@ -663,9 +663,18 @@ export default function MarketDetailsPage() {
     );
   }
 
-  const yesPercentage = market.yesVotes + market.noVotes > 0
-    ? Math.round((market.yesVotes / (market.yesVotes + market.noVotes)) * 100)
-    : 50;
+  // Calculate percentage based on on-chain shares (capital-weighted), not vote count
+  // This matches how the winner is actually determined
+  const yesPercentage = onchainData?.data?.totalYesShares && onchainData?.data?.totalNoShares
+    ? (() => {
+        const totalYes = parseFloat(onchainData.data.totalYesShares);
+        const totalNo = parseFloat(onchainData.data.totalNoShares);
+        const total = totalYes + totalNo;
+        return total > 0 ? Math.round((totalYes / total) * 100) : 50;
+      })()
+    : market.yesVotes + market.noVotes > 0
+      ? Math.round((market.yesVotes / (market.yesVotes + market.noVotes)) * 100)
+      : 50;
 
   // Calculate dynamic market status
   const marketStatus = getDetailedMarketStatus(market, onchainData);
