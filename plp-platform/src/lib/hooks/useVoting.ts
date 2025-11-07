@@ -3,7 +3,7 @@
  *
  * Handles voting transactions using the same pattern as the create page:
  * 1. Prepare transaction (server-side)
- * 2. Sign with Dynamic wallet (client-side)
+ * 2. Sign with Privy wallet (client-side)
  * 3. Send to Solana (client-side)
  * 4. Confirm transaction
  * 5. Update MongoDB (server-side)
@@ -11,9 +11,10 @@
 
 import { useState, useCallback } from 'react';
 import { useWallet } from '@/hooks/useWallet';
-import { VersionedTransaction } from '@solana/web3.js';
-import { sendRawTransaction, getSolanaConnection } from '@/lib/solana';
+import { getSolanaConnection } from '@/lib/solana';
 import { createClientLogger } from '@/lib/logger';
+import { useWallets, useSignAndSendTransaction, useStandardWallets } from '@privy-io/react-auth/solana';
+import bs58 from 'bs58';
 
 const logger = createClientLogger();
 
@@ -33,7 +34,10 @@ export interface VoteResult {
 }
 
 export function useVoting() {
-  const { primaryWallet, user } = useWallet();
+  const { primaryWallet } = useWallet();
+  const { wallets } = useWallets(); // External wallets
+  const { wallets: standardWallets } = useStandardWallets(); // Standard wallet interface (includes embedded)
+  const { signAndSendTransaction } = useSignAndSendTransaction();
   const [isVoting, setIsVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,62 +83,59 @@ export function useVoting() {
         positionPda: prepareResult.data.positionPda,
       });
 
-      // Step 2: Sign transaction with Dynamic wallet (same pattern as create page)
+      // Step 2: Sign and send transaction with Privy (single call)
       let signature: string;
 
       try {
-        // Get Dynamic Labs signer
-        logger.info('Getting Dynamic Labs signer...');
-        // Get Privy wallet for signing
-        const privyWallet = (primaryWallet as any)._privyWallet;
-        if (!privyWallet) {
-          throw new Error('Privy wallet not found');
-        }
-
-        // Deserialize transaction
         const rawTx = prepareResult.data.serializedTransaction;
         if (!rawTx) {
           throw new Error('No serialized transaction provided by server');
         }
 
-        const txBuffer = Buffer.from(rawTx, 'base64');
-        const transaction = VersionedTransaction.deserialize(txBuffer);
+        logger.info('Signing and sending transaction with Privy...');
 
-        logger.info('Transaction deserialized, signing...');
+        // Get Solana wallet - prioritize external wallets, fallback to standard wallets (embedded)
+        let solanaWallet;
 
-        // Sign with Privy wallet
-        const signedTransaction = await privyWallet.signTransaction(transaction);
-        logger.info('Transaction signed successfully');
-
-        // Step 3: Send to Solana (with fallback)
-        logger.info('Sending transaction to Solana...');
-
-        try {
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: false,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed',
-          });
-          logger.info('Transaction sent:', signature);
-        } catch (rpcError: any) {
-          logger.warn('Primary RPC failed, trying with skipPreflight...', rpcError.message);
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: true,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed',
-          });
-          logger.info('Transaction sent via fallback:', signature);
+        if (wallets && wallets.length > 0) {
+          // Path 1: External wallet (Phantom, Solflare, etc.)
+          logger.info('Using external Solana wallet');
+          solanaWallet = wallets[0];
+        } else if (standardWallets && standardWallets.length > 0) {
+          // Path 2: Embedded wallet from standard wallets
+          logger.info('Using embedded Solana wallet');
+          const privyWallet = standardWallets.find((w: any) => w.isPrivyWallet || w.name === 'Privy');
+          if (!privyWallet) {
+            throw new Error('No Privy wallet found');
+          }
+          solanaWallet = privyWallet;
+        } else {
+          throw new Error('No Solana wallet found');
         }
 
-        // Step 4: Wait for confirmation
+        // Convert base64 transaction to Uint8Array
+        const txBuffer = Buffer.from(rawTx, 'base64');
+
+        // Use signAndSendTransaction - works for both external and embedded wallets
+        const result = await signAndSendTransaction({
+          transaction: txBuffer,
+          wallet: solanaWallet as any,
+          chain: 'solana:devnet', // or 'solana:mainnet' based on your network
+        });
+
+        // Extract signature from result and convert to base58 (Solana standard format)
+        signature = bs58.encode(result.signature);
+        logger.info('Transaction signed and sent', { signature });
+
+        // Wait for confirmation
         logger.info('Waiting for confirmation...');
         const connection = await getSolanaConnection();
         await connection.confirmTransaction(signature, 'confirmed');
         logger.info('Transaction confirmed!');
 
       } catch (signerError: any) {
-        logger.error('Privy wallet signing failed:', signerError.message);
-        throw new Error(`Failed to sign transaction: ${signerError.message}`);
+        logger.error('Privy signing/sending failed', { error: signerError.message });
+        throw new Error(`Failed to sign/send transaction: ${signerError.message}`);
       }
 
       // Step 5: Complete vote in MongoDB
@@ -178,7 +179,7 @@ export function useVoting() {
 
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Unknown error';
-      logger.error('Vote transaction failed:', err);
+      logger.error('Vote transaction failed', { error: err });
       setError(errorMessage);
       setIsVoting(false);
       return {
@@ -186,7 +187,7 @@ export function useVoting() {
         error: errorMessage,
       };
     }
-  }, [primaryWallet, user]);
+  }, [primaryWallet, wallets, standardWallets, signAndSendTransaction]);
 
   return {
     vote,
