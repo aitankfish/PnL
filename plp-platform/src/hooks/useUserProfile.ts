@@ -39,8 +39,9 @@ export function useUserProfile() {
   const profile = data?.success && data.data ? data.data : null;
 
   // Get display name (priority: username > email prefix > address)
+  const emailString = typeof user?.email === 'string' ? user.email : (user?.email as any)?.address;
   const displayName = profile?.username
-    || user?.email?.split('@')[0]
+    || (emailString ? emailString.split('@')[0] : null)
     || primaryWallet?.address?.slice(0, 8)
     || 'User';
 

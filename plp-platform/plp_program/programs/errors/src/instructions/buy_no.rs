@@ -64,26 +64,45 @@ pub fn handler(ctx: Context<BuyNo>, sol_amount: u64) -> Result<()> {
     );
 
     // -------------------------
-    // Calculate fees first to check capacity properly
+    // Calculate fees and cap amount to remaining pool capacity
     // -------------------------
 
-    let trade_fee = (sol_amount * TRADE_FEE_BPS) / BPS_DIVISOR;
-    let net_amount = sol_amount
+    let mut actual_sol_amount = sol_amount;
+    let mut trade_fee = (actual_sol_amount * TRADE_FEE_BPS) / BPS_DIVISOR;
+    let mut net_amount = actual_sol_amount
         .checked_sub(trade_fee)
         .ok_or(ErrorCode::MathError)?;
 
-    // Check pool cap only in Prediction phase
+    // Cap amount to remaining pool capacity in Prediction phase
     // In Funding phase (after extension), trading can continue beyond target
     if market.phase == MarketPhase::Prediction {
-        let new_pool_balance = market
-            .pool_balance
-            .checked_add(net_amount)
+        let remaining_capacity = market
+            .target_pool
+            .checked_sub(market.pool_balance)
             .ok_or(ErrorCode::MathError)?;
 
-        require!(
-            new_pool_balance <= market.target_pool,
-            ErrorCode::CapReached
-        );
+        // If net amount exceeds remaining capacity, cap it
+        if net_amount > remaining_capacity {
+            net_amount = remaining_capacity;
+
+            // Recalculate actual SOL amount needed (reverse the fee calculation)
+            // net_amount = sol_amount - fee
+            // net_amount = sol_amount - (sol_amount * 1.5 / 100)
+            // net_amount = sol_amount * (1 - 0.015)
+            // net_amount = sol_amount * 0.985
+            // sol_amount = net_amount / 0.985
+            // sol_amount = net_amount * 100 / 98.5
+            // sol_amount = net_amount * 10000 / 9850
+            actual_sol_amount = (net_amount * BPS_DIVISOR) / (BPS_DIVISOR - TRADE_FEE_BPS);
+            trade_fee = actual_sol_amount
+                .checked_sub(net_amount)
+                .ok_or(ErrorCode::MathError)?;
+
+            msg!("⚠️  Vote amount capped to remaining pool capacity");
+            msg!("   Requested: {} lamports", sol_amount);
+            msg!("   Capped to: {} lamports", actual_sol_amount);
+            msg!("   Remaining capacity: {} lamports", remaining_capacity);
+        }
     }
 
     // One position rule: if user has YES shares, they cannot buy NO
@@ -194,12 +213,12 @@ pub fn handler(ctx: Context<BuyNo>, sol_amount: u64) -> Result<()> {
 
     position.total_invested = position
         .total_invested
-        .checked_add(sol_amount)
+        .checked_add(actual_sol_amount)
         .ok_or(ErrorCode::MathError)?;
 
     msg!("✅ BUY NO");
     msg!("   User: {}", ctx.accounts.user.key());
-    msg!("   SOL spent: {} lamports", sol_amount);
+    msg!("   SOL spent: {} lamports", actual_sol_amount);
     msg!("   Trade fee: {} lamports (1.5%)", trade_fee);
     msg!("   Net to pool: {} lamports", net_amount);
     msg!("   Shares received: {}", shares);

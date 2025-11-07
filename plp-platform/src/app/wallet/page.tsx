@@ -376,10 +376,18 @@ export default function WalletPage() {
   // Load profile data
   useEffect(() => {
     if (profileData?.success && profileData.data) {
-      setUsername(profileData.data.username || contextUser?.email?.split('@')[0] || '');
+      // Handle Privy email format (can be string or object with 'address' field)
+      const emailString = typeof contextUser?.email === 'string'
+        ? contextUser.email
+        : (contextUser?.email as any)?.address;
+      setUsername(profileData.data.username || (emailString ? emailString.split('@')[0] : '') || '');
       setProfilePhotoUrl(profileData.data.profilePhotoUrl || '');
     } else if (contextUser?.email) {
-      setUsername(contextUser.email.split('@')[0]);
+      // Handle Privy email format (can be string or object with 'address' field)
+      const emailString = typeof contextUser.email === 'string'
+        ? contextUser.email
+        : (contextUser.email as any)?.address;
+      setUsername(emailString ? emailString.split('@')[0] : '');
     }
   }, [profileData, contextUser]);
 
