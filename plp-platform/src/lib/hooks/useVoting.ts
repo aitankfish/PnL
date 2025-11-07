@@ -85,6 +85,7 @@ export function useVoting() {
 
       // Step 2: Sign and send transaction with Privy (single call)
       let signature: string;
+      let actualAmountSpent = params.amount; // Default to requested amount
 
       try {
         const rawTx = prepareResult.data.serializedTransaction;
@@ -127,11 +128,37 @@ export function useVoting() {
         signature = bs58.encode(result.signature);
         logger.info('Transaction signed and sent', { signature });
 
-        // Wait for confirmation
+        // Wait for confirmation and get transaction details
         logger.info('Waiting for confirmation...');
         const connection = await getSolanaConnection();
         await connection.confirmTransaction(signature, 'confirmed');
         logger.info('Transaction confirmed!');
+
+        // Fetch transaction details to get actual amount spent (in case it was capped)
+        try {
+          const txDetails = await connection.getTransaction(signature, {
+            maxSupportedTransactionVersion: 0,
+          });
+
+          if (txDetails?.meta?.logMessages) {
+            // Look for the log message that shows actual SOL spent
+            // Format: "✅ BUY YES" followed by "   SOL spent: X lamports"
+            const logs = txDetails.meta.logMessages;
+            const solSpentLog = logs.find(log => log.includes('SOL spent:'));
+
+            if (solSpentLog) {
+              const match = solSpentLog.match(/SOL spent: (\d+) lamports/);
+              if (match) {
+                const lamports = parseInt(match[1]);
+                actualAmountSpent = lamports / 1_000_000_000; // Convert to SOL
+                logger.info('Actual amount spent (from logs):', { actualAmountSpent });
+              }
+            }
+          }
+        } catch (logError) {
+          logger.warn('Failed to parse transaction logs for actual amount', { error: logError });
+          // Continue with requested amount if parsing fails
+        }
 
       } catch (signerError: any) {
         logger.error('Privy signing/sending failed', { error: signerError.message });
@@ -146,7 +173,7 @@ export function useVoting() {
         body: JSON.stringify({
           marketId: params.marketId,
           voteType: params.voteType,
-          amount: params.amount,
+          amount: actualAmountSpent, // Use actual capped amount, not requested amount
           signature,
           traderWallet: primaryWallet.address,
           shares: 0, // TODO: Get actual shares from on-chain transaction
