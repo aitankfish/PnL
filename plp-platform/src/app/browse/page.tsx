@@ -368,12 +368,18 @@ export default function BrowsePage() {
                     <div className="w-full bg-gray-700 rounded-full h-2">
                       <div
                         className="bg-gradient-to-r from-green-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${(hotProject.yesVotes / (hotProject.yesVotes + hotProject.noVotes)) * 100}%` }}
+                        style={{ width: `${(() => {
+                          const total = hotProject.totalYesStake + hotProject.totalNoStake;
+                          return total > 0 ? (hotProject.totalYesStake / total) * 100 : 50;
+                        })()}%` }}
                       ></div>
                     </div>
                     <div className="text-center">
                       <span className="text-lg font-bold text-white">
-                        {Math.round((hotProject.yesVotes / (hotProject.yesVotes + hotProject.noVotes)) * 100)}%
+                        {(() => {
+                          const total = hotProject.totalYesStake + hotProject.totalNoStake;
+                          return total > 0 ? Math.round((hotProject.totalYesStake / total) * 100) : 50;
+                        })()}%
                       </span>
                       <span className="text-sm text-gray-400 ml-1">YES</span>
                     </div>
@@ -572,14 +578,20 @@ export default function BrowsePage() {
                       </div>
                     </div>
                     <div className="w-full bg-gray-700 rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-green-500 to-cyan-500 h-2 rounded-full transition-all duration-500" 
-                        style={{ width: `${(project.yesVotes / (project.yesVotes + project.noVotes)) * 100}%` }}
+                      <div
+                        className="bg-gradient-to-r from-green-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
+                        style={{ width: `${(() => {
+                          const total = project.totalYesStake + project.totalNoStake;
+                          return total > 0 ? (project.totalYesStake / total) * 100 : 50;
+                        })()}%` }}
                       ></div>
                     </div>
                     <div className="text-center">
                       <span className="text-lg font-bold text-white">
-                        {Math.round((project.yesVotes / (project.yesVotes + project.noVotes)) * 100)}%
+                        {(() => {
+                          const total = project.totalYesStake + project.totalNoStake;
+                          return total > 0 ? Math.round((project.totalYesStake / total) * 100) : 50;
+                        })()}%
                       </span>
                       <span className="text-sm text-gray-400 ml-1">YES</span>
                     </div>
