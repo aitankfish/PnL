@@ -290,9 +290,14 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
                 .checked_sub(completion_fee)
                 .ok_or(ErrorCode::MathError)?;
 
+            // Set distribution pool (snapshot for proportional claims)
+            // This ensures all NO voters claim from the same fixed pool
+            market.distribution_pool = market.pool_balance;
+
             msg!("✅ NO WINS");
             msg!("   Completion fee: {} lamports (5%)", completion_fee);
             msg!("   Remaining for distribution: {} lamports", market.pool_balance);
+            msg!("   Distribution pool set: {} lamports", market.distribution_pool);
             msg!("   NO voters can now claim proportional SOL rewards");
         }
 

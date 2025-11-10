@@ -52,6 +52,12 @@ pub struct Market {
     /// Current pool balance (actual SOL held in market, tracked separately from vault)
     pub pool_balance: u64,
 
+    /// Distribution pool (snapshot at resolution for proportional claims)
+    /// For NO wins: Amount available for NO voters after completion fee
+    /// For Refund: Not used (calculated per position)
+    /// Set during resolution, used for claim calculations
+    pub distribution_pool: u64,
+
     /// YES token reserves in AMM pool (scaled by 1e9)
     pub yes_pool: u64,
 
@@ -97,10 +103,11 @@ pub struct Market {
 
 impl Market {
     /// Calculate space needed for Market account
-    /// 32 (founder) + 64 (ipfs_cid) + 8 (target_pool) + 8 (pool_balance)
+    /// 32 (founder) + 64 (ipfs_cid) + 8 (target_pool) + 8 (pool_balance) + 8 (distribution_pool)
     /// + 8 (yes_pool) + 8 (no_pool) + 8 (total_yes_shares) + 8 (total_no_shares)
     /// + 8 (expiry_time) + 1 (phase enum) + 1 (resolution enum) + 200 (metadata_uri)
-    /// + 33 (token_mint option) + 32 (treasury) + 1 (bump) = ~420 bytes
-    /// Adding padding for safety: 450 bytes
-    pub const SPACE: usize = 8 + 450;
+    /// + 33 (token_mint option) + 8 (platform_tokens_allocated) + 1 (platform_tokens_claimed)
+    /// + 8 (yes_voter_tokens_allocated) + 32 (treasury) + 1 (bump) = ~434 bytes
+    /// Adding padding for safety: 458 bytes
+    pub const SPACE: usize = 8 + 458;
 }

@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
 
     // Fetch the updated market state from blockchain
     const connection = await getSolanaConnection();
-    const program = getProgram();
+    const program = getProgram(connection); // Pass connection to ensure it uses the same one
     const marketPubkey = new PublicKey(marketAddress);
 
     logger.info('Fetching updated market state from blockchain...');

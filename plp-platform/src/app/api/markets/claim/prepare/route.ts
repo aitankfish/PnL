@@ -50,37 +50,16 @@ export async function POST(request: NextRequest) {
     const marketPubkey = new PublicKey(marketAddress);
     const userPubkey = new PublicKey(userWallet);
 
-    // Fetch on-chain market account using raw getAccountInfo
+    // Fetch on-chain market account using Anchor program
     const connection = await getSolanaConnection();
+    const program = getProgram(connection);
 
     logger.info('Fetching on-chain market account...');
-    const marketAccountInfo = await connection.getAccountInfo(marketPubkey);
-
-    if (!marketAccountInfo) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Market account not found',
-        },
-        { status: 404 }
-      );
-    }
-
-    // Parse market account data (simplified - just get what we need)
-    const marketData = marketAccountInfo.data;
-
-    // Skip 8-byte discriminator, then read fields
-    // Based on Market struct layout in Rust
-    let offset = 8;
-
-    // Read resolution (1 byte enum) - at specific offset based on struct layout
-    // You'll need to adjust the offset based on your actual struct layout
-    // For now, let's just build the transaction and let the on-chain program validate
-    const resolutionByte = marketData[offset + 200]; // Approximate offset, adjust as needed
+    const marketAccount = await program.account.predictionMarket.fetch(marketPubkey);
 
     // Check if market is resolved
     // Rust enum: 0=Unresolved, 1=YesWins, 2=NoWins, 3=Refund
-    if (resolutionByte === 0) {
+    if (marketAccount.resolution === 0) {
       return NextResponse.json(
         {
           success: false,
@@ -97,28 +76,10 @@ export async function POST(request: NextRequest) {
       positionPda: positionPda.toBase58(),
     });
 
-    // Fetch on-chain position account
-    const positionAccountInfo = await connection.getAccountInfo(positionPda);
+    // Fetch on-chain position account using Anchor program
+    const positionAccount = await program.account.position.fetch(positionPda);
 
-    if (!positionAccountInfo) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'No position found for this user',
-        },
-        { status: 404 }
-      );
-    }
-
-    // Parse position account data (simplified)
-    const positionData = positionAccountInfo.data;
-
-    // Skip discriminator and read claimed flag (approximate offset)
-    // Adjust based on actual Position struct layout
-    const claimedOffset = 8 + 64; // Approximate
-    const claimed = positionData[claimedOffset] === 1;
-
-    if (claimed) {
+    if (positionAccount.claimed) {
       return NextResponse.json(
         {
           success: false,
@@ -128,25 +89,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // For now, set claimable amount to 0 - the on-chain program will calculate it
-    // This is just for UX feedback
+    // Calculate claimable amount based on resolution type
     let claimableAmount = 0;
     let resolutionType = '';
 
-    if (resolutionByte === 1) {
+    if (marketAccount.resolution === 1) {
+      // YesWins - User receives tokens
       resolutionType = 'YesWins';
-      claimableAmount = 0; // Tokens
-    } else if (resolutionByte === 2) {
+
+      if (positionAccount.yesShares > 0 && marketAccount.totalYesShares > 0) {
+        // Calculate proportional token claim
+        // user_tokens = (user_yes_shares / total_yes_shares) * yes_voter_tokens_allocated
+        const userYesShares = BigInt(positionAccount.yesShares.toString());
+        const totalYesShares = BigInt(marketAccount.totalYesShares.toString());
+        const yesVoterTokens = BigInt(marketAccount.yesVoterTokensAllocated.toString());
+
+        claimableAmount = Number((userYesShares * yesVoterTokens) / totalYesShares);
+      }
+    } else if (marketAccount.resolution === 2) {
+      // NoWins - User receives SOL
       resolutionType = 'NoWins';
-      claimableAmount = 0; // Will be calculated on-chain
-    } else if (resolutionByte === 3) {
+
+      if (positionAccount.noShares > 0 && marketAccount.totalNoShares > 0) {
+        // Calculate proportional SOL payout
+        // payout = (user_no_shares / total_no_shares) * pool_balance
+        const userNoShares = BigInt(positionAccount.noShares.toString());
+        const totalNoShares = BigInt(marketAccount.totalNoShares.toString());
+        const poolBalance = BigInt(marketAccount.poolBalance.toString());
+
+        claimableAmount = Number((userNoShares * poolBalance) / totalNoShares);
+      }
+    } else if (marketAccount.resolution === 3) {
+      // Refund - User receives invested amount minus trading fees (98.5%)
       resolutionType = 'Refund';
-      claimableAmount = 0; // Will be calculated on-chain
+
+      if (positionAccount.totalInvested > 0) {
+        // Calculate refund: 98.5% of invested (1.5% was trading fees)
+        const totalInvested = BigInt(positionAccount.totalInvested.toString());
+        const TRADE_FEE_BPS = BigInt(150);
+        const BPS_DIVISOR = BigInt(10000);
+
+        claimableAmount = Number((totalInvested * (BPS_DIVISOR - TRADE_FEE_BPS)) / BPS_DIVISOR);
+      }
     }
 
     logger.info('Claimable amount calculated', {
       resolutionType,
       claimableAmount,
+      claimableAmountSOL: (claimableAmount / 1e9).toFixed(4),
     });
 
     // Build claim_rewards instruction manually (since IDL is incomplete)

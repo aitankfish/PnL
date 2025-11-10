@@ -110,6 +110,7 @@ pub fn handler(
     market.ipfs_cid = ipfs_cid.clone();
     market.target_pool = target_pool;
     market.pool_balance = 0;
+    market.distribution_pool = 0; // Set during resolution
 
     // Initialize Constant Product AMM pools
     // Both pools start equal to target_pool for 50/50 initial price

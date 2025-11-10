@@ -2,12 +2,13 @@
 
 import React, { useState, useEffect } from 'react';
 import { useWallet } from '@/hooks/useWallet';
-import { useFundWallet } from '@privy-io/react-auth/solana';
+import { useFundWallet, useSignAndSendTransaction, useWallets, useStandardWallets } from '@privy-io/react-auth/solana';
 import { useSolPrice } from '@/hooks/useSolPrice';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
+import bs58 from 'bs58';
 import {
   Wallet,
   Settings,
@@ -25,9 +26,9 @@ import {
   Shield,
   ShoppingCart
 } from 'lucide-react';
-import { Connection, PublicKey, LAMPORTS_PER_SOL, SystemProgram, Transaction } from '@solana/web3.js';
+import { Connection, PublicKey, LAMPORTS_PER_SOL, SystemProgram, VersionedTransaction, TransactionMessage } from '@solana/web3.js';
 import { RPC_ENDPOINT, SOLANA_NETWORK } from '@/config/solana';
-import { getSolanaConnection, sendRawTransaction } from '@/lib/solana';
+import { getSolanaConnection } from '@/lib/solana';
 import { ipfsUtils } from '@/lib/ipfs';
 import useSWR from 'swr';
 
@@ -316,6 +317,9 @@ function SettingsModal({ isOpen, onClose, wallet, onLogout }: any) {
 export default function WalletPage() {
   const { primaryWallet, logout, login, user: contextUser } = useWallet();
   const { solPrice, isLoading: isPriceLoading } = useSolPrice();
+  const { wallets } = useWallets(); // External wallets
+  const { wallets: standardWallets } = useStandardWallets(); // Standard wallet interface (includes embedded)
+  const { signAndSendTransaction } = useSignAndSendTransaction();
 
   // Privy fiat onramp hook
   const { fundWallet } = useFundWallet({
@@ -463,28 +467,60 @@ export default function WalletPage() {
     const fromPubkey = new PublicKey(primaryWallet.address);
     const toPubkey = new PublicKey(recipientAddress);
 
-    const transaction = new Transaction().add(
-      SystemProgram.transfer({
-        fromPubkey,
-        toPubkey,
-        lamports: amount * LAMPORTS_PER_SOL,
-      })
-    );
-
-    const { blockhash } = await connection.getLatestBlockhash();
-    transaction.recentBlockhash = blockhash;
-    transaction.feePayer = fromPubkey;
-
-    const privyWallet = (primaryWallet as any)._privyWallet;
-    if (!privyWallet) throw new Error('Privy wallet not found');
-
-    const signedTransaction = await privyWallet.signTransaction(transaction);
-    const signature = await sendRawTransaction(signedTransaction.serialize(), {
-      skipPreflight: false,
-      maxRetries: 3,
+    // Create transfer instruction
+    const transferInstruction = SystemProgram.transfer({
+      fromPubkey,
+      toPubkey,
+      lamports: amount * LAMPORTS_PER_SOL,
     });
 
+    // Get latest blockhash
+    const { blockhash } = await connection.getLatestBlockhash();
+
+    // Create VersionedTransaction using TransactionMessage
+    const messageV0 = new TransactionMessage({
+      payerKey: fromPubkey,
+      recentBlockhash: blockhash,
+      instructions: [transferInstruction],
+    }).compileToV0Message();
+
+    const transaction = new VersionedTransaction(messageV0);
+
+    // Get Solana wallet - prioritize external wallets, fallback to standard wallets (embedded)
+    let solanaWallet;
+
+    if (wallets && wallets.length > 0) {
+      console.log('Using external Solana wallet');
+      solanaWallet = wallets[0];
+    } else if (standardWallets && standardWallets.length > 0) {
+      console.log('Using embedded Solana wallet');
+      const privyWallet = standardWallets.find((w: any) => w.isPrivyWallet || w.name === 'Privy');
+      if (!privyWallet) {
+        throw new Error('No Privy wallet found');
+      }
+      solanaWallet = privyWallet;
+    } else {
+      throw new Error('No Solana wallet found');
+    }
+
+    // Serialize transaction to buffer
+    const txBuffer = Buffer.from(transaction.serialize());
+
+    // Use signAndSendTransaction - works for both external and embedded wallets
+    const result = await signAndSendTransaction({
+      transaction: txBuffer,
+      wallet: solanaWallet as any,
+      chain: SOLANA_NETWORK === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
+    });
+
+    // Extract signature from result and convert to base58 (Solana standard format)
+    const signature = bs58.encode(result.signature);
+    console.log('✅ Transaction signed and sent:', signature);
+
+    // Wait for confirmation
     await connection.confirmTransaction(signature, 'confirmed');
+
+    // Update balance
     const balance = await connection.getBalance(fromPubkey);
     setSolBalance(balance / LAMPORTS_PER_SOL);
   };
@@ -507,8 +543,12 @@ export default function WalletPage() {
     if (!primaryWallet?.address) return;
 
     try {
-      await fundWallet(primaryWallet.address, {
-        cluster: { name: SOLANA_NETWORK === 'devnet' ? 'devnet' : 'mainnet-beta' },
+      await fundWallet({
+        address: primaryWallet.address,
+        chain: {
+          type: 'solana',
+          id: SOLANA_NETWORK === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
+        },
       });
     } catch (error) {
       console.error('Error opening buy SOL modal:', error);

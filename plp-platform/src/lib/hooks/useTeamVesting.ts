@@ -1,33 +1,25 @@
 /**
  * useTeamVesting Hook
  * Handles team vesting operations: init and claim
- * Uses VersionedTransaction and Dynamic Labs signer
+ * Uses VersionedTransaction and Privy wallet signer (signAndSendTransaction)
  */
 
 import { useState } from 'react';
 import { useWallet } from '@/hooks/useWallet';
-import { VersionedTransaction } from '@solana/web3.js';
-import { sendRawTransaction, getSolanaConnection } from '@/lib/solana';
+import { getSolanaConnection } from '@/lib/solana';
 import { useNetwork } from './useNetwork';
+import { useSignAndSendTransaction, useWallets, useStandardWallets } from '@privy-io/react-auth/solana';
+import bs58 from 'bs58';
 
-// Dynamic Labs signer interface
-interface DynamicSigner {
-  signTransaction: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-}
-
-// Dynamic Labs wallet interface with getSigner method
-interface DynamicWalletWithSigner {
-  getSigner: () => Promise<DynamicSigner>;
-  _connector?: {
-    signTransaction: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-  };
-}
 
 export function useTeamVesting() {
   const [isInitializing, setIsInitializing] = useState(false);
   const [isClaiming, setIsClaiming] = useState(false);
   const { primaryWallet } = useWallet();
   const { network } = useNetwork();
+  const { wallets } = useWallets(); // External wallets
+  const { wallets: standardWallets } = useStandardWallets(); // Standard wallet interface (includes embedded)
+  const { signAndSendTransaction } = useSignAndSendTransaction();
 
   const initVesting = async (params: {
     marketAddress: string;
@@ -66,56 +58,60 @@ export function useTeamVesting() {
       let signature;
 
       try {
-        const signer = await (primaryWallet as unknown as DynamicWalletWithSigner).getSigner();
+        console.log('✍️ Signing and sending transaction with Privy...');
+
         const rawTx = prepareResult.data.serializedTransaction;
         if (!rawTx) {
           throw new Error('No serializedTransaction provided by server');
         }
 
+        // Get Solana wallet - prioritize external wallets, fallback to standard wallets (embedded)
+        let solanaWallet;
+
+        if (wallets && wallets.length > 0) {
+          console.log('Using external Solana wallet');
+          solanaWallet = wallets[0];
+        } else if (standardWallets && standardWallets.length > 0) {
+          console.log('Using embedded Solana wallet');
+          const privyWallet = standardWallets.find((w: any) => w.isPrivyWallet || w.name === 'Privy');
+          if (!privyWallet) {
+            throw new Error('No Privy wallet found');
+          }
+          solanaWallet = privyWallet;
+        } else {
+          throw new Error('No Solana wallet found');
+        }
+
+        // Convert to Buffer for signAndSendTransaction
         const txBuffer = Buffer.from(rawTx, 'base64');
-        const properTransaction = VersionedTransaction.deserialize(txBuffer);
 
-        const signedTransaction = await signer.signTransaction(properTransaction);
-
-        try {
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: false,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-        } catch (rpcError: unknown) {
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: true,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-        }
-
-        const connection = await getSolanaConnection(network);
-        await connection.confirmTransaction(signature, 'confirmed');
-
-      } catch (signerError: unknown) {
-        const connector = (primaryWallet as unknown as DynamicWalletWithSigner)._connector;
-        const rawTx = prepareResult.data.serializedTransaction;
-        if (!rawTx) {
-          throw new Error('No serializedTransaction provided by server');
-        }
-        const txBuffer = Buffer.from(rawTx, 'base64');
-        const properTransaction = VersionedTransaction.deserialize(txBuffer);
-
-        if (!connector) {
-          throw new Error('Connector not available');
-        }
-        const signedTransaction = await connector.signTransaction(properTransaction);
-
-        signature = await sendRawTransaction(signedTransaction.serialize(), {
-          skipPreflight: true,
-          maxRetries: 3,
-          preflightCommitment: 'confirmed'
+        // Use signAndSendTransaction - works for both external and embedded wallets
+        const result = await signAndSendTransaction({
+          transaction: txBuffer,
+          wallet: solanaWallet as any,
+          chain: network === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
         });
 
+        // Extract signature from result and convert to base58 (Solana standard format)
+        signature = bs58.encode(result.signature);
+        console.log('✅ Transaction signed and sent:', signature);
+
+        // Wait for confirmation
+        console.log('⏳ Waiting for transaction confirmation...');
         const connection = await getSolanaConnection(network);
         await connection.confirmTransaction(signature, 'confirmed');
+        console.log('✅ Transaction confirmed on blockchain!');
+
+      } catch (signerError: unknown) {
+        const errorMessage = signerError instanceof Error ? signerError.message : 'Unknown error';
+        console.error('❌ Transaction failed:', errorMessage);
+
+        // Extract detailed error from logs if available
+        if (errorMessage.includes('Logs:')) {
+          console.error('📋 Transaction logs:', errorMessage);
+        }
+
+        return { success: false, error: errorMessage };
       }
 
       console.log('🎉 Team vesting initialized successfully!');
@@ -167,56 +163,60 @@ export function useTeamVesting() {
       let signature;
 
       try {
-        const signer = await (primaryWallet as unknown as DynamicWalletWithSigner).getSigner();
+        console.log('✍️ Signing and sending transaction with Privy...');
+
         const rawTx = prepareResult.data.serializedTransaction;
         if (!rawTx) {
           throw new Error('No serializedTransaction provided by server');
         }
 
+        // Get Solana wallet - prioritize external wallets, fallback to standard wallets (embedded)
+        let solanaWallet;
+
+        if (wallets && wallets.length > 0) {
+          console.log('Using external Solana wallet');
+          solanaWallet = wallets[0];
+        } else if (standardWallets && standardWallets.length > 0) {
+          console.log('Using embedded Solana wallet');
+          const privyWallet = standardWallets.find((w: any) => w.isPrivyWallet || w.name === 'Privy');
+          if (!privyWallet) {
+            throw new Error('No Privy wallet found');
+          }
+          solanaWallet = privyWallet;
+        } else {
+          throw new Error('No Solana wallet found');
+        }
+
+        // Convert to Buffer for signAndSendTransaction
         const txBuffer = Buffer.from(rawTx, 'base64');
-        const properTransaction = VersionedTransaction.deserialize(txBuffer);
 
-        const signedTransaction = await signer.signTransaction(properTransaction);
-
-        try {
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: false,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-        } catch (rpcError: unknown) {
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: true,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-        }
-
-        const connection = await getSolanaConnection(network);
-        await connection.confirmTransaction(signature, 'confirmed');
-
-      } catch (signerError: unknown) {
-        const connector = (primaryWallet as unknown as DynamicWalletWithSigner)._connector;
-        const rawTx = prepareResult.data.serializedTransaction;
-        if (!rawTx) {
-          throw new Error('No serializedTransaction provided by server');
-        }
-        const txBuffer = Buffer.from(rawTx, 'base64');
-        const properTransaction = VersionedTransaction.deserialize(txBuffer);
-
-        if (!connector) {
-          throw new Error('Connector not available');
-        }
-        const signedTransaction = await connector.signTransaction(properTransaction);
-
-        signature = await sendRawTransaction(signedTransaction.serialize(), {
-          skipPreflight: true,
-          maxRetries: 3,
-          preflightCommitment: 'confirmed'
+        // Use signAndSendTransaction - works for both external and embedded wallets
+        const result = await signAndSendTransaction({
+          transaction: txBuffer,
+          wallet: solanaWallet as any,
+          chain: network === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
         });
 
+        // Extract signature from result and convert to base58 (Solana standard format)
+        signature = bs58.encode(result.signature);
+        console.log('✅ Transaction signed and sent:', signature);
+
+        // Wait for confirmation
+        console.log('⏳ Waiting for transaction confirmation...');
         const connection = await getSolanaConnection(network);
         await connection.confirmTransaction(signature, 'confirmed');
+        console.log('✅ Transaction confirmed on blockchain!');
+
+      } catch (signerError: unknown) {
+        const errorMessage = signerError instanceof Error ? signerError.message : 'Unknown error';
+        console.error('❌ Transaction failed:', errorMessage);
+
+        // Extract detailed error from logs if available
+        if (errorMessage.includes('Logs:')) {
+          console.error('📋 Transaction logs:', errorMessage);
+        }
+
+        return { success: false, error: errorMessage };
       }
 
       console.log('🎉 Team tokens claimed successfully!');

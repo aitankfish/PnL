@@ -314,6 +314,13 @@ export async function GET(
     const expiryTimeNumber = Number(marketAccount.expiryTime);
     const currentTime = Math.floor(Date.now() / 1000);
 
+    logger.info('Expiry time comparison', {
+      expiryTimeNumber,
+      currentTime,
+      isExpired: currentTime >= expiryTimeNumber,
+      timeUntilExpiry: expiryTimeNumber - currentTime,
+    });
+
     const onchainData = {
       founder: marketAccount.founder.toBase58(),
       ipfsCid: marketAccount.ipfsCid,

@@ -402,11 +402,14 @@ export default function MarketDetailsPage() {
       refetchPosition(); // Position will be closed after claim
       refetchOnchainData(); // Update pool balance
 
-      // Show success dialog
+      // Format the claim amount for display
+      const claimAmountSOL = result.claimAmount ? (result.claimAmount / 1e9).toFixed(4) : '0';
+
+      // Show success dialog with claim amount
       setSuccessDialog({
         open: true,
         title: 'Rewards Claimed Successfully',
-        message: 'Your rewards have been transferred to your wallet.',
+        message: `You received ${claimAmountSOL} SOL! Your rewards have been transferred to your wallet.`,
         signature: result.signature,
       });
     } else {

@@ -1,32 +1,23 @@
 /**
  * useExtend Hook
  * Handles the market extension flow: prepare → sign → send → confirm
- * Uses VersionedTransaction and Dynamic Labs signer (same as create page)
+ * Uses VersionedTransaction and Privy wallet signer (signAndSendTransaction)
  */
 
 import { useState } from 'react';
 import { useWallet } from '@/hooks/useWallet';
-import { VersionedTransaction } from '@solana/web3.js';
-import { sendRawTransaction, getSolanaConnection } from '@/lib/solana';
+import { getSolanaConnection } from '@/lib/solana';
 import { useNetwork } from './useNetwork';
-
-// Dynamic Labs signer interface
-interface DynamicSigner {
-  signTransaction: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-}
-
-// Dynamic Labs wallet interface with getSigner method
-interface DynamicWalletWithSigner {
-  getSigner: () => Promise<DynamicSigner>;
-  _connector?: {
-    signTransaction: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-  };
-}
+import { useSignAndSendTransaction, useWallets, useStandardWallets } from '@privy-io/react-auth/solana';
+import bs58 from 'bs58';
 
 export function useExtend() {
   const [isExtending, setIsExtending] = useState(false);
   const { primaryWallet } = useWallet();
   const { network } = useNetwork();
+  const { wallets } = useWallets(); // External wallets
+  const { wallets: standardWallets } = useStandardWallets(); // Standard wallet interface (includes embedded)
+  const { signAndSendTransaction } = useSignAndSendTransaction();
 
   const extend = async (params: {
     marketId: string;
@@ -65,52 +56,45 @@ export function useExtend() {
       let signature;
 
       try {
-        // STEP 2: Get Dynamic Labs signer (for signing only)
-        console.log('🚀 Getting Dynamic Labs signer for transaction signing...');
-        const signer = await (primaryWallet as unknown as DynamicWalletWithSigner).getSigner();
-        console.log('✅ Got signer from Dynamic Labs');
+        console.log('✍️ Signing and sending transaction with Privy...');
 
-        // Get serialized transaction from API response
         const rawTx = prepareResult.data.serializedTransaction;
         if (!rawTx) {
           throw new Error('No serializedTransaction provided by server');
         }
 
-        // Deserialize the transaction into a VersionedTransaction
-        const txBuffer = Buffer.from(rawTx, 'base64');
-        const properTransaction = VersionedTransaction.deserialize(txBuffer);
+        // Get Solana wallet - prioritize external wallets, fallback to standard wallets (embedded)
+        let solanaWallet;
 
-        console.log('🔄 VersionedTransaction ready for signing');
-
-        // STEP 3: Sign transaction with Dynamic Labs (NO sending)
-        console.log('✍️ Signing transaction with Dynamic Labs...');
-        const signedTransaction = await signer.signTransaction(properTransaction);
-        console.log('✅ Transaction signed by Dynamic Labs!');
-
-        // STEP 4: Send signed transaction to Solana via our RPC system
-        console.log('📤 Sending signed transaction to Solana via our RPC...');
-
-        try {
-          // Send the signed transaction directly to Solana using our RPC fallback system
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: false,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-          console.log('✅ Transaction submitted to Solana:', signature);
-        } catch (rpcError: unknown) {
-          const errorMessage = rpcError instanceof Error ? rpcError.message : 'Unknown error';
-          console.log('⚠️ Primary RPC failed, trying fallback with skipPreflight...', errorMessage);
-          // Try with skipPreflight as fallback
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: true,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-          console.log('✅ Transaction submitted via fallback RPC:', signature);
+        if (wallets && wallets.length > 0) {
+          console.log('Using external Solana wallet');
+          solanaWallet = wallets[0];
+        } else if (standardWallets && standardWallets.length > 0) {
+          console.log('Using embedded Solana wallet');
+          const privyWallet = standardWallets.find((w: any) => w.isPrivyWallet || w.name === 'Privy');
+          if (!privyWallet) {
+            throw new Error('No Privy wallet found');
+          }
+          solanaWallet = privyWallet;
+        } else {
+          throw new Error('No Solana wallet found');
         }
 
-        // STEP 5: Wait for confirmation using our RPC system
+        // Convert to Buffer for signAndSendTransaction
+        const txBuffer = Buffer.from(rawTx, 'base64');
+
+        // Use signAndSendTransaction - works for both external and embedded wallets
+        const result = await signAndSendTransaction({
+          transaction: txBuffer,
+          wallet: solanaWallet as any,
+          chain: network === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
+        });
+
+        // Extract signature from result and convert to base58 (Solana standard format)
+        signature = bs58.encode(result.signature);
+        console.log('✅ Transaction signed and sent:', signature);
+
+        // Wait for confirmation
         console.log('⏳ Waiting for transaction confirmation...');
         const connection = await getSolanaConnection(network);
         await connection.confirmTransaction(signature, 'confirmed');
@@ -118,47 +102,14 @@ export function useExtend() {
 
       } catch (signerError: unknown) {
         const errorMessage = signerError instanceof Error ? signerError.message : 'Unknown error';
-        console.log('❌ Dynamic Labs signing failed:', errorMessage);
+        console.error('❌ Transaction failed:', errorMessage);
 
-        // Fallback: Try with _connector approach
-        try {
-          console.log('🔄 Fallback: Trying _connector approach...');
-
-          const connector = (primaryWallet as unknown as DynamicWalletWithSigner)._connector;
-          console.log('📊 Connector type:', connector?.constructor?.name);
-
-          // Get serialized transaction from API response
-          const rawTx = prepareResult.data.serializedTransaction;
-          if (!rawTx) {
-            throw new Error('No serializedTransaction provided by server');
-          }
-          const txBuffer = Buffer.from(rawTx, 'base64');
-          const properTransaction = VersionedTransaction.deserialize(txBuffer);
-
-          // Sign with connector
-          if (!connector) {
-            throw new Error('Connector not available');
-          }
-          const signedTransaction = await connector.signTransaction(properTransaction);
-          console.log('✅ Transaction signed via _connector!');
-
-          // Send via our RPC
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: true,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-          console.log('✅ Transaction submitted via _connector + our RPC:', signature);
-
-          // Wait for confirmation
-          const connection = await getSolanaConnection(network);
-          await connection.confirmTransaction(signature, 'confirmed');
-          console.log('✅ Transaction confirmed!');
-
-        } catch (connectorError) {
-          console.error('❌ Connector fallback also failed:', connectorError);
-          return { success: false, error: connectorError };
+        // Extract detailed error from logs if available
+        if (errorMessage.includes('Logs:')) {
+          console.error('📋 Transaction logs:', errorMessage);
         }
+
+        return { success: false, error: errorMessage };
       }
 
       console.log('🎉 Market extended successfully to Funding Phase!');

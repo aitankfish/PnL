@@ -2,33 +2,25 @@
  * useResolution Hook
  * Handles the market resolution flow: prepare → sign → send → confirm
  * Supports atomic token launch when YES wins (create + resolve in one tx)
- * Uses VersionedTransaction and Dynamic Labs signer (same as create page)
+ * Uses VersionedTransaction and Privy wallet signer (same as create page)
  */
 
 import { useState } from 'react';
 import { useWallet } from '@/hooks/useWallet';
-import { VersionedTransaction, Keypair } from '@solana/web3.js';
-import { sendRawTransaction, getSolanaConnection } from '@/lib/solana';
+import { Keypair } from '@solana/web3.js';
+import { getSolanaConnection } from '@/lib/solana';
 import { getPumpCreateInstruction } from '@/lib/pumpfun';
 import { useNetwork } from './useNetwork';
-
-// Dynamic Labs signer interface
-interface DynamicSigner {
-  signTransaction: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-}
-
-// Dynamic Labs wallet interface with getSigner method
-interface DynamicWalletWithSigner {
-  getSigner: () => Promise<DynamicSigner>;
-  _connector?: {
-    signTransaction: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-  };
-}
+import { useSignAndSendTransaction, useWallets, useStandardWallets } from '@privy-io/react-auth/solana';
+import bs58 from 'bs58';
 
 export function useResolution() {
   const [isResolving, setIsResolving] = useState(false);
   const { primaryWallet } = useWallet();
   const { network } = useNetwork();
+  const { wallets } = useWallets(); // External wallets
+  const { wallets: standardWallets } = useStandardWallets(); // Standard wallet interface (includes embedded)
+  const { signAndSendTransaction } = useSignAndSendTransaction();
 
   const resolve = async (params: {
     marketId: string;
@@ -85,10 +77,8 @@ export function useResolution() {
       let signature;
 
       try {
-        // STEP 2: Get Dynamic Labs signer (for signing only)
-        console.log('🚀 Getting Dynamic Labs signer for transaction signing...');
-        const signer = await (primaryWallet as unknown as DynamicWalletWithSigner).getSigner();
-        console.log('✅ Got signer from Dynamic Labs');
+        // STEP 2: Prepare transaction for signing
+        console.log('🚀 Preparing transaction for signing...');
 
         // Get serialized transaction from API response
         const rawTx = prepareResult.data.serializedTransaction;
@@ -96,41 +86,43 @@ export function useResolution() {
           throw new Error('No serializedTransaction provided by server');
         }
 
-        // Deserialize the transaction into a VersionedTransaction
-        const txBuffer = Buffer.from(rawTx, 'base64');
-        const properTransaction = VersionedTransaction.deserialize(txBuffer);
+        console.log('🔄 Transaction ready for signing');
 
-        console.log('🔄 VersionedTransaction ready for signing');
+        // STEP 3: Get Solana wallet - prioritize external wallets, fallback to standard wallets (embedded)
+        console.log('✍️ Signing and sending transaction with Privy...');
+        let solanaWallet;
 
-        // STEP 3: Sign transaction with Dynamic Labs (NO sending)
-        console.log('✍️ Signing transaction with Dynamic Labs...');
-        const signedTransaction = await signer.signTransaction(properTransaction);
-        console.log('✅ Transaction signed by Dynamic Labs!');
-
-        // STEP 4: Send signed transaction to Solana via our RPC system
-        console.log('📤 Sending signed transaction to Solana via our RPC...');
-
-        try {
-          // Send the signed transaction directly to Solana using our RPC fallback system
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: false,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-          console.log('✅ Transaction submitted to Solana:', signature);
-        } catch (rpcError: unknown) {
-          const errorMessage = rpcError instanceof Error ? rpcError.message : 'Unknown error';
-          console.log('⚠️ Primary RPC failed, trying fallback with skipPreflight...', errorMessage);
-          // Try with skipPreflight as fallback
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: true,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-          console.log('✅ Transaction submitted via fallback RPC:', signature);
+        if (wallets && wallets.length > 0) {
+          // Path 1: External wallet (Phantom, Solflare, etc.)
+          console.log('Using external Solana wallet');
+          solanaWallet = wallets[0];
+        } else if (standardWallets && standardWallets.length > 0) {
+          // Path 2: Embedded wallet from standard wallets
+          console.log('Using embedded Solana wallet');
+          const privyWallet = standardWallets.find((w: any) => w.isPrivyWallet || w.name === 'Privy');
+          if (!privyWallet) {
+            throw new Error('No Privy wallet found');
+          }
+          solanaWallet = privyWallet;
+        } else {
+          throw new Error('No Solana wallet found');
         }
 
-        // STEP 5: Wait for confirmation using our RPC system
+        // Convert to Buffer for signAndSendTransaction
+        const txBuffer = Buffer.from(rawTx, 'base64');
+
+        // Use signAndSendTransaction - works for both external and embedded wallets
+        const result = await signAndSendTransaction({
+          transaction: txBuffer,
+          wallet: solanaWallet as any,
+          chain: network === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
+        });
+
+        // Extract signature from result and convert to base58 (Solana standard format)
+        signature = bs58.encode(result.signature);
+        console.log('✅ Transaction signed and sent:', signature);
+
+        // Wait for confirmation
         console.log('⏳ Waiting for transaction confirmation...');
         const connection = await getSolanaConnection();
         await connection.confirmTransaction(signature, 'confirmed');
@@ -138,47 +130,14 @@ export function useResolution() {
 
       } catch (signerError: unknown) {
         const errorMessage = signerError instanceof Error ? signerError.message : 'Unknown error';
-        console.log('❌ Dynamic Labs signing failed:', errorMessage);
+        console.error('❌ Transaction failed:', errorMessage);
 
-        // Fallback: Try with _connector approach
-        try {
-          console.log('🔄 Fallback: Trying _connector approach...');
-
-          const connector = (primaryWallet as unknown as DynamicWalletWithSigner)._connector;
-          console.log('📊 Connector type:', connector?.constructor?.name);
-
-          // Get serialized transaction from API response
-          const rawTx = prepareResult.data.serializedTransaction;
-          if (!rawTx) {
-            throw new Error('No serializedTransaction provided by server');
-          }
-          const txBuffer = Buffer.from(rawTx, 'base64');
-          const properTransaction = VersionedTransaction.deserialize(txBuffer);
-
-          // Sign with connector
-          if (!connector) {
-            throw new Error('Connector not available');
-          }
-          const signedTransaction = await connector.signTransaction(properTransaction);
-          console.log('✅ Transaction signed via _connector!');
-
-          // Send via our RPC
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: true,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-          console.log('✅ Transaction submitted via _connector + our RPC:', signature);
-
-          // Wait for confirmation
-          const connection = await getSolanaConnection();
-          await connection.confirmTransaction(signature, 'confirmed');
-          console.log('✅ Transaction confirmed!');
-
-        } catch (connectorError) {
-          console.error('❌ Connector fallback also failed:', connectorError);
-          return { success: false, error: connectorError };
+        // Extract detailed error from logs if available
+        if (errorMessage.includes('Logs:')) {
+          console.error('📋 Transaction logs:', errorMessage);
         }
+
+        return { success: false, error: errorMessage };
       }
 
       // Update market state in database
@@ -204,8 +163,6 @@ export function useResolution() {
       return {
         success: true,
         signature,
-        resolution: updateResult.data?.resolution,
-        winningOption: updateResult.data?.winningOption,
       };
 
     } catch (error) {
@@ -275,17 +232,28 @@ export function useResolution() {
 
       // Get the resolve transaction
       const rawResolveTx = prepareResult.data.serializedTransaction;
-      const resolveTxBuffer = Buffer.from(rawResolveTx, 'base64');
-      const resolveTx = VersionedTransaction.deserialize(resolveTxBuffer);
 
       // Combine create + resolve into single transaction
       // For now, we'll use a simpler approach: sign both and send sequentially but fast
       console.log('✍️ Signing create transaction with mint keypair...');
       createTx.sign([mintKeypair]);
 
-      console.log('✍️ Signing resolve transaction with wallet...');
-      const signer = await (primaryWallet as unknown as DynamicWalletWithSigner).getSigner();
-      const signedResolveTx = await signer.signTransaction(resolveTx);
+      console.log('✍️ Signing and sending resolve transaction with wallet...');
+      let solanaWallet2;
+
+      if (wallets && wallets.length > 0) {
+        console.log('Using external Solana wallet for token launch');
+        solanaWallet2 = wallets[0];
+      } else if (standardWallets && standardWallets.length > 0) {
+        console.log('Using embedded Solana wallet for token launch');
+        const privyWallet = standardWallets.find((w: any) => w.isPrivyWallet || w.name === 'Privy');
+        if (!privyWallet) {
+          throw new Error('No Privy wallet found');
+        }
+        solanaWallet2 = privyWallet;
+      } else {
+        throw new Error('No Solana wallet found');
+      }
 
       // Step 5: Send transactions
       const connection = await getSolanaConnection(network);
@@ -301,12 +269,16 @@ export function useResolution() {
       await connection.confirmTransaction(createSig, 'confirmed');
       console.log('✅ Token created!');
 
-      console.log('📤 Sending resolve transaction...');
-      const resolveSig = await sendRawTransaction(signedResolveTx.serialize(), {
-        skipPreflight: false,
-        maxRetries: 3,
-        preflightCommitment: 'confirmed'
+      console.log('📤 Signing and sending resolve transaction...');
+      const resolveTxBuffer = Buffer.from(rawResolveTx, 'base64');
+
+      const resolveResult = await signAndSendTransaction({
+        transaction: resolveTxBuffer,
+        wallet: solanaWallet2 as any,
+        chain: network === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
       });
+
+      const resolveSig = bs58.encode(resolveResult.signature);
       console.log(`✅ Resolve transaction sent: ${resolveSig}`);
 
       console.log('⏳ Confirming resolve transaction...');
@@ -339,7 +311,6 @@ export function useResolution() {
       return {
         success: true,
         signature: resolveSig,
-        tokenMint: mintKeypair.publicKey.toBase58(),
       };
 
     } catch (error) {

@@ -10,7 +10,7 @@ import { Label } from '@/components/ui/label';
 import { config } from '@/lib/config';
 import { createClientLogger } from '@/lib/logger';
 import { useWallet } from '@/hooks/useWallet';
-import { useWallets } from '@privy-io/react-auth';
+import { useWallets, useSignTransaction } from '@privy-io/react-auth/solana';
 import { ipfsUtils, ProjectMetadata } from '@/lib/ipfs';
 import { VersionedTransaction } from '@solana/web3.js';
 import { sendRawTransaction, getSolanaConnection, setNetwork } from '@/lib/solana';
@@ -77,6 +77,7 @@ export default function CreatePage() {
   // Get connected wallet and user from Privy
   const { primaryWallet, user, authenticated } = useWallet();
   const { wallets } = useWallets();
+  const { signTransaction } = useSignTransaction();
 
   // Detect network from Dynamic widget
   const { network, isMainnet, isDevnet } = useNetwork();
@@ -911,33 +912,36 @@ export default function CreatePage() {
                         // STEP 2: Sign transaction with Privy wallet
                         console.log('✍️ Signing transaction with Privy wallet...');
 
-                        // Get the Privy wallet object
-                        const privyWallet = (primaryWallet as any)._privyWallet;
-                        if (!privyWallet) {
-                          throw new Error('Privy wallet not found');
+                        // Get Solana wallet - try wallets array first, then fallback to primaryWallet
+                        const solanaWallet = wallets[0] || (primaryWallet as any)?._privyWallet;
+                        if (!solanaWallet) {
+                          throw new Error('No Solana wallet found');
                         }
 
-                        // Sign the transaction using Privy's signing method
-                        const signedTransaction = await privyWallet.signTransaction(properTransaction);
+                        // Sign the transaction using Privy's useSignTransaction hook
+                        const { signedTransaction } = await signTransaction({
+                          transaction: new Uint8Array(properTransaction.serialize()),
+                          wallet: solanaWallet,
+                        });
                         console.log('✅ Transaction signed by Privy wallet!');
                         
                         // STEP 3: Send signed transaction to Solana via our RPC system
                         console.log('📤 Sending signed transaction to Solana via our RPC...');
-                        
+
                         try {
                             // Send the signed transaction directly to Solana using our RPC fallback system
-                            signature = await sendRawTransaction(signedTransaction.serialize(), {
+                            signature = await sendRawTransaction(signedTransaction, {
                                 skipPreflight: false,
                                 maxRetries: 3,
                                 preflightCommitment: 'confirmed'
                             });
                             console.log('✅ Transaction submitted to Solana:', signature);
-                            
+
                         } catch (rpcError: unknown) {
                             const errorMessage = rpcError instanceof Error ? rpcError.message : 'Unknown error';
                             console.log('⚠️ Primary RPC failed, trying fallback with skipPreflight...', errorMessage);
                             // Try with skipPreflight as fallback
-                            signature = await sendRawTransaction(signedTransaction.serialize(), {
+                            signature = await sendRawTransaction(signedTransaction, {
                                 skipPreflight: true,
                                 maxRetries: 3,
                                 preflightCommitment: 'confirmed'

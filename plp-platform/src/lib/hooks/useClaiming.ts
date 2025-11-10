@@ -1,30 +1,20 @@
 /**
  * useClaiming Hook
  * Handles the claim rewards flow: prepare → sign → send → confirm
- * Uses VersionedTransaction and Dynamic Labs signer (same as useResolution)
+ * Uses VersionedTransaction and Privy wallet signer
  */
 
 import { useState } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { VersionedTransaction } from '@solana/web3.js';
 import { sendRawTransaction, getSolanaConnection } from '@/lib/solana';
-
-// Dynamic Labs signer interface
-interface DynamicSigner {
-  signTransaction: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-}
-
-// Dynamic Labs wallet interface with getSigner method
-interface DynamicWalletWithSigner {
-  getSigner: () => Promise<DynamicSigner>;
-  _connector?: {
-    signTransaction: (transaction: VersionedTransaction) => Promise<VersionedTransaction>;
-  };
-}
+import { useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
 
 export function useClaiming() {
   const [isClaiming, setIsClaiming] = useState(false);
   const { primaryWallet } = useWallet();
+  const { wallets } = useWallets();
+  const { signTransaction } = useSignTransaction();
 
   const claim = async (params: {
     marketId: string;
@@ -62,10 +52,8 @@ export function useClaiming() {
       let signature;
 
       try {
-        // STEP 2: Get Dynamic Labs signer (for signing only)
-        console.log('🚀 Getting Dynamic Labs signer for transaction signing...');
-        const signer = await (primaryWallet as unknown as DynamicWalletWithSigner).getSigner();
-        console.log('✅ Got signer from Dynamic Labs');
+        // STEP 2: Deserialize transaction
+        console.log('🚀 Preparing transaction for signing...');
 
         // Get serialized transaction from API response
         const rawTx = prepareResult.data.serializedTransaction;
@@ -79,17 +67,34 @@ export function useClaiming() {
 
         console.log('🔄 VersionedTransaction ready for signing');
 
-        // STEP 3: Sign transaction with Dynamic Labs (NO sending)
-        console.log('✍️ Signing transaction with Dynamic Labs...');
-        const signedTransaction = await signer.signTransaction(properTransaction);
-        console.log('✅ Transaction signed by Dynamic Labs!');
+        // STEP 3: Sign transaction with Privy
+        console.log('✍️ Signing transaction with Privy...');
+        let signedTransactionData: Uint8Array;
+
+        if (wallets && wallets.length > 0) {
+          // Use the Privy hook for wallets from useWallets()
+          const { signedTransaction } = await signTransaction({
+            transaction: new Uint8Array(properTransaction.serialize()),
+            wallet: wallets[0],
+          });
+          signedTransactionData = signedTransaction;
+        } else {
+          // Fallback: use _privyWallet and call signTransaction directly
+          const privyWallet = (primaryWallet as any)?._privyWallet;
+          if (!privyWallet || typeof privyWallet.signTransaction !== 'function') {
+            throw new Error('No valid Solana wallet found');
+          }
+          const signed = await privyWallet.signTransaction(properTransaction);
+          signedTransactionData = signed.serialize();
+        }
+        console.log('✅ Transaction signed by Privy!');
 
         // STEP 4: Send signed transaction to Solana via our RPC system
         console.log('📤 Sending signed transaction to Solana via our RPC...');
 
         try {
           // Send the signed transaction directly to Solana using our RPC fallback system
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
+          signature = await sendRawTransaction(signedTransactionData, {
             skipPreflight: false,
             maxRetries: 3,
             preflightCommitment: 'confirmed'
@@ -99,7 +104,7 @@ export function useClaiming() {
           const errorMessage = rpcError instanceof Error ? rpcError.message : 'Unknown error';
           console.log('⚠️ Primary RPC failed, trying fallback with skipPreflight...', errorMessage);
           // Try with skipPreflight as fallback
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
+          signature = await sendRawTransaction(signedTransactionData, {
             skipPreflight: true,
             maxRetries: 3,
             preflightCommitment: 'confirmed'
@@ -115,47 +120,8 @@ export function useClaiming() {
 
       } catch (signerError: unknown) {
         const errorMessage = signerError instanceof Error ? signerError.message : 'Unknown error';
-        console.log('❌ Dynamic Labs signing failed:', errorMessage);
-
-        // Fallback: Try with _connector approach
-        try {
-          console.log('🔄 Fallback: Trying _connector approach...');
-
-          const connector = (primaryWallet as unknown as DynamicWalletWithSigner)._connector;
-          console.log('📊 Connector type:', connector?.constructor?.name);
-
-          // Get serialized transaction from API response
-          const rawTx = prepareResult.data.serializedTransaction;
-          if (!rawTx) {
-            throw new Error('No serializedTransaction provided by server');
-          }
-          const txBuffer = Buffer.from(rawTx, 'base64');
-          const properTransaction = VersionedTransaction.deserialize(txBuffer);
-
-          // Sign with connector
-          if (!connector) {
-            throw new Error('Connector not available');
-          }
-          const signedTransaction = await connector.signTransaction(properTransaction);
-          console.log('✅ Transaction signed via _connector!');
-
-          // Send via our RPC
-          signature = await sendRawTransaction(signedTransaction.serialize(), {
-            skipPreflight: true,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-          console.log('✅ Transaction submitted via _connector + our RPC:', signature);
-
-          // Wait for confirmation
-          const connection = await getSolanaConnection();
-          await connection.confirmTransaction(signature, 'confirmed');
-          console.log('✅ Transaction confirmed!');
-
-        } catch (connectorError) {
-          console.error('❌ Connector fallback also failed:', connectorError);
-          return { success: false, error: connectorError };
-        }
+        console.error('❌ Privy wallet signing failed:', errorMessage);
+        throw new Error(`Failed to sign transaction: ${errorMessage}`);
       }
 
       console.log('🎉 Claim rewards completed successfully!');

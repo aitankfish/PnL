@@ -140,10 +140,12 @@ pub fn handler(ctx: Context<ClaimRewards>) -> Result<()> {
             // NO voters receive SOL (proportional to no_shares)
             require!(position.no_shares > 0, ErrorCode::InsufficientBalance);
             require!(market.total_no_shares > 0, ErrorCode::MathError);
+            require!(market.distribution_pool > 0, ErrorCode::InsufficientBalance);
 
-            // Calculate proportional payout (95% of pool after 5% fee)
-            // payout = (user_no_shares / total_no_shares) * pool_balance
-            let user_payout = ((position.no_shares as u128 * market.pool_balance as u128)
+            // Calculate proportional payout using fixed distribution pool
+            // payout = (user_no_shares / total_no_shares) * distribution_pool
+            // This ensures fair distribution regardless of claim order
+            let user_payout = ((position.no_shares as u128 * market.distribution_pool as u128)
                 / market.total_no_shares as u128) as u64;
 
             require!(user_payout > 0, ErrorCode::InsufficientBalance);
@@ -156,7 +158,7 @@ pub fn handler(ctx: Context<ClaimRewards>) -> Result<()> {
             **market.to_account_info().try_borrow_mut_lamports()? -= user_payout;
             **ctx.accounts.user.to_account_info().try_borrow_mut_lamports()? += user_payout;
 
-            // Update market pool balance
+            // Update market pool balance (tracks actual remaining SOL)
             market.pool_balance = market
                 .pool_balance
                 .checked_sub(user_payout)
@@ -166,8 +168,9 @@ pub fn handler(ctx: Context<ClaimRewards>) -> Result<()> {
             msg!("   User: {}", ctx.accounts.user.key());
             msg!("   User NO shares: {}", position.no_shares);
             msg!("   Total NO shares: {}", market.total_no_shares);
+            msg!("   Distribution pool (fixed): {} lamports", market.distribution_pool);
             msg!("   SOL payout: {} lamports", user_payout);
-            msg!("   Remaining pool: {} lamports", market.pool_balance);
+            msg!("   Remaining pool balance: {} lamports", market.pool_balance);
         }
 
         MarketResolution::Refund => {
