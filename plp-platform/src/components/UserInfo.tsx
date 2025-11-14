@@ -17,7 +17,6 @@ import {
   Loader2,
   AlertCircle
 } from 'lucide-react';
-import { useNetwork } from '@/lib/hooks/useNetwork';
 
 interface UserInfoProps {
   showBalances?: boolean;
@@ -33,8 +32,12 @@ export default function UserInfo({
   className = ''
 }: UserInfoProps) {
   const { user: contextUser, primaryWallet, authenticated: isLoggedIn, loading: isAuthenticating } = useWallet();
-  const { network, isMainnet, isDevnet, isDevelopment, setNetwork } = useNetwork();
   const { displayName } = useUserProfile();
+
+  // Get network directly from environment variable (no runtime switching)
+  const network = (process.env.NEXT_PUBLIC_SOLANA_NETWORK as 'devnet' | 'mainnet-beta') || 'devnet';
+  const isDevnet = network === 'devnet';
+  const isMainnet = network === 'mainnet-beta';
 
   // Use Dynamic context data directly
   const user = contextUser;
@@ -152,25 +155,14 @@ export default function UserInfo({
               {getWalletBalance()}
             </span>
 
-            {/* Network Selector - Only in Development Mode */}
-            {isDevelopment ? (
-              <select
-                value={network}
-                onChange={(e) => setNetwork(e.target.value as 'devnet' | 'mainnet-beta')}
-                className="text-xs px-2 py-1 rounded bg-white/10 border border-white/20 text-white cursor-pointer hover:bg-white/15 transition-colors"
-              >
-                <option value="devnet">🛠️ Devnet</option>
-                <option value="mainnet-beta">🚀 Mainnet</option>
-              </select>
-            ) : (
-              <span className={`text-xs px-1.5 py-0.5 rounded ${
-                isDevnet
-                  ? 'bg-yellow-500/20 text-yellow-300'
-                  : 'bg-green-500/20 text-green-300'
-              }`}>
-                {isDevnet ? 'Devnet' : 'Mainnet'}
-              </span>
-            )}
+            {/* Network Badge - Read-only from environment */}
+            <span className={`text-xs px-1.5 py-0.5 rounded ${
+              isDevnet
+                ? 'bg-yellow-500/20 text-yellow-300'
+                : 'bg-green-500/20 text-green-300'
+            }`}>
+              {isDevnet ? 'Devnet' : 'Mainnet'}
+            </span>
           </div>
         )}
       </div>

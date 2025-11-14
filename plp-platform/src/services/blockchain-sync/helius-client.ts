@@ -37,7 +37,8 @@ interface AccountUpdateNotification {
 export class HeliusClient {
   private ws: WebSocket | null = null;
   private wsUrl: string;
-  private subscriptions: Map<string, number> = new Map();
+  private subscriptions: Map<string, number> = new Map(); // subscription key -> subscription ID
+  private subscriptionIdToPubkey: Map<number, string> = new Map(); // subscription ID -> pubkey
   private reconnectTimeout: NodeJS.Timeout | null = null;
   private reconnectAttempts = 0;
   private maxReconnectAttempts = 10;
@@ -160,10 +161,16 @@ export class HeliusClient {
    * Resubscribe to all previous subscriptions after reconnection
    */
   private async resubscribeAll(): Promise<void> {
-    const subscriptions = Array.from(this.subscriptions.keys());
-    this.subscriptions.clear();
+    // Save subscription keys before clearing
+    const subscriptionKeys = Array.from(this.subscriptions.keys());
 
-    for (const key of subscriptions) {
+    logger.info(`Resubscribing to ${subscriptionKeys.length} subscriptions...`);
+
+    // Clear old subscription IDs (they're invalid after reconnect)
+    this.subscriptions.clear();
+    this.subscriptionIdToPubkey.clear(); // Also clear reverse mapping
+
+    for (const key of subscriptionKeys) {
       if (key.startsWith('program:')) {
         const programId = key.replace('program:', '');
         await this.subscribeToProgram(programId);
@@ -173,7 +180,7 @@ export class HeliusClient {
       }
     }
 
-    logger.info(`Resubscribed to ${subscriptions.length} subscriptions`);
+    logger.info(`✅ Resubscription requests sent for ${subscriptionKeys.length} subscriptions`);
   }
 
   /**
@@ -191,9 +198,10 @@ export class HeliusClient {
       return;
     }
 
+    const requestId = Date.now();
     const subscribeRequest = {
       jsonrpc: '2.0',
-      id: Date.now(),
+      id: requestId,
       method: 'accountSubscribe',
       params: [
         address,
@@ -204,6 +212,7 @@ export class HeliusClient {
       ],
     };
 
+    this.pendingSubscriptions.set(requestId, subscriptionKey);
     this.ws.send(JSON.stringify(subscribeRequest));
     logger.info(`📡 Subscribed to account: ${address}`);
   }
@@ -224,9 +233,10 @@ export class HeliusClient {
       return;
     }
 
+    const requestId = Date.now();
     const subscribeRequest = {
       jsonrpc: '2.0',
-      id: Date.now(),
+      id: requestId,
       method: 'programSubscribe',
       params: [
         targetProgramId,
@@ -237,6 +247,7 @@ export class HeliusClient {
       ],
     };
 
+    this.pendingSubscriptions.set(requestId, subscriptionKey);
     this.ws.send(JSON.stringify(subscribeRequest));
     logger.info(`📡 Subscribed to program: ${targetProgramId}`);
   }
@@ -244,13 +255,31 @@ export class HeliusClient {
   /**
    * Handle incoming WebSocket messages
    */
+  private pendingSubscriptions: Map<number, string> = new Map(); // request ID -> subscription key
+
   private handleMessage(data: WebSocket.Data): void {
     try {
       const message = JSON.parse(data.toString());
 
       // Handle subscription confirmation
       if (message.id && message.result && typeof message.result === 'number') {
-        logger.info(`✅ Subscription confirmed: ${message.result}`);
+        const subscriptionKey = this.pendingSubscriptions.get(message.id);
+        if (subscriptionKey) {
+          const subscriptionId = message.result;
+          this.subscriptions.set(subscriptionKey, subscriptionId);
+          this.pendingSubscriptions.delete(message.id);
+
+          // Store reverse mapping for accountSubscribe (not programSubscribe)
+          if (subscriptionKey.startsWith('account:')) {
+            const pubkey = subscriptionKey.replace('account:', '');
+            this.subscriptionIdToPubkey.set(subscriptionId, pubkey);
+            logger.info(`✅ Account subscription confirmed: ${pubkey.slice(0, 8)}... -> ${subscriptionId}`);
+          } else {
+            logger.info(`✅ Subscription confirmed: ${subscriptionKey} -> ${subscriptionId}`);
+          }
+        } else {
+          logger.info(`✅ Subscription confirmed: ${message.result}`);
+        }
         return;
       }
 
@@ -268,11 +297,77 @@ export class HeliusClient {
    */
   private async handleAccountUpdate(notification: AccountUpdateNotification): Promise<void> {
     try {
-      const { slot } = notification.params.result.context;
-      const { account, pubkey } = notification.params.result.value;
+      // Check the notification method type
+      const method = notification.method;
+      logger.info(`📨 Notification method: ${method}`);
 
-      const accountData = account.data[0]; // Base64 encoded data
-      const encoding = account.data[1];
+      // Handle both accountNotification and programNotification formats
+      let slot: number;
+      let pubkey: string;
+      let accountData: string;
+      let encoding: string;
+
+      if (method === 'accountNotification') {
+        // Format: notification.params.result.value = { lamports, data, owner, ... }
+        const result = notification.params?.result;
+        if (!result || !result.value) {
+          logger.warn('Invalid accountNotification format');
+          return;
+        }
+
+        slot = result.context?.slot || 0;
+
+        // Look up pubkey from subscription ID
+        const subscriptionId = notification.params?.subscription;
+        if (!subscriptionId) {
+          logger.warn('No subscription ID in accountNotification');
+          return;
+        }
+
+        const resolvedPubkey = this.subscriptionIdToPubkey.get(subscriptionId);
+        if (!resolvedPubkey) {
+          logger.warn(`No pubkey mapping for subscription ID ${subscriptionId}`);
+          return;
+        }
+
+        pubkey = resolvedPubkey;
+        // In accountNotification, result.value IS the account data directly
+        const value: any = result.value;
+
+        if (!value || !value.data) {
+          logger.warn('No account data in accountNotification');
+          return;
+        }
+
+        accountData = value.data[0];
+        encoding = value.data[1];
+
+      } else if (method === 'programNotification') {
+        // Format: notification.params.result.value = { pubkey, account }
+        const result = notification.params?.result;
+        if (!result || !result.value) {
+          logger.warn('Invalid programNotification format');
+          return;
+        }
+
+        slot = result.context?.slot || 0;
+        const value = result.value;
+
+        pubkey = value.pubkey;
+        const account = value.account;
+
+        if (!account || !account.data) {
+          logger.warn('No account data in programNotification');
+          return;
+        }
+
+        accountData = account.data[0];
+        encoding = account.data[1];
+
+      } else {
+        logger.warn(`Unknown notification method: ${method}`);
+        return;
+      }
 
       if (encoding !== 'base64') {
         logger.warn(`Unexpected encoding: ${encoding}`);
@@ -283,6 +378,12 @@ export class HeliusClient {
       const accountType = this.detectAccountType(accountData);
 
       logger.info(`📥 Account update received: ${pubkey.slice(0, 8)}... (${accountType})`);
+
+      // Only process market and position accounts, skip unknown types (token accounts, etc.)
+      if (accountType === 'unknown') {
+        logger.debug(`⏭️  Skipping unknown account type: ${pubkey.slice(0, 8)}...`);
+        return;
+      }
 
       // Push to Redis queue
       await pushEvent({
@@ -295,34 +396,52 @@ export class HeliusClient {
       });
 
     } catch (error) {
-      logger.error('Error handling account update:', error);
+      logger.error('Error handling account update:', error instanceof Error ? { message: error.message, stack: error.stack } : { error: String(error) });
     }
   }
 
   /**
    * Detect account type (market or position) from data
-   * This is a simple heuristic - you can improve based on your account structure
+   * Attempts to parse as each type to determine which it is
    */
   private detectAccountType(base64Data: string): 'market' | 'position' | 'unknown' {
     try {
       const buffer = Buffer.from(base64Data, 'base64');
 
-      // Skip 8-byte discriminator
-      const dataSize = buffer.length - 8;
-
-      // Market accounts are larger (~500+ bytes)
-      // Position accounts are smaller (~100-200 bytes)
-      // These are rough estimates - adjust based on your actual struct sizes
-
-      if (dataSize > 400) {
-        return 'market';
-      } else if (dataSize > 50 && dataSize < 300) {
-        return 'position';
+      // Need at least 8 bytes for discriminator
+      if (buffer.length < 8) {
+        return 'unknown';
       }
 
+      // Try parsing as market first (more complex structure)
+      try {
+        // Market has: 32 bytes (founder) + 4 bytes (string length) at start after discriminator
+        if (buffer.length > 44) { // 8 + 32 + 4
+          const dataWithoutDiscriminator = buffer.slice(8);
+          // Check if string length is reasonable (< 1000)
+          const ipfsCidLen = dataWithoutDiscriminator.readUInt32LE(32);
+          if (ipfsCidLen < 1000) {
+            return 'market';
+          }
+        }
+      } catch (e) {
+        // Not a market, try position
+      }
+
+      // Try parsing as position (simpler structure)
+      try {
+        // Position has exact size: 8 (discriminator) + 32 (user) + 32 (market) + 8 (yes_shares) + 8 (no_shares) + 8 (total_invested) + 1 (claimed) + 1 (bump) = 98 bytes
+        if (buffer.length === 98) {
+          return 'position';
+        }
+      } catch (e) {
+        // Not a position either
+      }
+
+      logger.warn(`Could not detect account type, size: ${buffer.length} bytes`);
       return 'unknown';
     } catch (error) {
-      logger.error('Error detecting account type:', error);
+      logger.error('Error detecting account type:', error instanceof Error ? { message: error.message } : { error: String(error) });
       return 'unknown';
     }
   }

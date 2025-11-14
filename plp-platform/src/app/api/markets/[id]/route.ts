@@ -6,8 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, PredictionMarket, Project } from '@/lib/mongodb';
+import { connectToDatabase, PredictionMarket, PredictionParticipant, Project } from '@/lib/mongodb';
 import { createClientLogger } from '@/lib/logger';
+import { calculateVoteCounts } from '@/lib/vote-counts';
 
 const logger = createClientLogger();
 
@@ -73,6 +74,37 @@ export async function GET(
       imageUrl = undefined;
     }
 
+    // Calculate vote counts from MongoDB
+    const voteCounts = await calculateVoteCounts(market._id);
+
+    // Calculate total stakes from participants (fresh data, not stale MongoDB fields)
+    let totalYesStake = 0;
+    let totalNoStake = 0;
+    try {
+      const participants = await PredictionParticipant.find({ marketId: market._id }).lean();
+
+      for (const participant of participants) {
+        const yesShares = BigInt(participant.yesShares || '0');
+        const noShares = BigInt(participant.noShares || '0');
+
+        // Convert from lamports to SOL for stake totals
+        totalYesStake += Number(yesShares) / 1_000_000_000;
+        totalNoStake += Number(noShares) / 1_000_000_000;
+      }
+
+      logger.info('Calculated stake totals from participants', {
+        marketId: market._id.toString(),
+        totalYesStake,
+        totalNoStake,
+        participantCount: participants.length
+      });
+    } catch (error) {
+      logger.error('Failed to calculate stake totals from participants:', error);
+      // Fallback to MongoDB fields if calculation fails
+      totalYesStake = market.totalYesStake || 0;
+      totalNoStake = market.totalNoStake || 0;
+    }
+
     // Fetch metadata from IPFS if available
     let metadata = null;
     if (market.metadataUri) {
@@ -111,16 +143,35 @@ export async function GET(
       stage: project?.projectStage || 'Unknown',
       tokenSymbol: project?.tokenSymbol || 'TKN',
       targetPool: `${market.targetPool / 1e9} SOL`,
-      yesVotes: market.yesVoteCount || 0,
-      noVotes: market.noVoteCount || 0,
-      totalYesStake: market.totalYesStake || 0,
-      totalNoStake: market.totalNoStake || 0,
+      yesVotes: voteCounts.yesVoteCount,
+      noVotes: voteCounts.noVoteCount,
+      totalYesStake: totalYesStake,
+      totalNoStake: totalNoStake,
       timeLeft,
       expiryTime: market.expiryTime,
       status: market.marketState === 0 ? 'active' : 'resolved',
       metadataUri: market.metadataUri,
       projectImageUrl: imageUrl,
       metadata,
+
+      // On-chain fields from blockchain sync (MongoDB has fresh data via WebSocket)
+      poolBalance: market.poolBalance,
+      yesPool: market.yesPool,
+      noPool: market.noPool,
+      totalYesShares: market.totalYesShares,
+      totalNoShares: market.totalNoShares,
+      poolProgressPercentage: market.poolProgressPercentage,
+      yesPercentage: market.yesPercentage,
+      sharesYesPercentage: market.sharesYesPercentage,
+      phase: market.phase,
+      resolution: market.resolution,
+      tokenMint: market.tokenMint,
+      platformTokensAllocated: market.platformTokensAllocated,
+      platformTokensClaimed: market.platformTokensClaimed,
+      yesVoterTokensAllocated: market.yesVoterTokensAllocated,
+      availableActions: market.availableActions,
+      lastSyncedAt: market.lastSyncedAt,
+      syncStatus: market.syncStatus,
     };
 
     logger.info('Fetched market details', { marketId: id });

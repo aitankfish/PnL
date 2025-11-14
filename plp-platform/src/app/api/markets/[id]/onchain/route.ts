@@ -150,6 +150,10 @@ export async function GET(
       const poolBalance = dataWithoutDiscriminator.readBigUInt64LE(offset);
       offset += 8;
 
+      // Read distribution_pool (8 bytes - u64)
+      const distributionPool = dataWithoutDiscriminator.readBigUInt64LE(offset);
+      offset += 8;
+
       // Read yes_pool (8 bytes - u64)
       const yesPool = dataWithoutDiscriminator.readBigUInt64LE(offset);
       offset += 8;

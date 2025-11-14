@@ -4,7 +4,7 @@
  */
 
 import mongoose from 'mongoose';
-import { config } from './config';
+import { getDatabaseConfig } from './environment';
 import logger from './logger';
 
 // Connection state
@@ -16,17 +16,19 @@ export const connectToDatabase = async () => {
     return;
   }
 
-  if (!config.mongodb.uri) {
+  const dbConfig = getDatabaseConfig();
+
+  if (!dbConfig.uri) {
     throw new Error('MONGODB_URI environment variable is not set');
   }
 
   try {
     // Connect with environment-specific database name
-    const connectionUri = `${config.mongodb.uri}/${config.mongodb.currentDatabase}`;
+    const connectionUri = `${dbConfig.uri}/${dbConfig.name}`;
     await mongoose.connect(connectionUri);
     isConnected = true;
-    logger.info('Connected to MongoDB successfully', { 
-      database: config.mongodb.currentDatabase,
+    logger.info('Connected to MongoDB successfully', {
+      database: dbConfig.name,
       environment: process.env.NODE_ENV || 'development'
     });
   } catch (error) {
@@ -199,6 +201,92 @@ const PredictionMarketSchema = new mongoose.Schema({
     default: Date.now,
     index: true, // Index for faster sorting
   },
+
+  // ========================================
+  // Blockchain Sync Fields (from on-chain)
+  // ========================================
+  poolBalance: {
+    type: String, // bigint as string
+    default: '0',
+  },
+  distributionPool: {
+    type: String, // bigint as string
+    default: '0',
+  },
+  yesPool: {
+    type: String, // AMM pool state
+    default: '0',
+  },
+  noPool: {
+    type: String, // AMM pool state
+    default: '0',
+  },
+  totalYesShares: {
+    type: String, // Share tokens issued to YES voters
+    default: '0',
+  },
+  totalNoShares: {
+    type: String, // Share tokens issued to NO voters
+    default: '0',
+  },
+  phase: {
+    type: Number, // 0=Prediction, 1=Funding
+    default: 0,
+  },
+
+  // Calculated fields for UI
+  poolProgressPercentage: {
+    type: Number,
+    default: 0,
+  },
+  yesPercentage: {
+    type: Number, // Based on SOL staked (user-friendly)
+    default: 50,
+  },
+  sharesYesPercentage: {
+    type: Number, // Based on shares (winner logic)
+    default: 50,
+  },
+
+  // Available actions based on state
+  availableActions: {
+    type: [String], // ['vote', 'resolve', 'extend', 'claim']
+    default: ['vote'],
+  },
+
+  // Token fields
+  tokenMint: {
+    type: String,
+  },
+  platformTokensAllocated: {
+    type: String,
+    default: '0',
+  },
+  platformTokensClaimed: {
+    type: Boolean,
+    default: false,
+  },
+  yesVoterTokensAllocated: {
+    type: String,
+    default: '0',
+  },
+
+  // Sync metadata
+  lastSyncedAt: {
+    type: Date,
+  },
+  lastSlot: {
+    type: Number,
+  },
+  syncStatus: {
+    type: String,
+    enum: ['synced', 'syncing', 'error', 'pending'],
+    default: 'pending',
+  },
+  syncCount: {
+    type: Number,
+    default: 0,
+  },
 });
 
 // Compound index for common queries (marketState + createdAt sorting)
@@ -243,6 +331,32 @@ const PredictionParticipantSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
+  },
+
+  // ========================================
+  // Position PDA Sync Fields
+  // ========================================
+  yesShares: {
+    type: String, // Share tokens owned
+    default: '0',
+  },
+  noShares: {
+    type: String, // Share tokens owned
+    default: '0',
+  },
+  totalInvested: {
+    type: String, // Total SOL invested
+    default: '0',
+  },
+  positionPdaAddress: {
+    type: String, // Track the PDA address
+  },
+  positionClosed: {
+    type: Boolean, // PDA closed after claim
+    default: false,
+  },
+  lastSyncedAt: {
+    type: Date,
   },
 });
 

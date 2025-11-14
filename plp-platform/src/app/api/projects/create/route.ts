@@ -3,17 +3,12 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { Keypair, Connection, LAMPORTS_PER_SOL } from '@solana/web3.js';
-import { plpActionsProtocol } from '@/lib/actions-protocol';
+import { Keypair } from '@solana/web3.js';
 import { ipfsUtils, ProjectMetadata } from '@/lib/ipfs';
 import { createClientLogger } from '@/lib/logger';
-import { config } from '@/lib/config';
-import { connectToDatabase, Project, PredictionMarket } from '@/lib/mongodb';
+import { connectToDatabase, Project } from '@/lib/mongodb';
 
 const logger = createClientLogger();
-
-// Initialize Solana connection for devnet faucet
-const connection = new Connection(config.solana.devnetRpc, 'confirmed');
 
 export async function POST(request: NextRequest) {
   try {

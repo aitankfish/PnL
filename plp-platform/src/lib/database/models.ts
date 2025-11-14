@@ -119,8 +119,8 @@ export interface TradeHistory {
 // Database Collection Names
 export const COLLECTIONS = {
   PROJECTS: 'projects',
-  PREDICTION_MARKETS: 'prediction_markets',
-  PREDICTION_PARTICIPANTS: 'prediction_participants',
+  PREDICTION_MARKETS: 'predictionmarkets', // Mongoose creates this as lowercase, no underscore
+  PREDICTION_PARTICIPANTS: 'predictionparticipants', // Mongoose creates this as lowercase, no underscore
   USER_PROFILES: 'user_profiles',
   TRANSACTION_HISTORY: 'transaction_history',
   TRADE_HISTORY: 'trade_history',

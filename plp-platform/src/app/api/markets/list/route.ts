@@ -6,8 +6,9 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase, PredictionMarket, Project } from '@/lib/mongodb';
+import { connectToDatabase, PredictionMarket, PredictionParticipant, Project } from '@/lib/mongodb';
 import { createClientLogger } from '@/lib/logger';
+import { calculateVoteCountsForMarkets } from '@/lib/vote-counts';
 
 const logger = createClientLogger();
 
@@ -45,6 +46,43 @@ export async function GET(_request: NextRequest) {
       .limit(20) // Limit to 20 markets for faster initial load
       .lean();
 
+    // Calculate vote counts from MongoDB for all markets
+    const marketIds = markets.map(m => m._id);
+    const voteCountsMap = await calculateVoteCountsForMarkets(marketIds);
+
+    // Calculate stake totals from participants for all markets (fresh data, not stale MongoDB fields)
+    const participants = await PredictionParticipant.find({
+      marketId: { $in: marketIds }
+    }).lean();
+
+    // Build map of stake totals per market
+    const stakeTotalsMap = new Map<string, { totalYesStake: number; totalNoStake: number }>();
+
+    // Initialize all markets with 0 stakes
+    for (const marketId of marketIds) {
+      stakeTotalsMap.set(marketId.toString(), { totalYesStake: 0, totalNoStake: 0 });
+    }
+
+    // Calculate stakes from participants
+    for (const participant of participants) {
+      const marketIdStr = participant.marketId.toString();
+      const stakes = stakeTotalsMap.get(marketIdStr) || { totalYesStake: 0, totalNoStake: 0 };
+
+      const yesShares = BigInt(participant.yesShares || '0');
+      const noShares = BigInt(participant.noShares || '0');
+
+      // Convert from lamports to SOL
+      stakes.totalYesStake += Number(yesShares) / 1_000_000_000;
+      stakes.totalNoStake += Number(noShares) / 1_000_000_000;
+
+      stakeTotalsMap.set(marketIdStr, stakes);
+    }
+
+    logger.info('Calculated stake totals for all markets', {
+      marketCount: marketIds.length,
+      participantCount: participants.length
+    });
+
     // Combine market and project data
     const marketsWithProjects = markets.map((market) => {
       const project = market.projectId as any; // populated project
@@ -65,6 +103,18 @@ export async function GET(_request: NextRequest) {
         timeLeft = 'Ending soon';
       }
 
+      // Get calculated vote counts (fallback to MongoDB fields if calculation failed)
+      const voteCounts = voteCountsMap.get(market._id.toString()) || {
+        yesVoteCount: market.yesVoteCount || 0,
+        noVoteCount: market.noVoteCount || 0,
+      };
+
+      // Get calculated stake totals (fallback to MongoDB fields if calculation failed)
+      const stakeTotals = stakeTotalsMap.get(market._id.toString()) || {
+        totalYesStake: market.totalYesStake || 0,
+        totalNoStake: market.totalNoStake || 0,
+      };
+
       return {
         id: market._id.toString(),
         marketAddress: market.marketAddress,
@@ -74,15 +124,24 @@ export async function GET(_request: NextRequest) {
         stage: project?.projectStage || 'Unknown',
         tokenSymbol: project?.tokenSymbol || 'TKN',
         targetPool: `${market.targetPool / 1e9} SOL`,
-        yesVotes: market.yesVoteCount || 0,
-        noVotes: market.noVoteCount || 0,
-        totalYesStake: market.totalYesStake || 0,
-        totalNoStake: market.totalNoStake || 0,
+        yesVotes: voteCounts.yesVoteCount,
+        noVotes: voteCounts.noVoteCount,
+        totalYesStake: stakeTotals.totalYesStake,
+        totalNoStake: stakeTotals.totalNoStake,
         timeLeft,
         expiryTime: market.expiryTime,
         status: market.resolution || (market.marketState === 0 ? 'active' : 'resolved'),
         metadataUri: market.metadataUri,
         projectImageUrl: convertToGatewayUrl(project?.projectImageUrl),
+
+        // On-chain fields from blockchain sync (MongoDB has fresh data via WebSocket)
+        resolution: market.resolution || 'Unresolved',
+        phase: market.phase || 'Prediction',
+        poolProgressPercentage: market.poolProgressPercentage || 0,
+        poolBalance: market.poolBalance || 0,
+        totalYesShares: market.totalYesShares?.toString() || '0',
+        totalNoShares: market.totalNoShares?.toString() || '0',
+        sharesYesPercentage: market.sharesYesPercentage || 0,
       };
     });
 

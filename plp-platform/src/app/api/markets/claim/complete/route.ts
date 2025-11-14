@@ -1,76 +1,91 @@
 /**
- * API endpoint for completing claim reward transactions
+ * API endpoint for updating database after successful claim
  *
- * This endpoint receives a signed transaction, sends it to the blockchain,
- * and confirms the claim
+ * This endpoint is called after the claim transaction is confirmed on-chain.
+ * It updates the PredictionParticipant record to mark the claim as completed.
  */
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createClientLogger } from '@/lib/logger';
-import { sendRawTransaction } from '@/lib/solana';
+import { connectToDatabase, PredictionParticipant } from '@/lib/mongodb';
+import { ObjectId } from 'mongodb';
 
 const logger = createClientLogger();
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { signedTransaction, marketId, userWallet } = body;
+    const { marketId, userWallet, signature, claimAmount } = body;
 
     // Validate inputs
-    if (!signedTransaction || !marketId || !userWallet) {
+    if (!marketId || !userWallet || !signature) {
       return NextResponse.json(
         {
           success: false,
-          error: 'Missing required fields: signedTransaction, marketId, userWallet',
+          error: 'Missing required fields: marketId, userWallet, signature',
         },
         { status: 400 }
       );
     }
 
-    logger.info('Completing claim rewards transaction', {
-      marketId,
-      userWallet,
-    });
-
-    // Decode the signed transaction
-    const transactionBuffer = Buffer.from(signedTransaction, 'base64');
-
-    // Send transaction to blockchain
-    logger.info('Sending claim rewards transaction to blockchain...');
-    const signature = await sendRawTransaction(transactionBuffer, {
-      skipPreflight: false,
-      maxRetries: 3,
-      preflightCommitment: 'confirmed'
-    });
-
-    logger.info('Claim rewards transaction sent', { signature });
-
-    // Wait for confirmation (simple confirmation, not finalized)
-    // The transaction will be confirmed in the background
-    logger.info('Claim rewards completed successfully', {
+    logger.info('Updating database after successful claim', {
       marketId,
       userWallet,
       signature,
+      claimAmount,
     });
+
+    // Connect to database
+    await connectToDatabase();
+
+    // Update PredictionParticipant to mark as claimed and position closed
+    const updateResult = await PredictionParticipant.updateOne(
+      {
+        marketId: new ObjectId(marketId),
+        participantWallet: userWallet,
+      },
+      {
+        $set: {
+          claimed: true,
+          positionClosed: true,
+          solRewarded: claimAmount || 0,
+          lastSyncedAt: new Date(),
+        },
+      }
+    );
+
+    if (updateResult.matchedCount === 0) {
+      logger.warn('No participant record found to update', {
+        marketId,
+        userWallet,
+      });
+      // Don't fail the request - the claim was successful on-chain
+    } else {
+      logger.info('Participant record updated successfully', {
+        marketId,
+        userWallet,
+        modifiedCount: updateResult.modifiedCount,
+      });
+    }
 
     return NextResponse.json({
       success: true,
       data: {
         signature,
-        message: 'Rewards claimed successfully!',
+        message: 'Claim recorded successfully!',
       },
     });
 
   } catch (error) {
-    logger.error('Failed to complete claim rewards transaction:', error);
+    logger.error('Failed to update database after claim:', { error: error instanceof Error ? error.message : String(error) });
 
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Failed to complete claim rewards transaction',
-        details: error instanceof Error ? error.message : 'Unknown error'
+    // Don't fail the request even if database update fails
+    // The on-chain transaction already succeeded
+    return NextResponse.json({
+      success: true,
+      data: {
+        message: 'Claim completed on-chain (database update pending)',
       },
-      { status: 500 }
-    );
+    });
   }
 }

@@ -6,6 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase as connectNative, getDatabase } from '@/lib/database/index';
+import { connectToDatabase, PredictionParticipant } from '@/lib/mongodb';
 import { COLLECTIONS } from '@/lib/database/models';
 import { ObjectId } from 'mongodb';
 import { createClientLogger } from '@/lib/logger';
@@ -65,12 +66,22 @@ export async function GET(
     // Calculate total amount invested
     const totalAmount = userTrades.reduce((sum, trade) => sum + trade.amount, 0);
 
+    // Check if user has claimed rewards
+    await connectToDatabase();
+    const participant = await PredictionParticipant.findOne({
+      marketId: new ObjectId(marketId),
+      participantWallet: userWallet,
+    });
+
+    const claimed = participant?.claimed || false;
+
     logger.info('User position found', {
       marketId,
       userWallet,
       side,
       tradeCount: userTrades.length,
       totalAmount,
+      claimed,
     });
 
     return NextResponse.json({
@@ -80,10 +91,11 @@ export async function GET(
         side,
         totalAmount: totalAmount / 1_000_000_000, // Convert to SOL
         tradeCount: userTrades.length,
+        claimed,
       },
     });
   } catch (error) {
-    logger.error('Failed to check user position:', error);
+    logger.error('Failed to check user position:', { error: error instanceof Error ? error.message : String(error) });
 
     return NextResponse.json(
       {

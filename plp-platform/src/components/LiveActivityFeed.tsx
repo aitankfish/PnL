@@ -22,6 +22,18 @@ interface LiveActivityFeedProps {
 }
 
 export default function LiveActivityFeed({ trades, className }: LiveActivityFeedProps) {
+  // Deduplicate trades by signature to avoid React key warnings
+  const uniqueTrades = React.useMemo(() => {
+    const seen = new Set<string>();
+    return trades.filter(trade => {
+      if (seen.has(trade.id)) {
+        return false;
+      }
+      seen.add(trade.id);
+      return true;
+    });
+  }, [trades]);
+
   // Shorten wallet address for display
   const shortenAddress = (address: string) => {
     return `${address.slice(0, 4)}...${address.slice(-4)}`;
@@ -55,7 +67,7 @@ export default function LiveActivityFeed({ trades, className }: LiveActivityFeed
       </CardHeader>
       <CardContent>
         <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
-          {trades.map((trade) => (
+          {uniqueTrades.map((trade) => (
             <div
               key={trade.id}
               className="flex items-start gap-3 p-3 rounded-lg bg-gray-800/30 border border-gray-700/30 hover:border-gray-600/50 transition-all"

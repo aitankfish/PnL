@@ -50,12 +50,103 @@ export async function POST(request: NextRequest) {
     const marketPubkey = new PublicKey(marketAddress);
     const userPubkey = new PublicKey(userWallet);
 
-    // Fetch on-chain market account using Anchor program
+    // Fetch on-chain market account manually (IDL doesn't have full type definitions)
     const connection = await getSolanaConnection();
-    const program = getProgram(connection);
 
     logger.info('Fetching on-chain market account...');
-    const marketAccount = await program.account.predictionMarket.fetch(marketPubkey);
+    const accountInfo = await connection.getAccountInfo(marketPubkey);
+
+    if (!accountInfo) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Market account not found on blockchain',
+        },
+        { status: 404 }
+      );
+    }
+
+    // Manually deserialize market account data
+    const accountData = accountInfo.data;
+    const dataWithoutDiscriminator = accountData.slice(8);
+    const decoder = new TextDecoder();
+    let offset = 0;
+
+    // Skip founder (32 bytes)
+    offset += 32;
+
+    // Skip ipfs_cid (String - 4 bytes length + data)
+    const ipfsCidLen = dataWithoutDiscriminator.readUInt32LE(offset);
+    offset += 4 + ipfsCidLen;
+
+    // Skip target_pool (8 bytes)
+    offset += 8;
+
+    // Read pool_balance (8 bytes)
+    const poolBalance = dataWithoutDiscriminator.readBigUInt64LE(offset);
+    offset += 8;
+
+    // Skip distribution_pool (8 bytes)
+    offset += 8;
+
+    // Skip yes_pool and no_pool (16 bytes)
+    offset += 16;
+
+    // Read total_yes_shares (8 bytes)
+    const totalYesShares = dataWithoutDiscriminator.readBigUInt64LE(offset);
+    offset += 8;
+
+    // Read total_no_shares (8 bytes)
+    const totalNoShares = dataWithoutDiscriminator.readBigUInt64LE(offset);
+    offset += 8;
+
+    // Skip expiry_time (8 bytes)
+    offset += 8;
+
+    // Skip phase (1 byte)
+    offset += 1;
+
+    // Read resolution (1 byte)
+    const resolutionByte = dataWithoutDiscriminator[offset];
+    offset += 1;
+
+    // Skip metadata_uri (String - 4 bytes length + data)
+    const metadataUriLen = dataWithoutDiscriminator.readUInt32LE(offset);
+    offset += 4 + metadataUriLen;
+
+    // Read token_mint (Option<PublicKey> - 1 byte for Some/None + 32 bytes if Some)
+    const hasTokenMint = dataWithoutDiscriminator[offset];
+    offset += 1;
+    const tokenMint = hasTokenMint ? new PublicKey(dataWithoutDiscriminator.slice(offset, offset + 32)) : null;
+    if (hasTokenMint) offset += 32;
+
+    // Read platform_tokens_allocated and yes_voter_tokens_allocated if available
+    let platformTokensAllocated = BigInt(0);
+    let yesVoterTokensAllocated = BigInt(0);
+
+    if (offset + 17 <= dataWithoutDiscriminator.length) {
+      try {
+        platformTokensAllocated = dataWithoutDiscriminator.readBigUInt64LE(offset);
+        offset += 8;
+
+        // Skip platform_tokens_claimed (1 byte)
+        offset += 1;
+
+        yesVoterTokensAllocated = dataWithoutDiscriminator.readBigUInt64LE(offset);
+      } catch (e) {
+        // Old market format
+      }
+    }
+
+    const marketAccount = {
+      resolution: resolutionByte,
+      poolBalance,
+      totalYesShares,
+      totalNoShares,
+      tokenMint,
+      platformTokensAllocated,
+      yesVoterTokensAllocated,
+    };
 
     // Check if market is resolved
     // Rust enum: 0=Unresolved, 1=YesWins, 2=NoWins, 3=Refund
@@ -76,8 +167,51 @@ export async function POST(request: NextRequest) {
       positionPda: positionPda.toBase58(),
     });
 
-    // Fetch on-chain position account using Anchor program
-    const positionAccount = await program.account.position.fetch(positionPda);
+    // Fetch on-chain position account manually
+    const positionAccountInfo = await connection.getAccountInfo(positionPda);
+
+    if (!positionAccountInfo) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Position account not found',
+        },
+        { status: 404 }
+      );
+    }
+
+    // Manually deserialize position account data
+    // Position struct: user (32), market (32), yes_shares (8), no_shares (8), total_invested (8), claimed (1), bump (1)
+    const positionData = positionAccountInfo.data.slice(8); // Skip discriminator
+    let posOffset = 0;
+
+    // Skip user (32 bytes)
+    posOffset += 32;
+
+    // Skip market (32 bytes)
+    posOffset += 32;
+
+    // Read yes_shares (8 bytes)
+    const yesShares = positionData.readBigUInt64LE(posOffset);
+    posOffset += 8;
+
+    // Read no_shares (8 bytes)
+    const noShares = positionData.readBigUInt64LE(posOffset);
+    posOffset += 8;
+
+    // Read total_invested (8 bytes)
+    const totalInvested = positionData.readBigUInt64LE(posOffset);
+    posOffset += 8;
+
+    // Read claimed (1 byte)
+    const claimed = positionData[posOffset] !== 0;
+
+    const positionAccount = {
+      yesShares,
+      noShares,
+      totalInvested,
+      claimed,
+    };
 
     if (positionAccount.claimed) {
       return NextResponse.json(

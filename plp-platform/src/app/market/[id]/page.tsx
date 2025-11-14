@@ -106,9 +106,14 @@ function getDetailedMarketStatus(
   market: MarketDetails,
   onchainData?: { success: boolean; data?: any }
 ): { status: string; badgeClass: string } {
-  // If we have on-chain data, use it for detailed status
+  // Calculate expiry status from MongoDB's expiryTime (same as CountdownTimer)
+  const now = new Date().getTime();
+  const expiryTime = new Date(market.expiryTime).getTime();
+  const isExpired = now >= expiryTime;
+
+  // If we have on-chain data, use it for resolution and pool progress
   if (onchainData?.success && onchainData.data) {
-    const { resolution, isExpired, poolProgressPercentage } = onchainData.data;
+    const { resolution, poolProgressPercentage } = onchainData.data;
 
     // Check resolution status first
     if (resolution === 'YesWins') {
@@ -132,7 +137,7 @@ function getDetailedMarketStatus(
       };
     }
 
-    // Unresolved market - check if expired
+    // Unresolved market - check if expired (using MongoDB time, not on-chain)
     if (resolution === 'Unresolved') {
       if (isExpired) {
         return {
@@ -158,10 +163,6 @@ function getDetailedMarketStatus(
   }
 
   // Fallback to basic expiry check if no on-chain data
-  const now = new Date().getTime();
-  const expiryTime = new Date(market.expiryTime).getTime();
-  const isExpired = now >= expiryTime;
-
   // Parse target pool
   const targetPoolValue = parseFloat(market.targetPool.replace(' SOL', ''));
   const currentPool = (market.totalYesStake + market.totalNoStake) / 1_000_000_000;
@@ -189,15 +190,16 @@ export default function MarketDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedSide, setSelectedSide] = useState<'yes' | 'no'>('yes');
-  const [votingType, setVotingType] = useState<'yes' | 'no' | null>(null);
-  const { vote, isVoting } = useVoting();
+  const [isProcessingVote, setIsProcessingVote] = useState(false);
+  const { vote } = useVoting();
   const { claim, isClaiming } = useClaiming();
   const { resolve, isResolving } = useResolution();
   const { extend, isExtending } = useExtend();
   const { initVesting, isInitializing, claimTeamTokens, isClaiming: isClaimingTeamTokens } = useTeamVesting();
   const { claimPlatformTokens, isClaiming: isClaimingPlatformTokens } = usePlatformTokens();
   const { closePosition, isClosingPosition, closeMarket, isClosingMarket } = useClose();
-  const [hasClaimed, setHasClaimed] = useState(false);
+  // Note: claimed status is now tracked in the database via positionData.data.claimed
+  // No need for local state
 
   // Error dialog state
   const [errorDialog, setErrorDialog] = useState<{
@@ -348,43 +350,48 @@ export default function MarketDetailsPage() {
       return;
     }
 
-    setVotingType(voteType);
+    // Set processing state and fire transaction
+    setIsProcessingVote(true);
 
-    const result = await vote({
+    vote({
       marketId: params.id as string,
       marketAddress: market.marketAddress,
       voteType,
       amount: voteAmount,
-    });
+    }).then((result) => {
+      setIsProcessingVote(false);
 
-    setVotingType(null);
+      if (result.success) {
+        // Show success notification immediately (no page reload)
+        setSuccessDialog({
+          open: true,
+          title: `${voteType.toUpperCase()} Vote Recorded`,
+          message: 'Your vote has been successfully recorded on the blockchain.',
+          signature: result.signature,
+          details: `You voted ${voteType.toUpperCase()} with ${voteAmount} SOL`,
+        });
 
-    if (result.success) {
-      // Success! Refresh data
-      fetchMarketDetails(params.id as string);
-      refetchHistory(); // Update chart and activity feed immediately
-      refetchHolders(); // Update holders list immediately
-      refetchPosition(); // Update user's position immediately
-      refetchOnchainData(); // Update pool progress and market status
-
-      // Show success dialog
-      setSuccessDialog({
-        open: true,
-        title: `${voteType.toUpperCase()} Vote Recorded`,
-        message: 'Your vote has been successfully recorded on the blockchain.',
-        signature: result.signature,
-        details: `You voted ${voteType.toUpperCase()} with ${voteAmount} SOL`,
-      });
-    } else {
-      // Parse error and show in dialog
-      const parsedError = parseError(result.error);
+        // Don't refresh - data will update naturally when dialog is closed or page is navigated
+        // This prevents the page reload issue
+      } else {
+        // Parse error and show in dialog
+        const parsedError = parseError(result.error);
+        setErrorDialog({
+          open: true,
+          title: parsedError.title,
+          message: parsedError.message,
+          details: parsedError.details,
+        });
+      }
+    }).catch((error) => {
+      setIsProcessingVote(false);
       setErrorDialog({
         open: true,
-        title: parsedError.title,
-        message: parsedError.message,
-        details: parsedError.details,
+        title: 'Transaction Failed',
+        message: 'An unexpected error occurred while processing your vote.',
+        details: error?.message || 'Unknown error',
       });
-    }
+    });
   };
 
   const handleClaim = async () => {
@@ -397,7 +404,8 @@ export default function MarketDetailsPage() {
 
     if (result.success) {
       // Success! Refresh data
-      setHasClaimed(true); // Track claim success locally
+      // Claim status is now tracked in database, refetch position data
+      refetchPosition(); // Refresh position data to show updated claimed status
       fetchMarketDetails(params.id as string);
       refetchPosition(); // Position will be closed after claim
       refetchOnchainData(); // Update pool balance
@@ -448,7 +456,39 @@ export default function MarketDetailsPage() {
         details: 'Check the Market Status section for your eligibility to claim rewards.',
       });
     } else {
-      // Parse error and show in dialog
+      // If error, check if market is already resolved on-chain
+      console.log('⚠️ Resolution failed, checking on-chain status...');
+
+      try {
+        const statusCheckResponse = await fetch('/api/markets/check-onchain-status', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ marketAddress: market.marketAddress }),
+        });
+
+        const statusResult = await statusCheckResponse.json();
+
+        if (statusResult.success && statusResult.data.isResolved) {
+          // Market is resolved on-chain! Just update UI
+          console.log('✅ Market already resolved on-chain:', statusResult.data.resolution);
+
+          // Refresh data to show claim button
+          refetchOnchainData();
+          fetchMarketDetails(params.id as string);
+
+          setSuccessDialog({
+            open: true,
+            title: 'Market Already Resolved',
+            message: `The market was already resolved as ${statusResult.data.resolution}. You can now claim your rewards.`,
+            details: 'The database will sync automatically in the background.',
+          });
+          return;
+        }
+      } catch (statusError) {
+        console.error('Failed to check on-chain status:', statusError);
+      }
+
+      // Show original error if not resolved on-chain
       const parsedError = parseError(result.error);
       setErrorDialog({
         open: true,
@@ -666,18 +706,18 @@ export default function MarketDetailsPage() {
     );
   }
 
-  // Calculate percentage based on on-chain shares (capital-weighted), not vote count
-  // This matches how the winner is actually determined
-  const yesPercentage = onchainData?.data?.totalYesShares && onchainData?.data?.totalNoShares
-    ? (() => {
-        const totalYes = parseFloat(onchainData.data.totalYesShares);
-        const totalNo = parseFloat(onchainData.data.totalNoShares);
-        const total = totalYes + totalNo;
-        return total > 0 ? Math.round((totalYes / total) * 100) : 50;
-      })()
-    : market.yesVotes + market.noVotes > 0
-      ? Math.round((market.yesVotes / (market.yesVotes + market.noVotes)) * 100)
-      : 50;
+  // Calculate expiry status from MongoDB (same source as CountdownTimer)
+  const isMarketExpiredFromDB = (() => {
+    const now = new Date().getTime();
+    const expiry = new Date(market.expiryTime).getTime();
+    return now >= expiry;
+  })();
+
+  // Calculate percentage based on SOL staked (user-friendly display)
+  // This matches Market Holders display and is more intuitive for users
+  const yesPercentage = market.totalYesStake + market.totalNoStake > 0
+    ? Math.round((market.totalYesStake / (market.totalYesStake + market.totalNoStake)) * 100)
+    : 50;
 
   // Calculate dynamic market status
   const marketStatus = getDetailedMarketStatus(market, onchainData);
@@ -883,7 +923,7 @@ export default function MarketDetailsPage() {
               <>
                 <div className="border-t border-white/10 pt-4 space-y-4">
                   {/* Status Message */}
-                  {onchainData.data.resolution === 'Unresolved' && !onchainData.data.isExpired && (
+                  {onchainData.data.resolution === 'Unresolved' && !isMarketExpiredFromDB && (
                     <>
                       {/* Pool Filled - Waiting for Resolution */}
                       {onchainData.data.poolProgressPercentage >= 100 ? (
@@ -1033,7 +1073,7 @@ export default function MarketDetailsPage() {
                     </>
                   )}
 
-                  {onchainData.data.resolution === 'Unresolved' && onchainData.data.isExpired && (
+                  {onchainData.data.resolution === 'Unresolved' && isMarketExpiredFromDB && (
                     <div className="text-center py-4 border-t border-white/5 space-y-3">
                       <h4 className="text-orange-400 text-base font-semibold mb-1">⏳ Awaiting Resolution...</h4>
                       <p className="text-gray-300 text-xs mb-3">
@@ -1075,7 +1115,7 @@ export default function MarketDetailsPage() {
                       </div>
 
                       {/* YES Voter Claim */}
-                      {positionData?.success && positionData.data.hasPosition && !hasClaimed && (
+                      {positionData?.success && positionData.data.hasPosition && !positionData.data.claimed && (
                         <div className="mt-3">
                           {positionData.data.side === 'yes' ? (
                             <Button
@@ -1205,7 +1245,7 @@ export default function MarketDetailsPage() {
                         NO voters receive proportional SOL rewards.
                       </p>
 
-                      {positionData?.success && positionData.data.hasPosition && !hasClaimed && (
+                      {positionData?.success && positionData.data.hasPosition && !positionData.data.claimed && (
                         <div className="mt-3">
                           {positionData.data.side === 'no' ? (
                             <Button
@@ -1239,7 +1279,7 @@ export default function MarketDetailsPage() {
                         All participants receive full refunds.
                       </p>
 
-                      {positionData?.success && positionData.data.hasPosition && !hasClaimed ? (
+                      {positionData?.success && positionData.data.hasPosition && !positionData.data.claimed ? (
                         <div className="mt-3">
                           <Button
                             onClick={handleClaim}
@@ -1258,7 +1298,7 @@ export default function MarketDetailsPage() {
                             )}
                           </Button>
                         </div>
-                      ) : hasClaimed ? (
+                      ) : positionData?.data?.claimed ? (
                         <div className="mt-3">
                           <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
                             <p className="text-green-400 font-semibold flex items-center gap-2">
@@ -1347,31 +1387,6 @@ export default function MarketDetailsPage() {
                     <div className="text-white text-xl font-bold">{positionData.data.tradeCount}</div>
                   </div>
                 </div>
-
-                {/* Close Position Button - Show if claimed or if market is in Refund state */}
-                {onchainData?.success && (hasClaimed || onchainData.data.resolution === 'Refund') && (
-                  <div className="mt-3">
-                    <Button
-                      onClick={handleClosePosition}
-                      disabled={isClosingPosition}
-                      className="w-full bg-gradient-to-r from-gray-500 to-gray-700 hover:from-gray-600 hover:to-gray-800 text-white font-semibold text-sm"
-                    >
-                      {isClosingPosition ? (
-                        <>
-                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                          Closing...
-                        </>
-                      ) : (
-                        <>
-                          🗑️ Close Position & Recover Rent
-                        </>
-                      )}
-                    </Button>
-                    <p className="text-xs text-gray-400 mt-2 text-center">
-                      Optional: Close your position account to recover rent (~0.002 SOL)
-                    </p>
-                  </div>
-                )}
               </div>
             )}
           </CardContent>
@@ -1489,14 +1504,14 @@ export default function MarketDetailsPage() {
                   ? 'bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600'
                   : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'
               } text-white shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed`}
-              disabled={isVoting || !amount || parseFloat(amount) < QUICK_VOTE_AMOUNT || isMarketExpired()}
+              disabled={isProcessingVote || !amount || parseFloat(amount) < QUICK_VOTE_AMOUNT || isMarketExpired()}
             >
               {isMarketExpired() ? (
                 <>
                   <XCircle className="w-5 h-5 mr-2" />
                   Market Expired
                 </>
-              ) : isVoting ? (
+              ) : isProcessingVote ? (
                 <>
                   <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                   Processing...

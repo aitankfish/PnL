@@ -350,6 +350,24 @@ export default function WalletPage() {
     { refreshInterval: 0 }
   );
 
+  // Fetch user positions
+  const { data: positionsData, isLoading: positionsLoading } = useSWR(
+    primaryWallet?.address ? `/api/user/${primaryWallet.address}/positions` : null,
+    fetcher,
+    { refreshInterval: 30000 } // Refresh every 30 seconds
+  );
+
+  // Debug: Log positions data
+  useEffect(() => {
+    if (positionsData) {
+      console.log('[Wallet Page] Positions API Response:', positionsData);
+      console.log('[Wallet Page] Success:', positionsData.success);
+      console.log('[Wallet Page] Total Positions:', positionsData.data?.all?.length || 0);
+      console.log('[Wallet Page] Active:', positionsData.data?.active?.length || 0);
+      console.log('[Wallet Page] Claimable:', positionsData.data?.claimable?.length || 0);
+    }
+  }, [positionsData]);
+
   // Fetch SOL balance
   useEffect(() => {
     if (!primaryWallet?.address || primaryWallet.chainType !== 'solana') {
@@ -724,17 +742,135 @@ export default function WalletPage() {
           </CardContent>
         </Card>
 
-        {/* Voted Projects Section */}
+        {/* Your Predictions Section */}
         <div className="space-y-4">
           <h3 className="text-xl font-semibold text-white">Your Predictions</h3>
-          <Card className="bg-white/5 border-white/10">
-            <CardContent className="p-6">
-              <div className="text-center text-gray-400 py-8">
-                <p className="text-sm">No active predictions yet</p>
-                <p className="text-xs mt-2">Start voting on markets to see them here</p>
-              </div>
-            </CardContent>
-          </Card>
+
+          {positionsLoading ? (
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="p-6">
+                <div className="text-center text-gray-400 py-8">
+                  <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
+                  <p className="text-sm">Loading your predictions...</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : positionsData?.success && positionsData.data?.all?.length > 0 ? (
+            <>
+              {/* Active Positions */}
+              {positionsData.data.active.length > 0 && (
+                <div className="space-y-3">
+                  <h4 className="text-sm font-medium text-gray-400">Active Positions</h4>
+                  {positionsData.data.active.map((position: any) => (
+                    <Card key={position.marketId} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <a href={`/market/${position.marketId}`} className="hover:text-cyan-400 transition-colors">
+                              <h4 className="text-white font-semibold mb-1">{position.marketName}</h4>
+                            </a>
+                            <div className="flex items-center space-x-3 text-sm">
+                              <span className={`px-2 py-0.5 rounded ${
+                                position.voteType === 'yes'
+                                  ? 'bg-green-500/20 text-green-400'
+                                  : 'bg-red-500/20 text-red-400'
+                              }`}>
+                                {position.voteType.toUpperCase()}
+                              </span>
+                              <span className="text-gray-400">
+                                {position.totalAmount.toFixed(4)} SOL
+                              </span>
+                              <span className="text-gray-500">•</span>
+                              <span className="text-gray-400">
+                                {position.tradeCount} {position.tradeCount === 1 ? 'trade' : 'trades'}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-white font-semibold">
+                              {position.voteType === 'yes' ? position.currentYesPrice.toFixed(1) : position.currentNoPrice.toFixed(1)}%
+                            </p>
+                            <p className="text-xs text-gray-500">Current Price</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Claimable Positions */}
+              {positionsData.data.claimable.length > 0 && (
+                <div className="space-y-3 mt-6">
+                  <h4 className="text-sm font-medium text-gray-400">Claimable Rewards</h4>
+                  {positionsData.data.claimable.map((position: any) => (
+                    <Card key={position.marketId} className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <a href={`/market/${position.marketId}`} className="hover:text-cyan-400 transition-colors">
+                              <h4 className="text-white font-semibold mb-1">{position.marketName}</h4>
+                            </a>
+                            <div className="flex items-center space-x-3 text-sm">
+                              <span className="px-2 py-0.5 rounded bg-green-500/20 text-green-400">
+                                WON - {position.voteType.toUpperCase()}
+                              </span>
+                              <span className="text-gray-400">
+                                {position.totalAmount.toFixed(4)} SOL staked
+                              </span>
+                            </div>
+                          </div>
+                          <a
+                            href={`/market/${position.marketId}`}
+                            className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-lg text-white font-semibold transition-all"
+                          >
+                            Claim
+                          </a>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+
+              {/* Resolved but not claimable positions */}
+              {positionsData.data.resolved.filter((p: any) => !p.canClaim).length > 0 && (
+                <div className="space-y-3 mt-6">
+                  <h4 className="text-sm font-medium text-gray-400">Resolved Positions</h4>
+                  {positionsData.data.resolved.filter((p: any) => !p.canClaim).map((position: any) => (
+                    <Card key={position.marketId} className="bg-white/5 border-white/10 opacity-60">
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex-1">
+                            <a href={`/market/${position.marketId}`} className="hover:text-cyan-400 transition-colors">
+                              <h4 className="text-white font-semibold mb-1">{position.marketName}</h4>
+                            </a>
+                            <div className="flex items-center space-x-3 text-sm">
+                              <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400">
+                                LOST - {position.voteType.toUpperCase()}
+                              </span>
+                              <span className="text-gray-400">
+                                {position.totalAmount.toFixed(4)} SOL
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </>
+          ) : (
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="p-6">
+                <div className="text-center text-gray-400 py-8">
+                  <p className="text-sm">No active predictions yet</p>
+                  <p className="text-xs mt-2">Start voting on markets to see them here</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
 

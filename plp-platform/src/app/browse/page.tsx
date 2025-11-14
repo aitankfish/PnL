@@ -31,6 +31,11 @@ interface Market {
   status: string;
   metadataUri?: string;
   projectImageUrl?: string;
+  // On-chain fields from MongoDB (synced via WebSocket)
+  resolution?: string;
+  phase?: string;
+  poolProgressPercentage?: number;
+  poolBalance?: number;
 }
 
 // Format category and stage for proper display
@@ -54,61 +59,77 @@ function formatLabel(value: string): string {
     .join(' ');
 }
 
+// Calculate YES percentage based on SOL staked (user-friendly display)
+// This matches Market Holders and the details page for consistency
+function calculateYesPercentage(market: Market): number {
+  const total = market.totalYesStake + market.totalNoStake;
+  return total > 0 ? Math.round((market.totalYesStake / total) * 100) : 50;
+}
+
 // Determine detailed market status based on expiry time, pool, and resolution
+// This function matches the logic in the details page (market/[id]/page.tsx)
 function getMarketStatus(market: Market): { status: string; badgeClass: string } {
   const now = new Date().getTime();
   const expiryTime = new Date(market.expiryTime).getTime();
   const isExpired = now > expiryTime;
 
-  // Parse target pool (remove " SOL" and convert to number)
-  const targetPoolValue = parseFloat(market.targetPool.replace(' SOL', ''));
-  const currentPool = (market.totalYesStake + market.totalNoStake) / 1_000_000_000; // Convert lamports to SOL
-  const isPoolFull = currentPool >= targetPoolValue;
-  const poolProgressPercentage = (currentPool / targetPoolValue) * 100;
+  // Use resolution field from MongoDB (synced from blockchain)
+  const resolution = market.resolution || 'Unresolved';
 
-  // Check resolution status from database (if market has been resolved and synced)
-  if (market.status && market.status !== 'Unresolved' && market.status !== 'active') {
-    const statusLower = market.status.toLowerCase();
+  // Use poolProgressPercentage from MongoDB if available, otherwise calculate
+  const poolProgressPercentage = market.poolProgressPercentage || (() => {
+    const targetPoolValue = parseFloat(market.targetPool.replace(' SOL', ''));
+    const currentPool = (market.totalYesStake + market.totalNoStake) / 1_000_000_000;
+    return (currentPool / targetPoolValue) * 100;
+  })();
 
-    if (statusLower === 'yeswins' || (statusLower.includes('yes') && statusLower.includes('win'))) {
-      return {
-        status: '🎉 YES Wins',
-        badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
-      };
-    }
-
-    if (statusLower === 'nowins' || (statusLower.includes('no') && statusLower.includes('win'))) {
-      return {
-        status: '❌ NO Wins',
-        badgeClass: 'bg-red-500/20 text-red-300 border-red-400/30'
-      };
-    }
-
-    if (statusLower === 'refund' || statusLower.includes('refund') || statusLower.includes('cancelled')) {
-      return {
-        status: '↩️ Refund',
-        badgeClass: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30'
-      };
-    }
-  }
-
-  // Market expired but not yet resolved/synced
-  if (isExpired) {
+  // Check resolution status first (matches details page logic)
+  if (resolution === 'YesWins') {
     return {
-      status: '⏳ Awaiting Resolution',
-      badgeClass: 'bg-orange-500/20 text-orange-300 border-orange-400/30'
+      status: '🎉 YES Wins',
+      badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
     };
   }
 
-  // Pool is full but not expired yet
-  if (isPoolFull || poolProgressPercentage >= 100) {
+  if (resolution === 'NoWins') {
     return {
-      status: '🎯 Pool Complete',
-      badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30'
+      status: '❌ NO Wins',
+      badgeClass: 'bg-red-500/20 text-red-300 border-red-400/30'
     };
   }
 
-  // Active market
+  if (resolution === 'Refund') {
+    return {
+      status: '↩️ Refund',
+      badgeClass: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30'
+    };
+  }
+
+  // Unresolved market - check if expired
+  if (resolution === 'Unresolved') {
+    if (isExpired) {
+      return {
+        status: '⏳ Awaiting Resolution',
+        badgeClass: 'bg-orange-500/20 text-orange-300 border-orange-400/30'
+      };
+    }
+
+    // Pool is full but not expired
+    if (poolProgressPercentage >= 100) {
+      return {
+        status: '🎯 Pool Complete',
+        badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30'
+      };
+    }
+
+    // Active market
+    return {
+      status: '✅ Active',
+      badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
+    };
+  }
+
+  // Fallback for any other status
   return {
     status: '✅ Active',
     badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
@@ -368,18 +389,12 @@ export default function BrowsePage() {
                     <div className="w-full bg-gray-700 rounded-full h-2">
                       <div
                         className="bg-gradient-to-r from-green-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${(() => {
-                          const total = hotProject.totalYesStake + hotProject.totalNoStake;
-                          return total > 0 ? (hotProject.totalYesStake / total) * 100 : 50;
-                        })()}%` }}
+                        style={{ width: `${calculateYesPercentage(hotProject)}%` }}
                       ></div>
                     </div>
                     <div className="text-center">
                       <span className="text-lg font-bold text-white">
-                        {(() => {
-                          const total = hotProject.totalYesStake + hotProject.totalNoStake;
-                          return total > 0 ? Math.round((hotProject.totalYesStake / total) * 100) : 50;
-                        })()}%
+                        {calculateYesPercentage(hotProject)}%
                       </span>
                       <span className="text-sm text-gray-400 ml-1">YES</span>
                     </div>
@@ -580,18 +595,12 @@ export default function BrowsePage() {
                     <div className="w-full bg-gray-700 rounded-full h-2">
                       <div
                         className="bg-gradient-to-r from-green-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${(() => {
-                          const total = project.totalYesStake + project.totalNoStake;
-                          return total > 0 ? (project.totalYesStake / total) * 100 : 50;
-                        })()}%` }}
+                        style={{ width: `${calculateYesPercentage(project)}%` }}
                       ></div>
                     </div>
                     <div className="text-center">
                       <span className="text-lg font-bold text-white">
-                        {(() => {
-                          const total = project.totalYesStake + project.totalNoStake;
-                          return total > 0 ? Math.round((project.totalYesStake / total) * 100) : 50;
-                        })()}%
+                        {calculateYesPercentage(project)}%
                       </span>
                       <span className="text-sm text-gray-400 ml-1">YES</span>
                     </div>

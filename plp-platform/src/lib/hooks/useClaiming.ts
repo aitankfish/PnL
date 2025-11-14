@@ -6,15 +6,16 @@
 
 import { useState } from 'react';
 import { useWallet } from '@/hooks/useWallet';
-import { VersionedTransaction } from '@solana/web3.js';
-import { sendRawTransaction, getSolanaConnection } from '@/lib/solana';
-import { useSignTransaction, useWallets } from '@privy-io/react-auth/solana';
+import { getSolanaConnection } from '@/lib/solana';
+import { useWallets, useSignAndSendTransaction, useStandardWallets } from '@privy-io/react-auth/solana';
+import bs58 from 'bs58';
 
 export function useClaiming() {
   const [isClaiming, setIsClaiming] = useState(false);
   const { primaryWallet } = useWallet();
   const { wallets } = useWallets();
-  const { signTransaction } = useSignTransaction();
+  const { standardWallets } = useStandardWallets();
+  const { signAndSendTransaction } = useSignAndSendTransaction();
 
   const claim = async (params: {
     marketId: string;
@@ -49,70 +50,51 @@ export function useClaiming() {
       console.log(`   Resolution: ${prepareResult.data.resolutionType}`);
       console.log(`   Claimable amount: ${prepareResult.data.claimableAmount} lamports (${(prepareResult.data.claimableAmount / 1e9).toFixed(4)} SOL)`);
 
-      let signature;
+      let signature: string;
 
       try {
-        // STEP 2: Deserialize transaction
-        console.log('🚀 Preparing transaction for signing...');
-
-        // Get serialized transaction from API response
+        // STEP 2: Get serialized transaction
         const rawTx = prepareResult.data.serializedTransaction;
         if (!rawTx) {
           throw new Error('No serializedTransaction provided by server');
         }
 
-        // Deserialize the transaction into a VersionedTransaction
-        const txBuffer = Buffer.from(rawTx, 'base64');
-        const properTransaction = VersionedTransaction.deserialize(txBuffer);
+        console.log('✍️ Signing and sending transaction with Privy...');
 
-        console.log('🔄 VersionedTransaction ready for signing');
-
-        // STEP 3: Sign transaction with Privy
-        console.log('✍️ Signing transaction with Privy...');
-        let signedTransactionData: Uint8Array;
+        // Get Solana wallet - prioritize external wallets, fallback to embedded wallets
+        let solanaWallet;
 
         if (wallets && wallets.length > 0) {
-          // Use the Privy hook for wallets from useWallets()
-          const { signedTransaction } = await signTransaction({
-            transaction: new Uint8Array(properTransaction.serialize()),
-            wallet: wallets[0],
-          });
-          signedTransactionData = signedTransaction;
-        } else {
-          // Fallback: use _privyWallet and call signTransaction directly
-          const privyWallet = (primaryWallet as any)?._privyWallet;
-          if (!privyWallet || typeof privyWallet.signTransaction !== 'function') {
-            throw new Error('No valid Solana wallet found');
+          // Path 1: External wallet (Phantom, Solflare, etc.)
+          console.log('   Using external Solana wallet');
+          solanaWallet = wallets[0];
+        } else if (standardWallets && standardWallets.length > 0) {
+          // Path 2: Embedded wallet from standard wallets
+          console.log('   Using embedded Solana wallet');
+          const privyWallet = standardWallets.find((w: any) => w.isPrivyWallet || w.name === 'Privy');
+          if (!privyWallet) {
+            throw new Error('No Privy wallet found');
           }
-          const signed = await privyWallet.signTransaction(properTransaction);
-          signedTransactionData = signed.serialize();
-        }
-        console.log('✅ Transaction signed by Privy!');
-
-        // STEP 4: Send signed transaction to Solana via our RPC system
-        console.log('📤 Sending signed transaction to Solana via our RPC...');
-
-        try {
-          // Send the signed transaction directly to Solana using our RPC fallback system
-          signature = await sendRawTransaction(signedTransactionData, {
-            skipPreflight: false,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-          console.log('✅ Transaction submitted to Solana:', signature);
-        } catch (rpcError: unknown) {
-          const errorMessage = rpcError instanceof Error ? rpcError.message : 'Unknown error';
-          console.log('⚠️ Primary RPC failed, trying fallback with skipPreflight...', errorMessage);
-          // Try with skipPreflight as fallback
-          signature = await sendRawTransaction(signedTransactionData, {
-            skipPreflight: true,
-            maxRetries: 3,
-            preflightCommitment: 'confirmed'
-          });
-          console.log('✅ Transaction submitted via fallback RPC:', signature);
+          solanaWallet = privyWallet;
+        } else {
+          throw new Error('No Solana wallet found');
         }
 
-        // STEP 5: Wait for confirmation using our RPC system
+        // Convert base64 transaction to Uint8Array
+        const txBuffer = Buffer.from(rawTx, 'base64');
+
+        // Use signAndSendTransaction - works for both external and embedded wallets
+        const result = await signAndSendTransaction({
+          transaction: txBuffer,
+          wallet: solanaWallet as any,
+          chain: 'solana:devnet', // or 'solana:mainnet' based on your network
+        });
+
+        // Extract signature from result and convert to base58 (Solana standard format)
+        signature = bs58.encode(result.signature);
+        console.log('✅ Transaction signed and sent:', signature);
+
+        // STEP 3: Wait for confirmation
         console.log('⏳ Waiting for transaction confirmation...');
         const connection = await getSolanaConnection();
         await connection.confirmTransaction(signature, 'confirmed');
@@ -120,8 +102,27 @@ export function useClaiming() {
 
       } catch (signerError: unknown) {
         const errorMessage = signerError instanceof Error ? signerError.message : 'Unknown error';
-        console.error('❌ Privy wallet signing failed:', errorMessage);
-        throw new Error(`Failed to sign transaction: ${errorMessage}`);
+        console.error('❌ Privy signing/sending failed:', errorMessage);
+        throw new Error(`Failed to sign/send transaction: ${errorMessage}`);
+      }
+
+      // STEP 4: Update database to mark claim as completed
+      console.log('💾 Updating database...');
+      try {
+        await fetch('/api/markets/claim/complete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            marketId: params.marketId,
+            userWallet: primaryWallet.address,
+            signature,
+            claimAmount: prepareResult.data.claimableAmount,
+          }),
+        });
+        console.log('✅ Database updated');
+      } catch (dbError) {
+        console.warn('⚠️ Database update failed (non-fatal):', dbError);
+        // Don't fail the whole claim if database update fails
       }
 
       console.log('🎉 Claim rewards completed successfully!');

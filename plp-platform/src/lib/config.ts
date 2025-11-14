@@ -1,10 +1,12 @@
 /**
  * PLP Platform Configuration
  * Centralized configuration for environment variables and constants
- * 
+ *
  * @deprecated Use environment.ts for new configuration
  * This file is kept for backward compatibility
  */
+
+import { getDatabaseConfig } from './environment';
 
 export const config = {
   // Environment
@@ -22,34 +24,17 @@ export const config = {
   },
   
   // Database
+  // Now delegates to environment.ts for proper network-based switching
   mongodb: {
-    uri: process.env.MONGODB_URI || '',
-    // Environment-specific database names
-    devDatabase: process.env.MONGODB_DEV_DATABASE || 'plp_platform_dev',
-    prodDatabase: process.env.MONGODB_PROD_DATABASE || 'plp_platform_prod',
-    // Get current database name based on environment
-    currentDatabase: process.env.NODE_ENV === 'production' 
-      ? (process.env.MONGODB_PROD_DATABASE || 'plp_platform_prod')
-      : (process.env.MONGODB_DEV_DATABASE || 'plp_platform_dev'),
+    get uri() { return getDatabaseConfig().uri; },
+    get currentDatabase() { return getDatabaseConfig().name; },
+    // Legacy fields kept for backward compatibility
+    get devDatabase() { return 'plp-platform'; }, // devnet uses plp-platform
+    get prodDatabase() { return 'plp_platform_prod'; }, // mainnet uses plp_platform_prod
   },
   
-  // Dynamic Wallet
-  dynamic: {
-    environmentId: process.env.NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID || '',
-    apiToken: process.env.DYNAMIC_API_TOKEN || '',
-    sandboxId: process.env.NEXT_PUBLIC_DYNAMIC_SANDBOX_ID || '',
-  },
-  
-  // Actions Protocol
-  actions: {
-    programId: 'ACTUdJVh7H389kKpgxKjhR6o2JhRrTPdB9dS6cy41XzX', // Actions Protocol program ID
-    platformId: 'ACTYY7k4vRAhzHw5gazNtEDdYEk1hC8751enx5K7Rwc', // Use default Actions Protocol platform
-  },
-  
-  // Slerf Tools
-  slerf: {
-    apiKey: process.env.SLERF_TOOLS_API_KEY || '',
-  },
+  // Note: Dynamic, Actions Protocol, and Slerf configurations removed - not in use
+  // Now using Privy for wallet management
   
   // Platform Constants
   platform: {

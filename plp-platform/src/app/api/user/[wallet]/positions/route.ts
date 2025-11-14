@@ -42,10 +42,13 @@ export async function GET(
     const db = await getDatabase();
 
     // Fetch all trades for this wallet
+    console.log('[Positions API] Fetching trades for wallet:', wallet);
+    console.log('[Positions API] Collection name:', COLLECTIONS.TRADE_HISTORY);
     const trades = await db
       .collection<TradeHistory>(COLLECTIONS.TRADE_HISTORY)
       .find({ traderWallet: wallet })
       .toArray();
+    console.log('[Positions API] Found trades:', trades.length);
 
     // Group trades by market and vote type
     const positionMap = new Map<
@@ -79,12 +82,34 @@ export async function GET(
 
     // Fetch market details for all positions
     const marketIds = [...new Set(Array.from(positionMap.values()).map((p) => p.marketId))];
+    console.log('[Positions API] Unique market IDs:', JSON.stringify(marketIds));
+    console.log('[Positions API] Position map size:', positionMap.size);
+
+    // Sample one trade to see structure
+    if (trades.length > 0) {
+      console.log('[Positions API] Sample trade marketId type:', typeof trades[0].marketId);
+      console.log('[Positions API] Sample trade marketId value:', trades[0].marketId);
+    }
+
+    console.log('[Positions API] Fetching from collection:', COLLECTIONS.PREDICTION_MARKETS);
+
+    // Check total markets in collection
+    const totalMarkets = await db.collection<PredictionMarket>(COLLECTIONS.PREDICTION_MARKETS).countDocuments();
+    console.log('[Positions API] Total markets in collection:', totalMarkets);
+
     const markets = await db
       .collection<PredictionMarket>(COLLECTIONS.PREDICTION_MARKETS)
       .find({
         _id: { $in: marketIds.map((id) => new (require('mongodb').ObjectId)(id)) },
       })
       .toArray();
+    console.log('[Positions API] Found markets for user trades:', markets.length);
+
+    // If no markets found, sample one market to see the ID format
+    if (markets.length === 0 && totalMarkets > 0) {
+      const sampleMarket = await db.collection<PredictionMarket>(COLLECTIONS.PREDICTION_MARKETS).findOne({});
+      console.log('[Positions API] Sample market _id:', sampleMarket?._id);
+    }
 
     // Create market map for quick lookup
     const marketMap = new Map(markets.map((m) => [m._id!.toString(), m]));

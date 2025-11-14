@@ -41,11 +41,11 @@ export async function POST(request: NextRequest) {
 
     // Fetch the updated market state from blockchain
     const connection = await getSolanaConnection();
-    const program = getProgram(connection); // Pass connection to ensure it uses the same one
+    const program = getProgram(); // getProgram creates its own connection, don't pass wallet for read-only
     const marketPubkey = new PublicKey(marketAddress);
 
     logger.info('Fetching updated market state from blockchain...');
-    const marketAccount = await program.account.predictionMarket.fetch(marketPubkey);
+    const marketAccount = await program.account.market.fetch(marketPubkey);
 
     // Determine resolution outcome
     // Rust enum: 0=Unresolved, 1=YesWins, 2=NoWins, 3=Refund

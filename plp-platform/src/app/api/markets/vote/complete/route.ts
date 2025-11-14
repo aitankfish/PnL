@@ -6,10 +6,11 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { connectToDatabase as connectMongoose, PredictionMarket, Notification } from '@/lib/mongodb';
+import { connectToDatabase as connectMongoose, PredictionMarket, PredictionParticipant, Notification } from '@/lib/mongodb';
 import { connectToDatabase, getDatabase } from '@/lib/database/index';
 import { COLLECTIONS, TradeHistory } from '@/lib/database/models';
 import { createClientLogger } from '@/lib/logger';
+import { updateMarketVoteCounts } from '@/lib/vote-counts';
 
 const logger = createClientLogger();
 
@@ -53,29 +54,10 @@ export async function POST(request: NextRequest) {
     // Convert SOL to lamports for stake tracking
     const lamports = Math.floor(amount * 1_000_000_000);
 
-    // Update vote counts and stakes based on vote type
-    const updateFields = voteType === 'yes'
-      ? {
-          $inc: {
-            yesVoteCount: 1,
-            totalYesStake: lamports,
-          }
-        }
-      : {
-          $inc: {
-            noVoteCount: 1,
-            totalNoStake: lamports,
-          }
-        };
+    // Get market for trade history and notifications
+    const market = await PredictionMarket.findById(marketId);
 
-    // Update market in database
-    const updatedMarket = await PredictionMarket.findByIdAndUpdate(
-      marketId,
-      updateFields,
-      { new: true }
-    );
-
-    if (!updatedMarket) {
+    if (!market) {
       return NextResponse.json(
         {
           success: false,
@@ -92,14 +74,14 @@ export async function POST(request: NextRequest) {
       const db = getDatabase();
 
       const tradeRecord: TradeHistory = {
-        marketId: updatedMarket._id,
-        marketAddress: updatedMarket.marketAddress,
+        marketId: market._id,
+        marketAddress: market.marketAddress,
         traderWallet,
         voteType,
         amount: lamports,
         shares: lamports, // 1:1 for simplicity
-        yesPrice: updatedMarket.totalYesStake / (updatedMarket.totalYesStake + updatedMarket.totalNoStake) * 100 || 50,
-        noPrice: updatedMarket.totalNoStake / (updatedMarket.totalYesStake + updatedMarket.totalNoStake) * 100 || 50,
+        yesPrice: market.totalYesStake / (market.totalYesStake + market.totalNoStake) * 100 || 50,
+        noPrice: market.totalNoStake / (market.totalYesStake + market.totalNoStake) * 100 || 50,
         signature,
         createdAt: new Date(),
       };
@@ -113,16 +95,75 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if trade history write fails
     }
 
+    // Create/update participant record for vote counting
+    // This ensures vote counts work immediately without relying on blockchain sync
+    try {
+      const participant = await PredictionParticipant.findOne({
+        marketId: market._id,
+        participantWallet: traderWallet,
+      });
+
+      if (participant) {
+        // Update existing participant
+        const currentYesShares = BigInt(participant.yesShares || '0');
+        const currentNoShares = BigInt(participant.noShares || '0');
+        const currentTotalInvested = BigInt(participant.totalInvested || '0');
+
+        // Add new shares to appropriate side
+        if (voteType === 'yes') {
+          participant.yesShares = (currentYesShares + BigInt(lamports)).toString();
+        } else {
+          participant.noShares = (currentNoShares + BigInt(lamports)).toString();
+        }
+
+        participant.totalInvested = (currentTotalInvested + BigInt(lamports)).toString();
+        await participant.save();
+
+        logger.info('Updated participant record', {
+          participantWallet: traderWallet,
+          marketId: market._id.toString(),
+          yesShares: participant.yesShares,
+          noShares: participant.noShares,
+        });
+      } else {
+        // Create new participant
+        await PredictionParticipant.create({
+          marketId: market._id,
+          participantWallet: traderWallet,
+          voteOption: voteType === 'yes', // true=YES, false=NO (legacy field)
+          stakeAmount: lamports, // Legacy field
+          voteCost: lamports, // Legacy field
+          yesShares: voteType === 'yes' ? lamports.toString() : '0',
+          noShares: voteType === 'no' ? lamports.toString() : '0',
+          totalInvested: lamports.toString(),
+        });
+
+        logger.info('Created participant record', {
+          participantWallet: traderWallet,
+          marketId: market._id.toString(),
+          voteType,
+          amount: lamports,
+        });
+      }
+    } catch (error) {
+      logger.error('Failed to create/update participant record:', {
+        error: error instanceof Error ? error.message : String(error),
+        participantWallet: traderWallet,
+        marketId: market._id.toString(),
+      });
+      // Don't fail the request if participant creation fails
+    }
+
     // Create notification for the voter
     try {
       await Notification.create({
         userId: traderWallet,
         type: 'vote_result',
-        title: `Vote Recorded - ${updatedMarket.marketName}`,
+        title: `Vote Recorded - ${market.marketName}`,
         message: `Your ${voteType.toUpperCase()} vote of ${amount} SOL was successfully recorded!`,
         priority: 'medium',
-        marketId: updatedMarket._id,
-        actionUrl: `/market/${updatedMarket._id}`,
+        marketId: market._id,
+        actionUrl: `/market/${market._id}`,
         metadata: {
           voteType,
           amount: lamports,
@@ -138,14 +179,26 @@ export async function POST(request: NextRequest) {
       // Don't fail the request if notification creation fails
     }
 
-    logger.info('Vote completed successfully', {
+    // Update vote counts from MongoDB as a fallback
+    // (blockchain sync via WebSocket is primary, this is backup)
+    try {
+      const voteCounts = await updateMarketVoteCounts(marketId);
+      logger.info('Vote counts updated from MongoDB', {
+        marketId,
+        yesVoteCount: voteCounts.yesVoteCount,
+        noVoteCount: voteCounts.noVoteCount,
+      });
+    } catch (error) {
+      logger.error('Failed to update vote counts (non-fatal)', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      // Don't fail the request if vote count update fails
+    }
+
+    logger.info('Vote transaction completed', {
       marketId,
       voteType,
       signature,
-      newYesCount: updatedMarket.yesVoteCount,
-      newNoCount: updatedMarket.noVoteCount,
-      newYesStake: updatedMarket.totalYesStake,
-      newNoStake: updatedMarket.totalNoStake,
     });
 
     return NextResponse.json({
@@ -154,10 +207,7 @@ export async function POST(request: NextRequest) {
         marketId,
         voteType,
         signature,
-        yesVoteCount: updatedMarket.yesVoteCount,
-        noVoteCount: updatedMarket.noVoteCount,
-        totalYesStake: updatedMarket.totalYesStake,
-        totalNoStake: updatedMarket.totalNoStake,
+        message: 'Vote recorded on-chain and database updated.',
       },
     });
 

@@ -32,7 +32,7 @@ class DatabaseManager {
       try {
         this.client = new MongoClient(config.mongodb.uri!);
         await this.client.connect();
-        this.db = this.client.db('plp-platform');
+        this.db = this.client.db(config.mongodb.currentDatabase);
 
         // Create indexes for better performance
         await this.createIndexes();
