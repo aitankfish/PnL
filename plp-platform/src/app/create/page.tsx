@@ -10,12 +10,12 @@ import { Label } from '@/components/ui/label';
 import { config } from '@/lib/config';
 import { createClientLogger } from '@/lib/logger';
 import { useWallet } from '@/hooks/useWallet';
-import { useWallets, useSignTransaction } from '@privy-io/react-auth/solana';
+import { useWallets, useSignAndSendTransaction, useStandardWallets } from '@privy-io/react-auth/solana';
 import { ipfsUtils, ProjectMetadata } from '@/lib/ipfs';
-import { VersionedTransaction } from '@solana/web3.js';
-import { sendRawTransaction, getSolanaConnection, setNetwork } from '@/lib/solana';
+import { getSolanaConnection } from '@/lib/solana';
+import bs58 from 'bs58';
 import { useToast } from '@/lib/hooks/useToast';
-import { useNetwork } from '@/lib/hooks/useNetwork';
+import { isDevnet } from '@/lib/environment';
 
 const logger = createClientLogger();
 
@@ -77,16 +77,8 @@ export default function CreatePage() {
   // Get connected wallet and user from Privy
   const { primaryWallet, user, authenticated } = useWallet();
   const { wallets } = useWallets();
-  const { signTransaction } = useSignTransaction();
-
-  // Detect network from Dynamic widget
-  const { network, isMainnet, isDevnet } = useNetwork();
-
-  // Update Solana connection manager when network changes
-  useEffect(() => {
-    console.log(`🌐 Create page: Network changed to ${network}`);
-    setNetwork(network);
-  }, [network]);
+  const { standardWallets } = useStandardWallets();
+  const { signAndSendTransaction } = useSignAndSendTransaction();
 
   // Fix hydration issues
   useEffect(() => {
@@ -298,17 +290,6 @@ export default function CreatePage() {
             <p className="text-white/70">
               Fill in the details to launch your project prediction market
             </p>
-            {/* Network Indicator */}
-            <div className="mt-3 flex items-center justify-center space-x-2">
-              <span className="text-sm text-white/60">Network:</span>
-              <span className={`text-sm px-3 py-1 rounded-full font-medium ${
-                isDevnet
-                  ? 'bg-yellow-500/20 text-yellow-300 border border-yellow-500/30'
-                  : 'bg-green-500/20 text-green-300 border border-green-500/30'
-              }`}>
-                {isDevnet ? '🟡 Devnet' : '🟢 Mainnet'}
-              </span>
-            </div>
           </div>
 
           {/* Two Column Layout: Progress Sidebar + Form */}
@@ -840,9 +821,9 @@ export default function CreatePage() {
                     }
                     
                     console.log('Project created and metadata uploaded to IPFS:', projectResult.data);
-                    
+
                     // Step 3: Prepare transaction for client-side signing
-                    console.log(`Preparing transaction for client-side wallet signing on ${network}`);
+                    console.log('Preparing transaction for client-side wallet signing');
 
                     const transactionResponse = await fetch('/api/markets/prepare-transaction', {
                       method: 'POST',
@@ -854,7 +835,6 @@ export default function CreatePage() {
                         metadataUri: projectResult.data.metadataUri,
                         targetPool: formData.targetPool,
                         marketDuration: parseInt(formData.marketDuration),
-                        network: network, // Pass detected network
                       }),
                     });
                     
@@ -893,79 +873,62 @@ export default function CreatePage() {
                         // Get serialized transaction from API response
                         const rawTx = transactionResult.data.serializedTransaction;
                         console.log('📊 Serialized transaction length:', rawTx?.length);
-                        
+
                         // Validate that we have transaction data
                         if (!rawTx) {
                             throw new Error('No serializedTransaction provided by server');
                         }
-                        
-                        // Deserialize the transaction into a VersionedTransaction
-                        const txBuffer = Buffer.from(rawTx, 'base64');
-                        const properTransaction = VersionedTransaction.deserialize(txBuffer);
-                        
-                        console.log('🔄 VersionedTransaction ready for signing:', {
-                            hasSerialize: typeof properTransaction.serialize === 'function',
-                            hasMessage: !!properTransaction.message,
-                            hasStaticAccountKeys: properTransaction.message?.staticAccountKeys?.length || 0
-                        });
-                        
-                        // STEP 2: Sign transaction with Privy wallet
-                        console.log('✍️ Signing transaction with Privy wallet...');
 
-                        // Get Solana wallet - try wallets array first, then fallback to primaryWallet
-                        const solanaWallet = wallets[0] || (primaryWallet as any)?._privyWallet;
-                        if (!solanaWallet) {
+                        // Convert to Buffer for signAndSendTransaction
+                        const txBuffer = Buffer.from(rawTx, 'base64');
+
+                        console.log('🔄 Transaction ready for signing and sending');
+
+                        // Get Solana wallet - try external wallets first, then embedded wallets
+                        let solanaWallet;
+                        if (wallets && wallets.length > 0) {
+                          console.log('Using connected external Solana wallet');
+                          solanaWallet = wallets[0];
+                        } else if (standardWallets && standardWallets.length > 0) {
+                          console.log('Using embedded Solana wallet');
+                          const privyWallet = standardWallets.find((w: any) => w.isPrivyWallet || w.name === 'Privy');
+                          if (!privyWallet) {
+                            throw new Error('No Privy wallet found');
+                          }
+                          solanaWallet = privyWallet;
+                        } else {
                           throw new Error('No Solana wallet found');
                         }
 
-                        // Sign the transaction using Privy's useSignTransaction hook
-                        const { signedTransaction } = await signTransaction({
-                          transaction: new Uint8Array(properTransaction.serialize()),
-                          wallet: solanaWallet,
+                        // Use signAndSendTransaction - works for both external and embedded wallets
+                        console.log('✍️📤 Signing and sending transaction with Privy...');
+                        const result = await signAndSendTransaction({
+                          transaction: txBuffer,
+                          wallet: solanaWallet as any,
+                          chain: isDevnet() ? 'solana:devnet' : 'solana:mainnet',
                         });
-                        console.log('✅ Transaction signed by Privy wallet!');
-                        
-                        // STEP 3: Send signed transaction to Solana via our RPC system
-                        console.log('📤 Sending signed transaction to Solana via our RPC...');
 
-                        try {
-                            // Send the signed transaction directly to Solana using our RPC fallback system
-                            signature = await sendRawTransaction(signedTransaction, {
-                                skipPreflight: false,
-                                maxRetries: 3,
-                                preflightCommitment: 'confirmed'
-                            });
-                            console.log('✅ Transaction submitted to Solana:', signature);
+                        // Extract signature from result and convert to base58
+                        signature = bs58.encode(result.signature);
+                        console.log('✅ Transaction signed and sent:', signature);
 
-                        } catch (rpcError: unknown) {
-                            const errorMessage = rpcError instanceof Error ? rpcError.message : 'Unknown error';
-                            console.log('⚠️ Primary RPC failed, trying fallback with skipPreflight...', errorMessage);
-                            // Try with skipPreflight as fallback
-                            signature = await sendRawTransaction(signedTransaction, {
-                                skipPreflight: true,
-                                maxRetries: 3,
-                                preflightCommitment: 'confirmed'
-                            });
-                            console.log('✅ Transaction submitted via fallback RPC:', signature);
-                        }
-                        
-                        // STEP 4: Wait for confirmation using our RPC system
-                        console.log(`⏳ Waiting for transaction confirmation on ${network}...`);
-                        const connection = await getSolanaConnection(network);
+                        // Wait for confirmation
+                        console.log('⏳ Waiting for transaction confirmation...');
+                        const connection = await getSolanaConnection();
                         await connection.confirmTransaction(signature, 'confirmed');
-                        console.log(`✅ Transaction confirmed on ${network} blockchain!`);
-                        
+                        console.log('✅ Transaction confirmed on blockchain!');
+
                     } catch (signerError: unknown) {
                         const errorMessage = signerError instanceof Error ? signerError.message : 'Unknown error';
-                        console.log('❌ Privy wallet signing failed:', errorMessage);
+                        console.log('❌ Transaction failed:', errorMessage);
 
                         // Show error to user
-                        alert(`Failed to sign transaction: ${errorMessage}`);
+                        alert(`Failed to sign/send transaction: ${errorMessage}`);
                         setIsSubmitting(false);
                         return;
                     }
-                    
-                    console.log('✅ SEPARATED ARCHITECTURE transaction flow completed!');
+
+                    console.log('✅ Transaction flow completed!');
                     console.log('✅ Transaction signature:', signature);
                     
                     // Step 4: Complete market creation in database
