@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useTransition, useMemo, memo } from 'react';
+import React, { useState, useEffect, useTransition, useMemo, memo, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
@@ -94,8 +94,8 @@ function Sidebar({ currentPage }: SidebarProps) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [lastScrollY]);
 
-  // Handle wallet button click
-  const handleWalletClick = () => {
+  // Handle wallet button click - memoized to prevent recreation on every render
+  const handleWalletClick = useCallback(() => {
     if (!ready) return; // Wait for wallet provider to be ready
 
     if (!authenticated) {
@@ -107,7 +107,17 @@ function Sidebar({ currentPage }: SidebarProps) {
         router.push('/wallet');
       });
     }
-  };
+  }, [ready, authenticated, login, router, startTransition]);
+
+  // Memoize enriched sidebar items to prevent recalculation
+  const enrichedSidebarItems = useMemo(() => {
+    return sidebarItems.map(item => ({
+      ...item,
+      showNotificationBadge: item.id === 'notifications' && unreadCount > 0,
+      showNewBadge: item.badge === 'New',
+      isActive: currentPage === item.id
+    }));
+  }, [unreadCount, currentPage]);
 
   return (
     <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-4 transition-transform duration-300 ${

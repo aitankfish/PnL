@@ -23,9 +23,8 @@ export const connectToDatabase = async () => {
   }
 
   try {
-    // Connect with environment-specific database name
-    const connectionUri = `${dbConfig.uri}/${dbConfig.name}`;
-    await mongoose.connect(connectionUri);
+    // Connect using the URI from config (already includes database name)
+    await mongoose.connect(dbConfig.uri);
     isConnected = true;
     logger.info('Connected to MongoDB successfully', {
       database: dbConfig.name,

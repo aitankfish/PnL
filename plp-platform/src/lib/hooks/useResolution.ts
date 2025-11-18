@@ -7,12 +7,13 @@
 
 import { useState } from 'react';
 import { useWallet } from '@/hooks/useWallet';
-import { Keypair } from '@solana/web3.js';
+import { Transaction, TransactionInstruction } from '@solana/web3.js';
 import { getSolanaConnection } from '@/lib/solana';
-import { getPumpCreateInstruction } from '@/lib/pumpfun';
 import { useNetwork } from './useNetwork';
 import { useSignAndSendTransaction, useWallets, useStandardWallets } from '@privy-io/react-auth/solana';
 import bs58 from 'bs58';
+import { generateVanityKeypair } from '@/lib/vanity';
+import { PumpSdk } from '@pump-fun/pump-sdk';
 
 export function useResolution() {
   const [isResolving, setIsResolving] = useState(false);
@@ -173,9 +174,12 @@ export function useResolution() {
     }
   };
 
+
   /**
    * Resolve market with token launch (YES wins scenario)
-   * Creates atomic transaction: pump.fun create + resolve_market
+   *
+   * DEVNET MODE: Not supported (Pump.fun only exists on mainnet)
+   * MAINNET MODE: Creates token on Pump.fun with atomic transaction → Raydium migration
    */
   const resolveWithTokenLaunch = async (params: {
     marketId: string;
@@ -188,24 +192,111 @@ export function useResolution() {
     };
   }): Promise<{ success: boolean; signature?: string; error?: any }> => {
     try {
-      // Step 1: Generate mint keypair
-      const mintKeypair = Keypair.generate();
-      console.log(`🎫 Generated token mint: ${mintKeypair.publicKey.toBase58()}`);
+      console.log('═══════════════════════════════════════════════════');
+      console.log('🚀 TOKEN LAUNCH FLOW STARTED');
+      console.log('═══════════════════════════════════════════════════');
+      console.log(`Network: ${network.toUpperCase()}`);
+      console.log(`Token: ${params.tokenMetadata.symbol}`);
+      console.log(`Market: ${params.marketAddress}`);
+      console.log('═══════════════════════════════════════════════════');
 
-      // Step 2: Get pump.fun create transaction from PumpPortal API
-      console.log('📤 Requesting pump.fun create transaction...');
-      const createTx = await getPumpCreateInstruction({
+      // NETWORK DETECTION
+      if (network === 'devnet') {
+        console.log('');
+        console.log('⚠️  DEVNET MODE DETECTED');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('Pump.fun is NOT available on devnet.');
+        console.log('Token launch cannot be tested on devnet.');
+        console.log('Use mainnet for full token launch testing.');
+        console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+        console.log('');
+
+        return {
+          success: false,
+          error: 'Token launch is not supported on devnet. Please switch to mainnet to test token creation.',
+        };
+      }
+
+      // MAINNET MODE: Full Pump.fun Integration with PLP Branding
+      console.log('');
+      console.log('✅ MAINNET MODE - FULL PUMP.FUN INTEGRATION');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('Token will be created on Pump.fun bonding curve');
+      console.log('Automatic Raydium migration when threshold reached');
+      console.log('Vanity address ending with "pnl" for PLP branding');
+      console.log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━');
+      console.log('');
+
+      // Step 1: Generate vanity mint keypair (ending with "pnl")
+      console.log('🎯 Generating vanity token address (ending with "pnl")...');
+      const mintKeypair = generateVanityKeypair({
+        suffix: 'pnl',
+        maxAttempts: 10_000_000,
+      });
+
+      if (!mintKeypair) {
+        throw new Error('Failed to generate vanity address within max attempts');
+      }
+
+      console.log(`✅ Vanity token mint: ${mintKeypair.publicKey.toBase58()}`);
+      console.log(`   ↳ Branded with PNL platform signature!`);
+      console.log('');
+
+      // Step 2: Upload metadata to Pump.fun IPFS
+      console.log('📤 Uploading metadata to Pump.fun IPFS...');
+      const metadata = {
         name: params.tokenMetadata.name,
         symbol: params.tokenMetadata.symbol,
         description: params.tokenMetadata.description,
-        imageUrl: params.tokenMetadata.imageUrl,
-        mint: mintKeypair.publicKey,
-        creator: new (await import('@solana/web3.js')).PublicKey(primaryWallet!.address),
+        image: params.tokenMetadata.imageUrl,
+        showName: true,
+        createdOn: 'https://pump.fun',
+      };
+
+      const formData = new FormData();
+      formData.append('file', new Blob([JSON.stringify(metadata)], { type: 'application/json' }), 'metadata.json');
+      formData.append('name', params.tokenMetadata.name);
+      formData.append('symbol', params.tokenMetadata.symbol);
+      formData.append('description', params.tokenMetadata.description);
+      formData.append('twitter', '');
+      formData.append('telegram', '');
+      formData.append('website', '');
+      formData.append('showName', 'true');
+
+      const ipfsResponse = await fetch('https://pump.fun/api/ipfs', {
+        method: 'POST',
+        body: formData,
       });
 
-      console.log('✅ Received create transaction from PumpPortal');
+      if (!ipfsResponse.ok) {
+        throw new Error(`IPFS upload failed: ${ipfsResponse.status} ${ipfsResponse.statusText}`);
+      }
 
-      // Step 3: Prepare resolve_market instruction with pump.fun accounts
+      const ipfsResult = await ipfsResponse.json();
+      const metadataUri = ipfsResult.metadataUri;
+      console.log(`✅ Metadata uploaded to IPFS`);
+      console.log(`   URI: ${metadataUri}`);
+      console.log('');
+
+      // Step 3: Create Pump.fun createV2 instruction using official SDK
+      console.log('🔧 Building Pump.fun createV2 instruction...');
+      const connection = await getSolanaConnection();
+      const pumpSdk = new PumpSdk(connection);
+
+      const { PublicKey } = await import('@solana/web3.js');
+      const createInstruction = await pumpSdk.createV2Instruction({
+        mint: mintKeypair.publicKey,
+        name: params.tokenMetadata.name,
+        symbol: params.tokenMetadata.symbol,
+        uri: metadataUri, // Use IPFS metadata URI
+        creator: new PublicKey(primaryWallet!.address),
+        user: new PublicKey(primaryWallet!.address),
+        mayhemMode: false,
+      });
+
+      console.log('✅ Pump.fun createV2 instruction built (Token2022 format)');
+
+      // Step 4: Prepare resolve_market instruction with pump.fun accounts
       console.log('🔧 Preparing resolve_market instruction...');
       const prepareResponse = await fetch('/api/markets/resolve/prepare-with-token', {
         method: 'POST',
@@ -227,63 +318,102 @@ export function useResolution() {
 
       console.log('✅ Resolve instruction prepared');
 
-      // Step 4: Build atomic transaction (create + resolve)
-      console.log('⚡ Building atomic transaction...');
+      // Step 5: Build ATOMIC transaction (create + resolve in ONE transaction)
+      console.log('⚡ Building atomic transaction (create + resolve)...');
+      console.log('   This prevents front-running and ensures best token price');
 
-      // Get the resolve transaction
-      const rawResolveTx = prepareResult.data.serializedTransaction;
+      // Deserialize the resolve transaction to extract the instruction
+      const { VersionedTransaction, ComputeBudgetProgram } = await import('@solana/web3.js');
+      const resolveTxBuffer = Buffer.from(prepareResult.data.serializedTransaction, 'base64');
+      const resolveVersionedTx = VersionedTransaction.deserialize(resolveTxBuffer);
 
-      // Combine create + resolve into single transaction
-      // For now, we'll use a simpler approach: sign both and send sequentially but fast
-      console.log('✍️ Signing create transaction with mint keypair...');
-      createTx.sign([mintKeypair]);
+      // Extract the resolve instruction (skip compute budget if present)
+      const resolveInstructions = resolveVersionedTx.message.compiledInstructions;
+      const resolveIx = resolveInstructions[resolveInstructions.length - 1]; // Last instruction is resolve_market
 
-      console.log('✍️ Signing and sending resolve transaction with wallet...');
-      let solanaWallet2;
+      // Get the resolve instruction in proper format
+      const { PublicKey: PK } = await import('@solana/web3.js');
+      const accountKeys = resolveVersionedTx.message.staticAccountKeys;
+      const resolveInstruction = new TransactionInstruction({
+        programId: accountKeys[resolveIx.programIdIndex],
+        keys: resolveIx.accountKeyIndexes.map((idx) => ({
+          pubkey: accountKeys[idx],
+          isSigner: resolveVersionedTx.message.isAccountSigner(idx),
+          isWritable: resolveVersionedTx.message.isAccountWritable(idx),
+        })),
+        data: Buffer.from(resolveIx.data),
+      });
 
+      // Build atomic transaction with high compute units
+      const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
+        units: 800_000, // High limit for create + resolve + buy CPI
+      });
+
+      const atomicTx = new Transaction()
+        .add(computeBudgetIx)      // Compute budget
+        .add(createInstruction)     // Pump.fun create
+        .add(resolveInstruction);   // Your program resolve (does buy CPI)
+
+      // Get recent blockhash
+      const { blockhash } = await connection.getLatestBlockhash('confirmed');
+      atomicTx.recentBlockhash = blockhash;
+      atomicTx.feePayer = new PK(primaryWallet!.address);
+
+      console.log('✅ Atomic transaction built with 3 instructions:');
+      console.log('   1. Compute budget (800k units)');
+      console.log('   2. Pump.fun createV2 (Token2022)');
+      console.log('   3. Market resolve (with buy CPI)');
+      console.log('');
+
+      // Sign with mint keypair first
+      atomicTx.partialSign(mintKeypair);
+      console.log('✅ Partially signed with mint keypair');
+
+      // Serialize for wallet signing
+      const serializedAtomicTx = atomicTx.serialize({
+        requireAllSignatures: false, // Allow partial signatures
+        verifySignatures: false,
+      });
+
+      // Get wallet for signing
+      let solanaWallet;
       if (wallets && wallets.length > 0) {
-        console.log('Using external Solana wallet for token launch');
-        solanaWallet2 = wallets[0];
+        console.log('Using external Solana wallet for atomic transaction');
+        solanaWallet = wallets[0];
       } else if (standardWallets && standardWallets.length > 0) {
-        console.log('Using embedded Solana wallet for token launch');
+        console.log('Using embedded Solana wallet for atomic transaction');
         const privyWallet = standardWallets.find((w: any) => w.isPrivyWallet || w.name === 'Privy');
         if (!privyWallet) {
           throw new Error('No Privy wallet found');
         }
-        solanaWallet2 = privyWallet;
+        solanaWallet = privyWallet;
       } else {
         throw new Error('No Solana wallet found');
       }
 
-      // Step 5: Send transactions
-      const connection = await getSolanaConnection(network);
+      // Sign and send atomic transaction
+      console.log('📤 Signing and sending ATOMIC transaction...');
+      console.log('   This creates token AND resolves market in ONE transaction');
+      console.log('   No gap for front-running!');
+      console.log('');
 
-      console.log('📤 Sending create transaction...');
-      const createSig = await connection.sendTransaction(createTx, {
-        skipPreflight: false,
-        maxRetries: 3,
-      });
-      console.log(`✅ Create transaction sent: ${createSig}`);
-
-      console.log('⏳ Confirming create transaction...');
-      await connection.confirmTransaction(createSig, 'confirmed');
-      console.log('✅ Token created!');
-
-      console.log('📤 Signing and sending resolve transaction...');
-      const resolveTxBuffer = Buffer.from(rawResolveTx, 'base64');
-
-      const resolveResult = await signAndSendTransaction({
-        transaction: resolveTxBuffer,
-        wallet: solanaWallet2 as any,
-        chain: network === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
+      const result = await signAndSendTransaction({
+        transaction: serializedAtomicTx,
+        wallet: solanaWallet as any,
+        chain: 'solana:mainnet', // We're in mainnet-only block (devnet returns early)
       });
 
-      const resolveSig = bs58.encode(resolveResult.signature);
-      console.log(`✅ Resolve transaction sent: ${resolveSig}`);
+      const signature = bs58.encode(result.signature);
+      console.log(`✅ Atomic transaction sent: ${signature}`);
+      console.log(`   View on explorer: https://solscan.io/tx/${signature}`);
 
-      console.log('⏳ Confirming resolve transaction...');
-      await connection.confirmTransaction(resolveSig, 'confirmed');
-      console.log('✅ Market resolved with token launch!');
+      console.log('⏳ Confirming atomic transaction...');
+      await connection.confirmTransaction(signature, 'confirmed');
+      console.log('✅ Atomic transaction confirmed!');
+      console.log('   • Token created on Pump.fun ✅');
+      console.log('   • Market resolved ✅');
+      console.log('   • Tokens bought with pooled SOL ✅');
+      console.log('');
 
       // Update database
       console.log('📝 Updating market state in database...');
@@ -293,7 +423,7 @@ export function useResolution() {
         body: JSON.stringify({
           marketId: params.marketId,
           marketAddress: params.marketAddress,
-          signature: resolveSig,
+          signature,
           tokenMint: mintKeypair.publicKey.toBase58(),
         }),
       });
@@ -304,13 +434,33 @@ export function useResolution() {
         console.warn('⚠️ Transaction succeeded but database update failed:', updateResult.error);
       }
 
-      console.log('🎉 Token launch + resolution completed!');
-      console.log(`   Token Mint: ${mintKeypair.publicKey.toBase58()}`);
-      console.log(`   View on pump.fun: https://pump.fun/${mintKeypair.publicKey.toBase58()}`);
+      console.log('');
+      console.log('═══════════════════════════════════════════════════');
+      console.log('🎉 MAINNET ATOMIC TOKEN LAUNCH SUCCESSFUL!');
+      console.log('═══════════════════════════════════════════════════');
+      console.log(`Token Mint: ${mintKeypair.publicKey.toBase58()}`);
+      console.log(`   ↳ Ends with "pnl" (PNL platform branded)`);
+      console.log(`Signature: ${signature}`);
+      console.log('');
+      console.log('🔗 LINKS:');
+      console.log(`  • Pump.fun: https://pump.fun/${mintKeypair.publicKey.toBase58()}`);
+      console.log(`  • Solscan Token: https://solscan.io/token/${mintKeypair.publicKey.toBase58()}`);
+      console.log(`  • Transaction: https://solscan.io/tx/${signature}`);
+      console.log('');
+      console.log('✨ TOKEN DISTRIBUTION:');
+      console.log('  • 79% to YES voters (claimable)');
+      console.log('  • 20% to team (vested: 5% now, 15% locked)');
+      console.log('  • 1% to platform');
+      console.log('');
+      console.log('⚡ BONDING CURVE ACTIVE:');
+      console.log('  • Token live on Pump.fun with proper metadata');
+      console.log('  • Market PDA bought tokens at optimal price (no front-running)');
+      console.log('  • Will migrate to Raydium at ~$69k market cap');
+      console.log('═══════════════════════════════════════════════════');
 
       return {
         success: true,
-        signature: resolveSig,
+        signature,
       };
 
     } catch (error) {

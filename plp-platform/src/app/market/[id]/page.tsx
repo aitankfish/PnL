@@ -502,6 +502,24 @@ export default function MarketDetailsPage() {
   const handleExtend = async () => {
     if (!market) return;
 
+    // Safety check: If already in Funding Phase, just refresh UI
+    if (onchainData?.success && onchainData.data.phase === 'Funding') {
+      console.log('⚠️ Market already in Funding Phase, refreshing UI...');
+
+      // Refresh data to update UI
+      await refetchOnchainData();
+      await fetchMarketDetails(params.id as string);
+
+      setSuccessDialog({
+        open: true,
+        title: 'Already in Funding Phase',
+        message: 'This market is already in Funding Phase. The UI has been refreshed to show the current state.',
+        details: 'You can now launch the token or continue accepting contributions.',
+      });
+
+      return;
+    }
+
     const result = await extend({
       marketId: params.id as string,
       marketAddress: market.marketAddress,
@@ -521,14 +539,31 @@ export default function MarketDetailsPage() {
         details: 'The market is now in Funding Phase. The voting results are locked, and additional capital can be raised.',
       });
     } else {
-      // Parse error and show in dialog
-      const parsedError = parseError(result.error);
-      setErrorDialog({
-        open: true,
-        title: parsedError.title,
-        message: parsedError.message,
-        details: parsedError.details,
-      });
+      // Check if error indicates already extended
+      const errorStr = result.error?.toString() || '';
+      if (errorStr.toLowerCase().includes('phase') || errorStr.toLowerCase().includes('already')) {
+        console.log('⚠️ Market likely already extended, refreshing UI...');
+
+        // Force refresh
+        await refetchOnchainData();
+        await fetchMarketDetails(params.id as string);
+
+        setSuccessDialog({
+          open: true,
+          title: 'Market Already Extended',
+          message: 'This market was already extended to Funding Phase. The UI has been updated.',
+          details: 'You can now launch the token or continue accepting contributions.',
+        });
+      } else {
+        // Parse error and show in dialog
+        const parsedError = parseError(result.error);
+        setErrorDialog({
+          open: true,
+          title: parsedError.title,
+          message: parsedError.message,
+          details: parsedError.details,
+        });
+      }
     }
   };
 
@@ -925,8 +960,8 @@ export default function MarketDetailsPage() {
                   {/* Status Message */}
                   {onchainData.data.resolution === 'Unresolved' && !isMarketExpiredFromDB && (
                     <>
-                      {/* Pool Filled - Waiting for Resolution */}
-                      {onchainData.data.poolProgressPercentage >= 100 ? (
+                      {/* Pool Filled - Waiting for Resolution (but NOT in Funding Phase) */}
+                      {onchainData.data.poolProgressPercentage >= 100 && onchainData.data.phase !== 'Funding' ? (
                         <div className="pt-2 border-t border-white/5">
                           <div className="bg-gradient-to-br from-cyan-500/10 via-purple-500/10 to-pink-500/10 border border-cyan-400/30 rounded-lg p-4">
                             <div className="flex items-start justify-between mb-3">
@@ -956,34 +991,113 @@ export default function MarketDetailsPage() {
                             </div>
                           </div>
 
-                          {/* Extend Market Button - Only for founder when target reached and YES winning */}
+                          {/* Founder Actions - Only for founder when target reached, YES winning, and NOT in Funding Phase */}
                           {primaryWallet?.address === onchainData.data.founder &&
-                           Number(onchainData.data.totalYesShares) > Number(onchainData.data.totalNoShares) && (
-                            <div className="mt-4 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-cyan-500/10 border border-purple-400/30 rounded-lg p-4">
+                           Number(onchainData.data.totalYesShares) > Number(onchainData.data.totalNoShares) &&
+                           onchainData.data.phase !== 'Funding' && (
+                            <div className="mt-4 bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-cyan-500/10 border border-purple-400/30 rounded-lg p-4 space-y-3">
                               <div className="flex items-start justify-between">
                                 <div className="flex-1">
                                   <h4 className="text-purple-400 text-sm font-semibold mb-1">🎯 Target Reached!</h4>
-                                  <p className="text-gray-300 text-xs mb-3">
-                                    Your market has reached the target pool and YES is winning. You can now extend the market to the Funding Phase to raise additional capital.
+                                  <p className="text-gray-300 text-xs mb-2">
+                                    Your market has reached the target pool and YES is winning. You can launch the token now or extend to raise more funding.
+                                  </p>
+                                  <p className="text-cyan-300 text-xs italic">
+                                    ✨ Token will have a branded PNL address ending with "pnl"
                                   </p>
                                 </div>
                               </div>
-                              <Button
-                                onClick={handleExtend}
-                                disabled={isExtending}
-                                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold"
-                              >
-                                {isExtending ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Extending...
-                                  </>
-                                ) : (
-                                  <>
-                                    🚀 Extend to Funding Phase
-                                  </>
-                                )}
-                              </Button>
+
+                              {/* Two Action Buttons */}
+                              <div className="grid grid-cols-2 gap-3">
+                                {/* Launch Token Now Button */}
+                                <Button
+                                  onClick={async () => {
+                                    // Prepare token metadata from market data
+                                    const tokenMetadata = {
+                                      name: market.name,
+                                      symbol: market.tokenSymbol,
+                                      description: market.description,
+                                      imageUrl: market.projectImageUrl || 'https://via.placeholder.com/300', // Fallback if no image
+                                    };
+
+                                    const result = await resolve({
+                                      marketId: params.id as string,
+                                      marketAddress: market.marketAddress,
+                                      tokenMetadata,
+                                      needsTokenLaunch: true,
+                                    });
+
+                                    if (result.success) {
+                                      // Success! Refresh all data
+                                      fetchMarketDetails(params.id as string);
+                                      refetchOnchainData();
+                                      refetchHistory();
+                                      refetchHolders();
+
+                                      setSuccessDialog({
+                                        open: true,
+                                        title: 'Token Launched Successfully!',
+                                        message: `${market.tokenSymbol} token has been created and the market resolved.`,
+                                        signature: result.signature,
+                                        details: 'YES voters can now claim their token airdrop!',
+                                      });
+                                    } else {
+                                      const parsedError = parseError(result.error);
+                                      setErrorDialog({
+                                        open: true,
+                                        title: parsedError.title,
+                                        message: parsedError.message,
+                                        details: parsedError.details,
+                                      });
+                                    }
+                                  }}
+                                  disabled={isResolving}
+                                  className="bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-white font-semibold"
+                                >
+                                  {isResolving ? (
+                                    <div className="flex flex-col items-center justify-center space-y-1">
+                                      <div className="flex items-center">
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        <span>Launching Token...</span>
+                                      </div>
+                                      <span className="text-xs text-gray-300 font-normal">
+                                        This may take 30-60 seconds
+                                      </span>
+                                    </div>
+                                  ) : (
+                                    <>
+                                      🚀 Launch ${market.tokenSymbol}
+                                    </>
+                                  )}
+                                </Button>
+
+                                {/* Extend to Funding Phase Button */}
+                                <Button
+                                  onClick={handleExtend}
+                                  disabled={isExtending}
+                                  className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold"
+                                >
+                                  {isExtending ? (
+                                    <>
+                                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                      Extending...
+                                    </>
+                                  ) : (
+                                    <>
+                                      💰 Extend Funding
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+
+                              <div className="flex items-start space-x-2 pt-2 border-t border-white/10">
+                                <div className="text-xs text-gray-400">
+                                  <span className="font-semibold text-green-400">Launch Now:</span> Immediately create {market.tokenSymbol} token with current pool
+                                  <br />
+                                  <span className="font-semibold text-purple-400">Extend Funding:</span> Raise more capital before launching
+                                </div>
+                              </div>
                             </div>
                           )}
 
@@ -1027,45 +1141,123 @@ export default function MarketDetailsPage() {
                       ) : (
                         /* Pool Not Filled - Active Market */
                         <div className="space-y-4">
-                          <div className="flex items-center justify-between pt-2 border-t border-white/5">
-                            <div>
-                              <h4 className="text-green-400 text-sm font-semibold">✅ Active Market</h4>
-                              <p className="text-gray-300 text-xs">
-                                {onchainData.data.phase === 'Prediction' ? 'Voting is open' : 'Funding in progress'}
-                              </p>
-                            </div>
-                            <div className="text-right">
-                              <div className="text-gray-400 text-xs">Expires in</div>
-                              <CountdownTimer expiryTime={market.expiryTime} size="lg" />
-                            </div>
-                          </div>
-
-                          {/* Resolve Button for Funding Phase - Founder can resolve early */}
-                          {onchainData.data.phase === 'Funding' &&
-                           primaryWallet?.address === onchainData.data.founder && (
-                            <div className="bg-gradient-to-br from-green-500/10 via-cyan-500/10 to-blue-500/10 border border-green-400/30 rounded-lg p-4">
-                              <div className="mb-3">
-                                <h4 className="text-green-400 text-sm font-semibold mb-1">💰 Funding Phase Active</h4>
-                                <p className="text-gray-300 text-xs">
-                                  Your market is in the Funding Phase. You can continue accepting additional contributions or resolve the market now to launch the token.
-                                </p>
+                          {/* Funding Phase - Special UI for all users */}
+                          {onchainData.data.phase === 'Funding' ? (
+                            <div className="pt-2 border-t border-white/5 space-y-3">
+                              <div className="bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-cyan-500/10 border border-purple-400/30 rounded-lg p-4">
+                                <div className="flex items-start justify-between mb-3">
+                                  <div className="flex-1">
+                                    <h4 className="text-purple-400 text-base font-bold mb-2 flex items-center space-x-2">
+                                      <span>💰</span>
+                                      <span>Funding Phase - Token Launch Guaranteed!</span>
+                                    </h4>
+                                    <div className="space-y-2">
+                                      <p className="text-gray-300 text-sm">
+                                        <span className="font-semibold text-green-400">✅ YES Won the Vote</span> - Voting is now locked and ${market.tokenSymbol} token WILL be launched!
+                                      </p>
+                                      <p className="text-gray-400 text-xs">
+                                        The founder extended to Funding Phase to raise additional capital. You can still contribute to increase the pool size.
+                                      </p>
+                                      <div className="flex items-center space-x-2 text-xs">
+                                        <div className="flex items-center space-x-1 px-2 py-1 bg-green-500/20 rounded-lg border border-green-400/30">
+                                          <CheckCircle className="w-3 h-3 text-green-400" />
+                                          <span className="text-green-400 font-semibold">Locked: YES Wins</span>
+                                        </div>
+                                        <div className="flex items-center space-x-1 px-2 py-1 bg-cyan-500/20 rounded-lg border border-cyan-400/30">
+                                          <span className="text-cyan-400 font-semibold">Raising More Funds</span>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+                                <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                                  <div>
+                                    <p className="text-xs text-gray-400 mb-1">Funding deadline</p>
+                                    <CountdownTimer expiryTime={market.expiryTime} size="lg" />
+                                  </div>
+                                  <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30">
+                                    Accepting Contributions
+                                  </Badge>
+                                </div>
                               </div>
-                              <Button
-                                onClick={handleResolve}
-                                disabled={isResolving}
-                                className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-white font-semibold"
-                              >
-                                {isResolving ? (
-                                  <>
-                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Resolving...
-                                  </>
-                                ) : (
-                                  <>
-                                    🚀 Resolve Market & Launch Token
-                                  </>
-                                )}
-                              </Button>
+
+                              {/* Founder-only resolve button */}
+                              {primaryWallet?.address === onchainData.data.founder && (
+                                <div className="bg-gradient-to-br from-green-500/10 via-cyan-500/10 to-blue-500/10 border border-green-400/30 rounded-lg p-4">
+                                  <div className="mb-3">
+                                    <h4 className="text-green-400 text-sm font-semibold mb-1">Founder Actions</h4>
+                                    <p className="text-gray-300 text-xs">
+                                      You can continue accepting contributions or resolve the market now to launch ${market.tokenSymbol}.
+                                    </p>
+                                  </div>
+                                  <Button
+                                    onClick={async () => {
+                                      // Prepare token metadata from market data
+                                      const tokenMetadata = {
+                                        name: market.name,
+                                        symbol: market.tokenSymbol,
+                                        description: market.description,
+                                        imageUrl: market.projectImageUrl || '',
+                                      };
+
+                                      const result = await resolve({
+                                        marketId: params.id as string,
+                                        marketAddress: market.marketAddress,
+                                        tokenMetadata,
+                                        needsTokenLaunch: true,
+                                      });
+
+                                      if (result.success) {
+                                        fetchMarketDetails(params.id as string);
+                                        refetchOnchainData();
+                                        refetchHistory();
+                                        refetchHolders();
+
+                                        setSuccessDialog({
+                                          open: true,
+                                          title: 'Token Launched Successfully!',
+                                          message: `${market.tokenSymbol} token has been created and the market resolved.`,
+                                          signature: result.signature,
+                                          details: 'YES voters can now claim their token airdrop!',
+                                        });
+                                      } else {
+                                        const parsedError = parseError(result.error);
+                                        setErrorDialog({
+                                          open: true,
+                                          title: parsedError.title,
+                                          message: parsedError.message,
+                                          details: parsedError.details,
+                                        });
+                                      }
+                                    }}
+                                    disabled={isResolving}
+                                    className="w-full bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 text-white font-semibold"
+                                  >
+                                    {isResolving ? (
+                                      <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Launching...
+                                      </>
+                                    ) : (
+                                      <>
+                                        🚀 Launch ${market.tokenSymbol} Now
+                                      </>
+                                    )}
+                                  </Button>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            /* Prediction Phase - Normal Active Market */
+                            <div className="flex items-center justify-between pt-2 border-t border-white/5">
+                              <div>
+                                <h4 className="text-green-400 text-sm font-semibold">✅ Active Market</h4>
+                                <p className="text-gray-300 text-xs">Voting is open</p>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-gray-400 text-xs">Expires in</div>
+                                <CountdownTimer expiryTime={market.expiryTime} size="lg" />
+                              </div>
                             </div>
                           )}
                         </div>

@@ -12,6 +12,7 @@ import { FEES } from '@/config/solana';
 import CountdownTimer from '@/components/CountdownTimer';
 import ErrorDialog from '@/components/ErrorDialog';
 import { parseError } from '@/lib/utils/errorParser';
+import { Skeleton } from '@/components/ui/skeleton';
 
 interface Market {
   id: string;
@@ -474,11 +475,35 @@ export default function BrowsePage() {
             </div>
           </div>
 
-          {/* Loading State */}
+          {/* Loading State with Skeletons */}
           {loading && (
-            <div className="flex items-center justify-center py-12">
-              <Loader2 className="w-8 h-8 animate-spin text-white" />
-              <span className="ml-3 text-white">Loading markets...</span>
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {[...Array(6)].map((_, i) => (
+                <Card key={i} className="bg-white/5 backdrop-blur-xl border-white/10">
+                  <CardHeader>
+                    <div className="flex items-start space-x-3 mb-3">
+                      <Skeleton className="w-12 h-12 rounded-lg" />
+                      <div className="flex-1 space-y-2">
+                        <Skeleton className="h-6 w-3/4" />
+                        <Skeleton className="h-4 w-full" />
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-4 w-2/3" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-2 w-full rounded-full" />
+                      <Skeleton className="h-6 w-24 mx-auto" />
+                    </div>
+                    <div className="flex gap-2 pt-2">
+                      <Skeleton className="h-9 flex-1" />
+                      <Skeleton className="h-9 flex-1" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           )}
 
