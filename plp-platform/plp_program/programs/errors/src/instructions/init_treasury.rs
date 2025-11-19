@@ -1,8 +1,18 @@
 use anchor_lang::prelude::*;
-use crate::errors::ErrorCode;
 use crate::state::Treasury;
-use std::str::FromStr; // ✅ Needed for Pubkey::from_str()
 
+/// Initialize the treasury PDA (one-time operation)
+///
+/// Security Model:
+/// - Treasury PDA can only be initialized ONCE (Anchor `init` enforces this)
+/// - First caller becomes the initial admin
+/// - Admin can transfer control via `set_admin` instruction
+/// - Recommended: Deploy program, immediately initialize with secure wallet, then transfer admin
+///
+/// No hardcoded deployer check - relies on:
+/// 1. Anchor's `init` constraint (prevents re-initialization)
+/// 2. Race to initialize (deployer should do this immediately after deployment)
+/// 3. Admin transfer capability (via set_admin instruction)
 #[derive(Accounts)]
 pub struct InitTreasury<'info> {
     #[account(
@@ -23,24 +33,21 @@ pub struct InitTreasury<'info> {
 pub fn handler(ctx: Context<InitTreasury>) -> Result<()> {
     let t = &mut ctx.accounts.treasury;
 
-    // ✅ Allow only the program deployer to initialize.
-    // Devnet deployer wallet
-    let deployer_key = Pubkey::from_str("Djw83UQZaEmrmd3YCW9kCHv6ZJUY9V2LGNrcSuUXwB7c") // Devnet deployer
-        .map_err(|_| error!(ErrorCode::Unauthorized))?;
+    // ✅ Initialize treasury with caller as admin
+    // Note: Treasury PDA can only be initialized once due to Anchor's `init` constraint
+    // The first person to call this becomes the initial admin
+    // Admin can be transferred later via set_admin instruction
 
-    require_keys_eq!(
-        ctx.accounts.payer.key(),
-        deployer_key,
-        ErrorCode::Unauthorized
-    );
-
-    // ✅ Standard treasury setup
     t.admin = ctx.accounts.payer.key();
     t.total_fees = 0;
 
     let (_pda, bump) = Pubkey::find_program_address(&[b"treasury"], ctx.program_id);
     t.bump = bump;
 
-    msg!("✅ Treasury initialized by deployer: {}", t.admin);
+    msg!("✅ Treasury initialized");
+    msg!("   Initial admin: {}", t.admin);
+    msg!("   Treasury PDA: {}", ctx.accounts.treasury.key());
+    msg!("   Bump: {}", bump);
+
     Ok(())
 }

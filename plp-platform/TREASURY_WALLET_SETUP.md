@@ -11,8 +11,8 @@ The PNL platform uses a **two-wallet security model** for treasury management:
 
 ## Wallet Requirements
 
-### 1. Deployer Wallet
-**Current Address**: `Djw83UQZaEmrmd3YCW9kCHv6ZJUY9V2LGNrcSuUXwB7c`
+### 1. Deployer/Initialization Wallet
+**Address**: *(Any secure wallet you control)*
 
 **Purpose**:
 - Initialize treasury PDA (one-time operation)
@@ -23,10 +23,13 @@ The PNL platform uses a **two-wallet security model** for treasury management:
 - ✅ Cold storage (hardware wallet or offline)
 - ✅ Used only for initialization and emergency
 - ✅ Never exposed online after initial setup
+- ✅ **MUST initialize immediately after program deployment** (race condition protection)
 
 **Required For**:
-- Treasury initialization
+- Treasury initialization (first-come-first-served)
 - Admin transfer (if needed in future)
+
+**Important**: No longer hardcoded! Use ANY secure wallet you control, but initialize IMMEDIATELY after deploying the program to prevent others from initializing first.
 
 ### 2. Operational Wallet
 **Address**: *(You choose - will be set during setup)*
@@ -54,27 +57,35 @@ The PNL platform uses a **two-wallet security model** for treasury management:
 
 ## Setup Process
 
-### Step 1: Initialize Treasury (Deployer Wallet)
+### Step 1: Initialize Treasury (Initialization Wallet)
 
-**When**: One-time setup, before any markets are created
+**When**: **IMMEDIATELY after program deployment** (before anyone else!)
 
-**Who**: Deployer wallet only (`Djw83UQZaEmrmd3YCW9kCHv6ZJUY9V2LGNrcSuUXwB7c`)
+**Who**: Any secure wallet you control (preferably hardware wallet)
 
 **How**:
 1. Navigate to `/admin/treasury` on the frontend
-2. Connect deployer wallet
+2. Connect your secure wallet
 3. Click "Initialize Treasury"
 4. Sign transaction
 
+**⚠️ CRITICAL**:
+- Treasury can only be initialized ONCE (Anchor `init` enforces this)
+- First person to call this becomes the admin
+- Initialize IMMEDIATELY after deploying program to prevent others
+- Use a secure wallet you control for the long term
+
 **What Happens**:
 - Treasury PDA created at: `seeds = [b"treasury"], bump`
-- Deployer wallet set as initial admin
+- Your wallet set as initial admin
 - Total fees counter initialized to 0
 
 **Result**:
 ```
 ✅ Treasury initialized
-Admin: Djw83UQZaEmrmd3YCW9kCHv6ZJUY9V2LGNrcSuUXwB7c
+   Initial admin: <your wallet address>
+   Treasury PDA: <treasury PDA address>
+   Bump: <bump seed>
 Balance: 0 SOL
 Total Fees: 0 SOL
 ```

@@ -34,14 +34,11 @@ export default function TreasuryAdminPage() {
   const [withdrawAmount, setWithdrawAmount] = useState('');
   const [recipientAddress, setRecipientAddress] = useState('');
 
-  // Deployer wallet (hardcoded in program)
-  const DEPLOYER_WALLET = 'Djw83UQZaEmrmd3YCW9kCHv6ZJUY9V2LGNrcSuUXwB7c';
-
-  // Platform wallet for 1% tokens
+  // Platform wallet for 1% tokens (hardcoded in program)
   const PLATFORM_WALLET = '3MihVtsLsVuEccpmz4YG72Cr8CJWf1evRorTPdPiHeEQ';
 
-  const isDeployer = primaryWallet?.address === DEPLOYER_WALLET;
   const isAdmin = primaryWallet?.address === treasury?.admin;
+  const canInitialize = !treasury; // Can initialize if treasury doesn't exist yet
 
   // Fetch treasury state
   const fetchTreasury = async () => {
@@ -256,18 +253,18 @@ export default function TreasuryAdminPage() {
           <CardContent className="space-y-2 text-gray-300">
             <div className="flex justify-between">
               <span>Connected Wallet:</span>
-              <span className="font-mono">{primaryWallet?.address || 'Not connected'}</span>
-            </div>
-            <div className="flex justify-between">
-              <span>Is Deployer:</span>
-              <span className={isDeployer ? 'text-green-400' : 'text-red-400'}>
-                {isDeployer ? 'Yes' : 'No'}
-              </span>
+              <span className="font-mono text-sm">{primaryWallet?.address || 'Not connected'}</span>
             </div>
             <div className="flex justify-between">
               <span>Is Admin:</span>
               <span className={isAdmin ? 'text-green-400' : 'text-red-400'}>
                 {isAdmin ? 'Yes' : 'No'}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span>Can Initialize:</span>
+              <span className={canInitialize ? 'text-green-400' : 'text-gray-500'}>
+                {canInitialize ? 'Yes (not initialized yet)' : 'No (already initialized)'}
               </span>
             </div>
             <div className="flex justify-between">
@@ -319,7 +316,10 @@ export default function TreasuryAdminPage() {
             ) : (
               <div className="text-center py-8 space-y-4">
                 <p className="text-gray-400">Treasury not initialized</p>
-                {isDeployer && (
+                <p className="text-yellow-400 text-sm">
+                  ⚠️ First person to initialize becomes admin!
+                </p>
+                {canInitialize && primaryWallet && (
                   <Button
                     onClick={handleInitializeTreasury}
                     disabled={loading}
@@ -469,11 +469,12 @@ export default function TreasuryAdminPage() {
             <CardTitle className="text-blue-300">How It Works</CardTitle>
           </CardHeader>
           <CardContent className="text-blue-200 space-y-2 text-sm">
-            <p><strong>1. Deployer Wallet:</strong> Initializes treasury (one-time, then lock away)</p>
-            <p><strong>2. Operational Wallet:</strong> Set as admin for day-to-day operations</p>
-            <p><strong>3. Fee Collection:</strong> 5% completion fees accumulate in treasury PDA</p>
-            <p><strong>4. Token Collection:</strong> 1% tokens go to platform wallet automatically</p>
-            <p><strong>5. Withdrawal:</strong> Admin can withdraw accumulated SOL fees anytime</p>
+            <p><strong>1. Initialize Treasury:</strong> First person to initialize becomes admin (one-time only)</p>
+            <p><strong>2. Transfer Admin:</strong> Initial admin transfers control to operational wallet</p>
+            <p><strong>3. Lock Initial Wallet:</strong> Store securely as emergency recovery</p>
+            <p><strong>4. Fee Collection:</strong> 5% completion fees accumulate in treasury PDA</p>
+            <p><strong>5. Token Collection:</strong> 1% tokens go to platform wallet automatically</p>
+            <p><strong>6. Withdrawal:</strong> Operational admin withdraws accumulated SOL fees anytime</p>
           </CardContent>
         </Card>
       </div>
