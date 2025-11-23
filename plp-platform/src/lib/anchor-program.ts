@@ -8,7 +8,7 @@
 import { AnchorProvider, Program, web3, Idl } from '@coral-xyz/anchor';
 import { PublicKey, Connection, Transaction, SystemProgram, ComputeBudgetProgram } from '@solana/web3.js';
 import { PROGRAM_ID, PDA_SEEDS, FEES, TARGET_POOL_OPTIONS, RPC_ENDPOINT } from '@/config/solana';
-import idlJson from '../../plp_program/target/idl/errors.json';
+import idlJson from './idl/errors.json';
 
 // Type for the IDL
 type PlpPredictionMarket = typeof idlJson;
