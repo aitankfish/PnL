@@ -26,13 +26,12 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  // Standalone output for better deployment
+  output: 'standalone',
+
   // Experimental features for better performance
   experimental: {
     optimizePackageImports: ['@solana/web3.js', 'lucide-react', '@privy-io/react-auth', '@solana/kit'],
-    turbo: {
-      // Enable Turbopack features for faster dev mode
-      rules: {},
-    },
   },
 
   // Webpack configuration
