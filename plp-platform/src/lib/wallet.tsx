@@ -49,11 +49,11 @@ function WalletProviderInner({ children }: WalletProviderProps) {
       rpcs: {
         'solana:mainnet': {
           rpc: createSolanaRpc(process.env.NEXT_PUBLIC_HELIUS_MAINNET_RPC || 'https://api.mainnet-beta.solana.com'),
-          rpcSubscriptions: createSolanaRpcSubscriptions('wss://api.mainnet-beta.solana.com'),
+          rpcSubscriptions: createSolanaRpcSubscriptions(process.env.NEXT_PUBLIC_HELIUS_WS_MAINNET || 'wss://api.mainnet-beta.solana.com'),
         },
         'solana:devnet': {
           rpc: createSolanaRpc(process.env.NEXT_PUBLIC_HELIUS_DEVNET_RPC || 'https://api.devnet.solana.com'),
-          rpcSubscriptions: createSolanaRpcSubscriptions('wss://api.devnet.solana.com'),
+          rpcSubscriptions: createSolanaRpcSubscriptions(process.env.NEXT_PUBLIC_HELIUS_WS_DEVNET || 'wss://api.devnet.solana.com'),
         },
       },
     },

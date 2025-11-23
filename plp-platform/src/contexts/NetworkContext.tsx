@@ -30,7 +30,17 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
       return 'mainnet-beta';
     }
 
-    // Development: check localStorage first, then env variable
+    // Development: prioritize env variable over localStorage
+    const envNetwork = process.env.NEXT_PUBLIC_SOLANA_NETWORK as SolanaNetwork;
+    if (envNetwork === 'mainnet-beta' || envNetwork === 'devnet') {
+      // Update localStorage to match env
+      if (typeof window !== 'undefined') {
+        localStorage.setItem('plp-network', envNetwork);
+      }
+      return envNetwork;
+    }
+
+    // Fallback to localStorage
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('plp-network');
       if (saved === 'devnet' || saved === 'mainnet-beta') {
@@ -38,8 +48,8 @@ export function NetworkProvider({ children }: { children: React.ReactNode }) {
       }
     }
 
-    // Fallback to env variable or devnet
-    return (process.env.NEXT_PUBLIC_SOLANA_NETWORK as SolanaNetwork) || 'devnet';
+    // Final fallback to devnet
+    return 'devnet';
   };
 
   const [network, setNetworkState] = useState<SolanaNetwork>(getInitialNetwork);

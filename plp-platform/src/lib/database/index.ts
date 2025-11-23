@@ -13,9 +13,17 @@ class DatabaseManager {
   private connectionPromise: Promise<void> | null = null;
 
   async connect(): Promise<void> {
-    // If already connected, return immediately
+    // If already connected and healthy, return immediately
     if (this.client && this.db) {
-      return;
+      try {
+        // Quick health check to ensure connection is still alive
+        await this.db.admin().ping();
+        return;
+      } catch (error) {
+        // Connection is stale, reset and reconnect
+        console.warn('⚠️ Stale MongoDB connection detected, reconnecting...');
+        await this.disconnect();
+      }
     }
 
     // If connection is in progress, wait for it
@@ -30,7 +38,16 @@ class DatabaseManager {
     // Create a new connection promise
     this.connectionPromise = (async () => {
       try {
-        this.client = new MongoClient(config.mongodb.uri!);
+        // Enhanced connection options for better reliability
+        this.client = new MongoClient(config.mongodb.uri!, {
+          maxPoolSize: 10, // Limit connection pool size
+          minPoolSize: 2,  // Maintain minimum connections
+          maxIdleTimeMS: 60000, // Close idle connections after 1 minute
+          serverSelectionTimeoutMS: 10000, // Faster timeout for server selection
+          socketTimeoutMS: 45000, // Socket timeout
+          connectTimeoutMS: 10000, // Connection timeout
+        });
+
         await this.client.connect();
         this.db = this.client.db(config.mongodb.currentDatabase);
 

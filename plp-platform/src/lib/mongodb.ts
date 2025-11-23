@@ -23,15 +23,27 @@ export const connectToDatabase = async () => {
   }
 
   try {
-    // Connect using the URI from config (already includes database name)
-    await mongoose.connect(dbConfig.uri);
+    // Append database name to URI (handle case with query parameters)
+    let baseUri = dbConfig.uri.replace(/\/$/, ''); // Remove trailing slash
+    const hasQueryParams = baseUri.includes('?');
+
+    let connectionUri: string;
+    if (hasQueryParams) {
+      // Remove any slash before the query params, then insert database name
+      connectionUri = baseUri.replace(/\/?\?/, `/${dbConfig.name}?`);
+    } else {
+      connectionUri = `${baseUri}/${dbConfig.name}`;
+    }
+
+    await mongoose.connect(connectionUri);
     isConnected = true;
     logger.info('Connected to MongoDB successfully', {
       database: dbConfig.name,
+      connectionUri: connectionUri.replace(/:[^:@]+@/, ':***@'), // Hide password in logs
       environment: process.env.NODE_ENV || 'development'
     });
   } catch (error) {
-    logger.error('Failed to connect to MongoDB:', error);
+    logger.error('Failed to connect to MongoDB', { error: error instanceof Error ? error.message : String(error) });
     throw error;
   }
 };

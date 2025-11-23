@@ -443,7 +443,18 @@ export default function MarketDetailsPage() {
     if (result.success) {
       // Success! Refresh all data
       fetchMarketDetails(params.id as string);
-      refetchOnchainData(); // Update market state and resolution
+
+      // Retry on-chain data fetch to combat RPC caching (Solana RPCs can be slow to update)
+      const retryOnchainDataFetch = async (retries = 3, delayMs = 2000) => {
+        for (let i = 0; i < retries; i++) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          await refetchOnchainData();
+          console.log(`🔄 Retry ${i + 1}/${retries}: Refreshing on-chain data after resolution...`);
+        }
+      };
+
+      refetchOnchainData(); // Immediate refresh
+      retryOnchainDataFetch(); // Background retries to ensure RPC catches up
       refetchHistory(); // Refresh trade history
       refetchHolders(); // Refresh holders
 
@@ -453,7 +464,7 @@ export default function MarketDetailsPage() {
         title: 'Market Resolved Successfully',
         message: 'The market has been resolved. Participants can now claim their rewards.',
         signature: result.signature,
-        details: 'Check the Market Status section for your eligibility to claim rewards.',
+        details: 'The UI will update in a few moments to show claim options.',
       });
     } else {
       // If error, check if market is already resolved on-chain
@@ -528,7 +539,18 @@ export default function MarketDetailsPage() {
     if (result.success) {
       // Success! Refresh all data
       fetchMarketDetails(params.id as string);
-      refetchOnchainData(); // Update market phase
+
+      // Retry on-chain data fetch to combat RPC caching
+      const retryOnchainDataFetch = async (retries = 3, delayMs = 2000) => {
+        for (let i = 0; i < retries; i++) {
+          await new Promise(resolve => setTimeout(resolve, delayMs));
+          await refetchOnchainData();
+          console.log(`🔄 Retry ${i + 1}/${retries}: Refreshing on-chain data after extend...`);
+        }
+      };
+
+      refetchOnchainData(); // Immediate refresh
+      retryOnchainDataFetch(); // Background retries
 
       // Show success dialog
       setSuccessDialog({
@@ -536,7 +558,7 @@ export default function MarketDetailsPage() {
         title: 'Market Extended to Funding Phase',
         message: 'The market has been extended. Additional funding can now be raised.',
         signature: result.signature,
-        details: 'The market is now in Funding Phase. The voting results are locked, and additional capital can be raised.',
+        details: 'The UI will update to show Funding Phase shortly. The voting results are locked.',
       });
     } else {
       // Check if error indicates already extended
@@ -1101,8 +1123,8 @@ export default function MarketDetailsPage() {
                             </div>
                           )}
 
-                          {/* Resolve Button - Anyone can resolve when NO wins and pool is full */}
-                          {Number(onchainData.data.totalNoShares) > Number(onchainData.data.totalYesShares) && (
+                          {/* Resolve Button - Anyone can resolve when NO wins and pool is full (but not yet expired) */}
+                          {Number(onchainData.data.totalNoShares) > Number(onchainData.data.totalYesShares) && !isMarketExpiredFromDB && (
                             <div className="mt-4 bg-gradient-to-br from-red-500/10 via-orange-500/10 to-yellow-500/10 border border-red-400/30 rounded-lg p-4">
                               <div className="mb-3">
                                 <h4 className="text-red-400 text-sm font-semibold mb-1">❌ NO Wins - Market Failed</h4>
@@ -1113,7 +1135,7 @@ export default function MarketDetailsPage() {
                                   <span className="font-semibold text-green-400">NO voters will win SOL rewards</span> (95% pool, proportional to shares).
                                 </p>
                                 <p className="text-gray-400 text-xs">
-                                  Anyone can resolve this market now to unlock NO voter rewards.
+                                  Anyone can resolve this market now or wait until expiry to unlock NO voter rewards.
                                 </p>
                               </div>
                               <Button
@@ -1332,6 +1354,21 @@ export default function MarketDetailsPage() {
                         </div>
                       )}
 
+                      {/* Already Claimed - YES Voters */}
+                      {positionData?.success && positionData.data.hasPosition && positionData.data.claimed && positionData.data.side === 'yes' && (
+                        <div className="mt-3">
+                          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                            <p className="text-green-400 font-semibold flex items-center justify-center gap-2">
+                              <CheckCircle className="w-5 h-5" />
+                              Already Claimed
+                            </p>
+                            <p className="text-gray-400 text-sm mt-1">
+                              Your token airdrop has been successfully claimed and transferred to your wallet.
+                            </p>
+                          </div>
+                        </div>
+                      )}
+
                       {/* Team Vesting Section - Only for founder */}
                       {primaryWallet?.address === onchainData.data.founder && onchainData.data.tokenMint && (
                         <div className="bg-gradient-to-br from-amber-500/10 via-orange-500/10 to-yellow-500/10 border border-amber-400/30 rounded-lg p-4 text-left space-y-3">
@@ -1431,11 +1468,13 @@ export default function MarketDetailsPage() {
                   )}
 
                   {onchainData.data.resolution === 'NoWins' && (
-                    <div className="text-center py-2 border-t border-white/5">
-                      <h4 className="text-red-400 text-lg font-bold mb-1">❌ NO WINS - Project Won&apos;t Launch</h4>
-                      <p className="text-gray-300 text-xs mb-3">
-                        NO voters receive proportional SOL rewards.
-                      </p>
+                    <div className="text-center py-2 border-t border-white/5 space-y-4">
+                      <div>
+                        <h4 className="text-red-400 text-lg font-bold mb-1">❌ NO WINS - Project Won&apos;t Launch</h4>
+                        <p className="text-gray-300 text-xs mb-3">
+                          NO voters receive proportional SOL rewards.
+                        </p>
+                      </div>
 
                       {positionData?.success && positionData.data.hasPosition && !positionData.data.claimed && (
                         <div className="mt-3">
@@ -1459,6 +1498,21 @@ export default function MarketDetailsPage() {
                           ) : (
                             <p className="text-red-400 text-xs">You voted YES and lost this prediction</p>
                           )}
+                        </div>
+                      )}
+
+                      {/* Already Claimed - NO Voters */}
+                      {positionData?.success && positionData.data.hasPosition && positionData.data.claimed && positionData.data.side === 'no' && (
+                        <div className="mt-3">
+                          <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-4">
+                            <p className="text-green-400 font-semibold flex items-center justify-center gap-2">
+                              <CheckCircle className="w-5 h-5" />
+                              Already Claimed
+                            </p>
+                            <p className="text-gray-400 text-sm mt-1">
+                              Your SOL rewards have been successfully claimed and transferred to your wallet.
+                            </p>
+                          </div>
                         </div>
                       )}
                     </div>

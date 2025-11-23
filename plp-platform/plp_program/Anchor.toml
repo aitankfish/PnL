@@ -11,6 +11,9 @@ errors = "3jGpj7HYo3jctBApnjwZGW54hJCpNHooFfu5533WvXr4"
 [programs.devnet]
 errors = "2CjwEvY3gkErkEmM5wnLpRv9fq3msHjnPDVPQmaWhF3G"
 
+[programs.mainnet]
+errors = "6kK2SVaj6yW7mAjTsw1rxMDNeby8A9ojv3UyhVPofmZL"
+
 [registry]
 url = "https://api.apr.dev"
 

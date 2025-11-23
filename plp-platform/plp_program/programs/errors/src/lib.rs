@@ -8,8 +8,8 @@ pub mod utils;
 
 use instructions::*;
 
-// 🔐 Program ID for devnet deployment
-declare_id!("2CjwEvY3gkErkEmM5wnLpRv9fq3msHjnPDVPQmaWhF3G");
+// 🔐 Program ID for mainnet deployment
+declare_id!("6kK2SVaj6yW7mAjTsw1rxMDNeby8A9ojv3UyhVPofmZL");
 
 #[program]
 pub mod plp_prediction_market {
