@@ -28,27 +28,6 @@ const nextConfig = {
   // Standalone output for better deployment
   output: 'standalone',
 
-  // Disable static optimization to avoid Privy SSG issues
-  generateBuildId: async () => {
-    return 'build-' + Date.now()
-  },
-
-  // Disable static error pages generation
-  generateStaticParams: false,
-
-  // Disable static optimization completely
-  staticPageGenerationTimeout: 0,
-
-  // Exclude error pages from static export
-  exportPathMap: async function (defaultPathMap) {
-    const pathMap = { ...defaultPathMap };
-    // Remove error pages from static export
-    delete pathMap['/404'];
-    delete pathMap['/500'];
-    delete pathMap['/_error'];
-    return pathMap;
-  },
-
   // Experimental features for better performance
   experimental: {
     optimizePackageImports: ['@solana/web3.js', 'lucide-react', '@privy-io/react-auth', '@solana/kit'],
