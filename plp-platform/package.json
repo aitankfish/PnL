@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "dev:unified": "NODE_OPTIONS='--no-warnings' tsx server.ts",
-    "build": "next build || ([ -d .next ] && echo 'Build completed with static generation warnings' && exit 0)",
+    "build": "(next build || [ -d .next ]) && node scripts/post-build.js",
     "start": "next start",
     "lint": "eslint",
     "setup-mongodb": "tsx scripts/setup-mongodb.ts",
