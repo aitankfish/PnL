@@ -8,6 +8,9 @@ import AppLayoutWrapper from '@/components/AppLayoutWrapper';
 
 const inter = Inter({ subsets: ['latin'] });
 
+// Force dynamic rendering to avoid SSG issues with Privy
+export const dynamic = 'force-dynamic';
+
 export const metadata: Metadata = {
   title: 'P&L - Predict and Launch',
   description: 'Community-driven token launch platform powered by prediction markets',
