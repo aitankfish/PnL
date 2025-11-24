@@ -33,11 +33,15 @@ const nextConfig = {
     return 'build-' + Date.now()
   },
 
+  // Disable static error pages generation
+  generateStaticParams: false,
+
+  // Disable static optimization completely
+  staticPageGenerationTimeout: 0,
+
   // Experimental features for better performance
   experimental: {
     optimizePackageImports: ['@solana/web3.js', 'lucide-react', '@privy-io/react-auth', '@solana/kit'],
-    // Disable static page generation
-    isrFlushToDisk: false,
   },
 
   // Webpack configuration
