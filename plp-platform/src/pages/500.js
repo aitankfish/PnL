@@ -24,9 +24,3 @@ export default function Custom500() {
     </div>
   );
 }
-
-export const getStaticProps = async () => {
-  return {
-    props: {},
-  };
-};

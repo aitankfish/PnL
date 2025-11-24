@@ -24,9 +24,3 @@ export default function Custom404() {
     </div>
   );
 }
-
-export const getStaticProps = async () => {
-  return {
-    props: {},
-  };
-};

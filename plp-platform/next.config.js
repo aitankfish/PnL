@@ -39,6 +39,16 @@ const nextConfig = {
   // Disable static optimization completely
   staticPageGenerationTimeout: 0,
 
+  // Exclude error pages from static export
+  exportPathMap: async function (defaultPathMap) {
+    const pathMap = { ...defaultPathMap };
+    // Remove error pages from static export
+    delete pathMap['/404'];
+    delete pathMap['/500'];
+    delete pathMap['/_error'];
+    return pathMap;
+  },
+
   // Experimental features for better performance
   experimental: {
     optimizePackageImports: ['@solana/web3.js', 'lucide-react', '@privy-io/react-auth', '@solana/kit'],
