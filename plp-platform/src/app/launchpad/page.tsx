@@ -41,6 +41,27 @@ interface Market {
   projectImageUrl?: string;
 }
 
+interface LaunchedToken {
+  id: string;
+  marketAddress: string;
+  name: string;
+  symbol: string;
+  description: string;
+  category: string;
+  launchDate: string;
+  tokenAddress: string;
+  projectImageUrl?: string;
+  totalVotes: number;
+  yesVotes: number;
+  noVotes: number;
+  yesPercentage: number;
+  launchPool: string;
+  website?: string | null;
+  twitter?: string | null;
+  telegram?: string | null;
+  discord?: string | null;
+}
+
 // Format category and stage for proper display
 function formatLabel(value: string): string {
   const uppercaseValues: { [key: string]: string } = {
@@ -66,7 +87,9 @@ export default function LaunchpadPage() {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
   const [markets, setMarkets] = useState<Market[]>([]);
+  const [launchedProjects, setLaunchedProjects] = useState<LaunchedToken[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingLaunched, setLoadingLaunched] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -76,6 +99,7 @@ export default function LaunchpadPage() {
 
   useEffect(() => {
     fetchMarkets();
+    fetchLaunchedProjects();
   }, []);
 
   const fetchMarkets = async () => {
@@ -97,6 +121,22 @@ export default function LaunchpadPage() {
     }
   };
 
+  const fetchLaunchedProjects = async () => {
+    try {
+      setLoadingLaunched(true);
+      const response = await fetch('/api/markets/launched');
+      const result = await response.json();
+
+      if (result.success) {
+        setLaunchedProjects(result.data.launched || []);
+      }
+    } catch (err) {
+      console.error('Error fetching launched projects:', err);
+    } finally {
+      setLoadingLaunched(false);
+    }
+  };
+
   // Calculate real statistics from markets
   const totalVotes = markets.reduce((sum, m) => sum + m.yesVotes + m.noVotes, 0);
   const totalVolume = markets.reduce((sum, m) => {
@@ -105,49 +145,11 @@ export default function LaunchpadPage() {
   }, 0);
   const activeProjects = markets.length;
 
-  // Mock data for launched projects (keep for now until we have finalized markets)
-  const launchedProjects = [
-    {
-      id: 1,
-      name: "Solana DeFi Hub",
-      symbol: "SDF",
-      launchDate: "2024-01-15",
-      price: "$0.024",
-      change: "+156%",
-      volume: "2.4M",
-      marketCap: "$1.2M"
-    },
-    {
-      id: 2,
-      name: "MetaVerse NFT",
-      symbol: "MVN",
-      launchDate: "2024-01-12",
-      price: "$0.089",
-      change: "+89%",
-      volume: "1.8M",
-      marketCap: "$890K"
-    },
-    {
-      id: 3,
-      name: "GameFi Token",
-      symbol: "GFT",
-      launchDate: "2024-01-10",
-      price: "$0.156",
-      change: "+234%",
-      volume: "3.2M",
-      marketCap: "$2.1M"
-    },
-    {
-      id: 4,
-      name: "AI Trading Bot",
-      symbol: "AIT",
-      launchDate: "2024-01-08",
-      price: "$0.067",
-      change: "+67%",
-      volume: "1.1M",
-      marketCap: "$670K"
-    }
-  ];
+  // Helper function to format launch date
+  const formatLaunchDate = (dateString: string) => {
+    const date = new Date(dateString);
+    return date.toLocaleDateString('en-US', { year: 'numeric', month: 'short', day: 'numeric' });
+  };
 
   return (
     <div className="p-6">
@@ -407,55 +409,62 @@ export default function LaunchpadPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                {launchedProjects.map((project) => (
-                  <div key={project.id} className="p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-102 group">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="font-semibold text-white group-hover:text-yellow-300 transition-colors">
-                            {project.name}
-                          </h3>
-                          <Badge className="bg-blue-500/20 text-blue-300 border-blue-400/30 text-xs">
-                            {project.symbol}
-                          </Badge>
-                        </div>
-                        <p className="text-xs text-gray-400">Launched: {project.launchDate}</p>
-                      </div>
-                    </div>
-                    
-                    <div className="grid grid-cols-2 gap-3 text-sm">
-                      <div>
-                        <div className="text-gray-400 text-xs">Price</div>
-                        <div className="font-semibold text-white">{project.price}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-gray-400 text-xs">Change</div>
-                        <div className="font-semibold text-green-400">{project.change}</div>
-                      </div>
-                      <div>
-                        <div className="text-gray-400 text-xs">Volume</div>
-                        <div className="font-semibold text-white">{project.volume}</div>
-                      </div>
-                      <div className="text-right">
-                        <div className="text-gray-400 text-xs">Market Cap</div>
-                        <div className="font-semibold text-white">{project.marketCap}</div>
-                      </div>
-                    </div>
-                    
-                    <Button 
-                      size="sm" 
-                      variant="outline"
-                      className="w-full mt-3 border-white/20 text-white hover:bg-white/10 hover:border-white/30"
-                    >
-                      View Details
-                    </Button>
+                {loadingLaunched ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-6 h-6 animate-spin text-white" />
+                    <span className="ml-3 text-white">Loading launched projects...</span>
                   </div>
-                ))}
-                
+                ) : launchedProjects.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-white/70 text-sm">No launched projects yet</p>
+                  </div>
+                ) : (
+                  <>
+                    {launchedProjects.slice(0, 4).map((project) => (
+                      <Link href={`/market/${project.id}`} key={project.id} prefetch={true}>
+                        <div className="p-4 bg-white/5 rounded-lg border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-102 group cursor-pointer">
+                          <div className="flex items-start justify-between mb-3">
+                            <div className="flex-1">
+                              <div className="flex items-center space-x-2 mb-1">
+                                <h3 className="font-semibold text-white group-hover:text-yellow-300 transition-colors">
+                                  {project.name}
+                                </h3>
+                                <Badge className="bg-blue-500/20 text-blue-300 border-blue-400/30 text-xs">
+                                  {project.symbol}
+                                </Badge>
+                              </div>
+                              <p className="text-xs text-gray-400">Launched: {formatLaunchDate(project.launchDate)}</p>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-2 gap-3 text-sm">
+                            <div>
+                              <div className="text-gray-400 text-xs">YES Support</div>
+                              <div className="font-semibold text-green-400">{project.yesPercentage.toFixed(1)}%</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-gray-400 text-xs">Launch Pool</div>
+                              <div className="font-semibold text-white">{project.launchPool}</div>
+                            </div>
+                            <div>
+                              <div className="text-gray-400 text-xs">Total Votes</div>
+                              <div className="font-semibold text-white">{project.totalVotes}</div>
+                            </div>
+                            <div className="text-right">
+                              <div className="text-gray-400 text-xs">Category</div>
+                              <div className="font-semibold text-white">{formatLabel(project.category)}</div>
+                            </div>
+                          </div>
+                        </div>
+                      </Link>
+                    ))}
+                  </>
+                )}
+
                 <Button asChild variant="outline" className="w-full border-white/20 text-white hover:bg-white/10 hover:border-white/30">
-                  <Link href="/analytics" prefetch={true}>
-                    <BarChart3 className="w-4 h-4 mr-2" />
-                    View Analytics
+                  <Link href="/launched" prefetch={true}>
+                    <Rocket className="w-4 h-4 mr-2" />
+                    View All Launched
                   </Link>
                 </Button>
               </CardContent>
