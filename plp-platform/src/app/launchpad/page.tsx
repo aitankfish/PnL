@@ -39,6 +39,8 @@ interface Market {
   status: string;
   metadataUri?: string;
   projectImageUrl?: string;
+  resolution?: string;
+  poolBalance?: number;
 }
 
 interface LaunchedToken {
@@ -138,12 +140,19 @@ export default function LaunchpadPage() {
   };
 
   // Calculate real statistics from markets
+  // Filter only active markets (Unresolved resolution)
+  const activeMarkets = markets.filter(m => m.resolution === 'Unresolved' || !m.resolution);
+
   const totalVotes = markets.reduce((sum, m) => sum + m.yesVotes + m.noVotes, 0);
+
+  // Use actual poolBalance (total staked) instead of targetPool
   const totalVolume = markets.reduce((sum, m) => {
-    const poolValue = parseFloat(m.targetPool.replace(' SOL', ''));
-    return sum + poolValue;
+    // poolBalance is in lamports, convert to SOL (or use totalYesStake + totalNoStake)
+    const actualStaked = m.totalYesStake + m.totalNoStake;
+    return sum + actualStaked;
   }, 0);
-  const activeProjects = markets.length;
+
+  const activeProjects = activeMarkets.length;
 
   // Helper function to format launch date
   const formatLaunchDate = (dateString: string) => {
@@ -190,12 +199,12 @@ export default function LaunchpadPage() {
                   <div className="text-center py-8">
                     <p className="text-red-400 text-sm">{error}</p>
                   </div>
-                ) : markets.length === 0 ? (
+                ) : activeMarkets.length === 0 ? (
                   <div className="text-center py-8">
                     <p className="text-white/70 text-sm">No active markets yet</p>
                   </div>
                 ) : (
-                  markets.slice(0, 4).map((market) => {
+                  activeMarkets.slice(0, 4).map((market) => {
                     const totalVotes = market.yesVotes + market.noVotes;
                     const yesPercentage = totalVotes > 0 ? Math.round((market.yesVotes / totalVotes) * 100) : 0;
 
