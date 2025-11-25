@@ -11,6 +11,7 @@ import { connectToDatabase, getDatabase } from '@/lib/database/index';
 import { COLLECTIONS, TradeHistory } from '@/lib/database/models';
 import { createClientLogger } from '@/lib/logger';
 import { updateMarketVoteCounts } from '@/lib/vote-counts';
+import { socketClient } from '@/services/socket/socket-client';
 
 const logger = createClientLogger();
 
@@ -187,6 +188,18 @@ export async function POST(request: NextRequest) {
         marketId,
         yesVoteCount: voteCounts.yesVoteCount,
         noVoteCount: voteCounts.noVoteCount,
+      });
+
+      // Broadcast real-time update to all connected clients
+      // This ensures vote counts and stakes update without page refresh
+      socketClient.broadcastMarketUpdate(market.marketAddress, {
+        yesVotes: voteCounts.yesVoteCount,
+        noVotes: voteCounts.noVoteCount,
+        totalYesStake: market.totalYesStake + (voteType === 'yes' ? lamports : 0),
+        totalNoStake: market.totalNoStake + (voteType === 'no' ? lamports : 0),
+      });
+      logger.info('Broadcasted market update via Socket.IO', {
+        marketAddress: market.marketAddress,
       });
     } catch (error) {
       logger.error('Failed to update vote counts (non-fatal)', {

@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import Link from 'next/link';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, TrendingUp, TrendingDown } from 'lucide-react';
 
@@ -89,12 +90,13 @@ export default function MarketHolders({
               </div>
             ) : (
               yesHolders.map((holder, index) => (
-                <div
+                <Link
                   key={holder.wallet}
-                  className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                  href={`/profile/${holder.wallet}`}
+                  className={`flex items-center justify-between p-3 rounded-lg transition-all cursor-pointer no-underline outline-none focus:outline-none ${
                     isCurrentUser(holder.wallet)
-                      ? 'bg-green-500/20 border border-green-500/30'
-                      : 'bg-white/5 hover:bg-white/10'
+                      ? 'bg-green-500/20 border border-green-500/30 hover:bg-green-500/30'
+                      : 'bg-white/5 hover:bg-white/10 hover:scale-[1.02]'
                   }`}
                 >
                   <div className="flex items-center gap-3 flex-1">
@@ -103,7 +105,7 @@ export default function MarketHolders({
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono text-white">
+                        <span className="text-sm font-mono text-white hover:text-green-400 transition-colors">
                           {truncateWallet(holder.wallet)}
                         </span>
                         {isCurrentUser(holder.wallet) && (
@@ -125,7 +127,7 @@ export default function MarketHolders({
                       {holder.percentage.toFixed(1)}% of YES
                     </div>
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>
@@ -152,12 +154,13 @@ export default function MarketHolders({
               </div>
             ) : (
               noHolders.map((holder, index) => (
-                <div
+                <Link
                   key={holder.wallet}
-                  className={`flex items-center justify-between p-3 rounded-lg transition-colors ${
+                  href={`/profile/${holder.wallet}`}
+                  className={`flex items-center justify-between p-3 rounded-lg transition-all cursor-pointer no-underline outline-none focus:outline-none ${
                     isCurrentUser(holder.wallet)
-                      ? 'bg-red-500/20 border border-red-500/30'
-                      : 'bg-white/5 hover:bg-white/10'
+                      ? 'bg-red-500/20 border border-red-500/30 hover:bg-red-500/30'
+                      : 'bg-white/5 hover:bg-white/10 hover:scale-[1.02]'
                   }`}
                 >
                   <div className="flex items-center gap-3 flex-1">
@@ -166,7 +169,7 @@ export default function MarketHolders({
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-mono text-white">
+                        <span className="text-sm font-mono text-white hover:text-red-400 transition-colors">
                           {truncateWallet(holder.wallet)}
                         </span>
                         {isCurrentUser(holder.wallet) && (
@@ -188,7 +191,7 @@ export default function MarketHolders({
                       {holder.percentage.toFixed(1)}% of NO
                     </div>
                   </div>
-                </div>
+                </Link>
               ))
             )}
           </div>

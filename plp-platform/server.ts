@@ -37,7 +37,9 @@ app.prepare().then(() => {
   });
 
   // Initialize Socket.IO
+  console.log('🚀 About to initialize Socket.IO server...');
   initializeSocketServer(httpServer);
+  console.log('✅ Socket.IO initialization complete');
 
   // Start blockchain sync automatically (runs in the same process as Socket.IO)
   setTimeout(() => {

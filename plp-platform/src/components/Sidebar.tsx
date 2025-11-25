@@ -15,6 +15,7 @@ import {
   Loader2
 } from 'lucide-react';
 import UserInfo from './UserInfo';
+import GlobalSearch from './GlobalSearch';
 
 interface SidebarItem {
   id: string;
@@ -120,12 +121,12 @@ function Sidebar({ currentPage }: SidebarProps) {
   }, [unreadCount, currentPage]);
 
   return (
-    <div className={`fixed top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-4 transition-transform duration-300 ${
+    <div className={`fixed top-2 sm:top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-2 sm:px-4 transition-transform duration-300 ${
       isVisible ? 'translate-y-0' : '-translate-y-20'
     }`}>
-      <div className="bg-black/20 backdrop-blur-xl rounded-2xl shadow-2xl shadow-white/5 p-4 relative overflow-hidden">
+      <div className="bg-black/20 backdrop-blur-xl rounded-2xl shadow-2xl shadow-white/5 p-2 sm:p-4 relative overflow-visible">
         {/* Space Background Elements */}
-        <div className="absolute inset-0 opacity-20">
+        <div className="absolute inset-0 opacity-20 overflow-hidden rounded-2xl">
           <div className="absolute top-2 left-8 w-1 h-1 bg-white rounded-full animate-pulse"></div>
           <div className="absolute top-3 right-12 w-0.5 h-0.5 bg-cyan-400 rounded-full animate-pulse" style={{animationDelay: '1s'}}></div>
           <div className="absolute top-4 left-1/3 w-0.5 h-0.5 bg-blue-400 rounded-full animate-pulse" style={{animationDelay: '2s'}}></div>
@@ -135,8 +136,8 @@ function Sidebar({ currentPage }: SidebarProps) {
         <div className="flex items-center justify-between relative z-10">
           {/* Logo */}
           <div className="flex items-center">
-            <Link href="/launchpad" prefetch={true} className="flex items-center hover:scale-105 transition-transform mr-6 group">
-              <span className="text-2xl font-bold">
+            <Link href="/launchpad" prefetch={true} className="flex items-center hover:scale-105 transition-transform mr-2 sm:mr-6 group">
+              <span className="text-xl sm:text-2xl font-bold">
                 <span className="text-green-400">P</span>
                 <span className="text-blue-400">&</span>
                 <span className="text-red-400">L</span>
@@ -145,55 +146,62 @@ function Sidebar({ currentPage }: SidebarProps) {
           </div>
 
           {/* Navigation Icons */}
-          <nav className="flex items-center space-x-2">
-            {sidebarItems.map((item) => {
+          <nav className="flex items-center space-x-1 sm:space-x-2">
+            {sidebarItems.map((item, index) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
               const showNotificationBadge = item.id === 'notifications' && unreadCount > 0;
               const showNewBadge = item.badge === 'New';
 
+              // Hide "Create" on very small screens, show on sm+
+              const hideOnMobile = item.id === 'create';
+
               return (
-                <Link
-                  key={item.id}
-                  href={item.href || '#'}
-                  prefetch={true}
-                  className={`
-                    flex items-center justify-center w-12 h-12 rounded-xl transition-all duration-200 group relative
-                    ${isActive
-                      ? 'bg-white/20 text-white shadow-lg shadow-purple-500/20'
-                      : 'text-white/70 hover:text-white hover:bg-white/10'
-                    }
-                  `}
-                  title={item.label}
-                >
-                  <Icon className="w-5 h-5" />
-                  {showNotificationBadge && (
-                    <div className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-bold">{unreadCount > 9 ? '9+' : unreadCount}</span>
-                    </div>
-                  )}
-                  {showNewBadge && (
-                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
-                      <span className="text-xs text-white font-bold">!</span>
-                    </div>
-                  )}
-                </Link>
+                <React.Fragment key={item.id}>
+                  <Link
+                    href={item.href || '#'}
+                    prefetch={true}
+                    className={`
+                      flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl transition-all duration-200 group relative
+                      ${isActive
+                        ? 'bg-white/20 text-white shadow-lg shadow-purple-500/20'
+                        : 'text-white/70 hover:text-white hover:bg-white/10'
+                      }
+                      ${hideOnMobile ? 'hidden sm:flex' : ''}
+                    `}
+                    title={item.label}
+                  >
+                    <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
+                    {showNotificationBadge && (
+                      <div className="absolute -top-1 -right-1 min-w-5 h-5 px-1 bg-red-500 rounded-full flex items-center justify-center">
+                        <span className="text-xs text-white font-bold">{unreadCount > 9 ? '9+' : unreadCount}</span>
+                      </div>
+                    )}
+                    {showNewBadge && (
+                      <div className="absolute -top-1 -right-1 w-4 h-4 bg-purple-500 rounded-full flex items-center justify-center">
+                        <span className="text-xs text-white font-bold">!</span>
+                      </div>
+                    )}
+                  </Link>
+                  {/* Insert GlobalSearch between Browse Markets (index 1) and Launched Projects (index 2) */}
+                  {index === 1 && <GlobalSearch />}
+                </React.Fragment>
               );
             })}
           </nav>
 
           {/* User Information & Wallet Management */}
-          <div className="flex items-center space-x-3">
+          <div className="flex items-center space-x-1 sm:space-x-3">
             {/* User Info Component - Always show on larger screens */}
             <UserInfo compact={true} className="hidden lg:flex" />
             <button
               onClick={handleWalletClick}
               disabled={isPending}
-              className="flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:scale-105 transition-transform cursor-pointer overflow-hidden relative group disabled:opacity-70 disabled:cursor-not-allowed"
+              className="flex items-center justify-center w-10 h-10 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:scale-105 transition-transform cursor-pointer overflow-hidden relative group disabled:opacity-70 disabled:cursor-not-allowed"
               title={authenticated ? `${displayName} - Wallet & Profile` : "Connect Wallet"}
             >
               {isPending ? (
-                <Loader2 className="w-5 h-5 text-white animate-spin" />
+                <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-white animate-spin" />
               ) : authenticated && profilePhotoUrl ? (
                 <img
                   src={profilePhotoUrl}
@@ -201,7 +209,7 @@ function Sidebar({ currentPage }: SidebarProps) {
                   className="w-full h-full object-cover"
                 />
               ) : (
-                <User className="w-5 h-5 text-white" />
+                <User className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
               )}
               {/* Hover overlay */}
               <div className="absolute inset-0 bg-black/0 group-hover:bg-black/20 transition-colors" />

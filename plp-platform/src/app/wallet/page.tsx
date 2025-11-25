@@ -582,19 +582,19 @@ export default function WalletPage() {
 
   if (!primaryWallet) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <Card className="bg-white/5 border-white/10 text-white max-w-md">
-          <CardContent className="p-8 text-center space-y-4">
-            <Wallet className="w-16 h-16 mx-auto text-cyan-400" />
+      <div className="min-h-screen flex items-center justify-center p-4 sm:p-6">
+        <Card className="bg-white/5 border-white/10 text-white w-full max-w-md">
+          <CardContent className="p-6 sm:p-8 text-center space-y-4">
+            <Wallet className="w-12 h-12 sm:w-16 sm:h-16 mx-auto text-cyan-400" />
             <div>
-              <h2 className="text-2xl font-semibold mb-2">Connect Solana Wallet</h2>
-              <p className="text-gray-400 mb-2">
+              <h2 className="text-xl sm:text-2xl font-semibold mb-2">Connect Solana Wallet</h2>
+              <p className="text-sm sm:text-base text-gray-400 mb-2">
                 This platform requires a Solana wallet to access features.
               </p>
             </div>
             <button
               onClick={() => login()}
-              className="w-full px-6 py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 rounded-lg font-semibold transition-all"
+              className="w-full px-4 sm:px-6 py-2.5 sm:py-3 bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600 rounded-lg font-semibold transition-all text-sm sm:text-base"
             >
               Connect Solana Wallet
             </button>
@@ -607,31 +607,33 @@ export default function WalletPage() {
   const usdValue = solPrice ? (solBalance * solPrice).toFixed(2) : '...';
 
   return (
-    <div className="min-h-screen p-6">
+    <div className="min-h-screen p-4 sm:p-6">
       {/* Profile & Balance Section */}
-      <div className="max-w-5xl mx-auto mb-8">
+      <div className="max-w-5xl mx-auto mb-6 sm:mb-8">
         {/* Balance Display */}
-        <div className="text-center mb-6">
-          <h2 className="text-5xl font-bold text-white mb-1">
+        <div className="text-center mb-6 px-4">
+          <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-1">
             ${isPriceLoading ? '...' : usdValue}
           </h2>
-          <p className="text-gray-400 text-lg">
+          <p className="text-gray-400 text-base sm:text-lg">
             {balanceLoading ? '...' : solBalance.toFixed(4)} SOL
             {solPrice && !isPriceLoading && (
-              <span className="text-sm text-gray-500 ml-2">
+              <span className="text-xs sm:text-sm text-gray-500 ml-2">
                 @ ${solPrice.toFixed(2)}
               </span>
             )}
           </p>
           <button
             onClick={copyAddress}
-            className="text-xs text-gray-500 mt-2 hover:text-cyan-400 transition-colors cursor-pointer inline-flex items-center gap-1"
+            className="text-xs text-gray-500 mt-2 hover:text-cyan-400 transition-colors cursor-pointer inline-flex items-center gap-1 break-all max-w-full px-2"
           >
-            {primaryWallet.address.slice(0, 8)}...{primaryWallet.address.slice(-6)}
+            <span className="truncate">
+              {primaryWallet.address.slice(0, 8)}...{primaryWallet.address.slice(-6)}
+            </span>
             {addressCopied ? (
-              <Check className="w-3 h-3 text-green-400" />
+              <Check className="w-3 h-3 text-green-400 flex-shrink-0" />
             ) : (
-              <Copy className="w-3 h-3" />
+              <Copy className="w-3 h-3 flex-shrink-0" />
             )}
           </button>
           {addressCopied && (
@@ -640,81 +642,102 @@ export default function WalletPage() {
         </div>
 
         {/* Profile Photo + Username Input + Action Buttons */}
-        <div className="flex items-center justify-center space-x-2">
-          {/* Profile Photo */}
-          <div className="relative group">
-            <div className="w-14 h-14 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden ring-2 ring-white/20">
-              {isUploadingPhoto ? (
-                <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
-              ) : profilePhotoUrl ? (
-                <img src={profilePhotoUrl} alt="Profile" className="w-full h-full object-cover" />
-              ) : (
-                <User className="w-7 h-7 text-white" />
-              )}
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-2">
+          {/* Profile Photo + Username - Always together */}
+          <div className="flex items-center gap-2">
+            {/* Profile Photo */}
+            <div className="relative group">
+              <div className="w-14 h-14 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden ring-2 ring-white/20">
+                {isUploadingPhoto ? (
+                  <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                ) : profilePhotoUrl ? (
+                  <img src={profilePhotoUrl} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-7 h-7 text-white" />
+                )}
+              </div>
+              <button
+                onClick={handlePhotoUpload}
+                disabled={isUploadingPhoto}
+                className="absolute bottom-0 right-0 w-5 h-5 bg-cyan-500 rounded-full flex items-center justify-center hover:bg-cyan-600 transition-colors shadow-lg disabled:opacity-50"
+              >
+                <Camera className="w-3 h-3 text-white" />
+              </button>
             </div>
-            <button
-              onClick={handlePhotoUpload}
-              disabled={isUploadingPhoto}
-              className="absolute bottom-0 right-0 w-5 h-5 bg-cyan-500 rounded-full flex items-center justify-center hover:bg-cyan-600 transition-colors shadow-lg disabled:opacity-50"
-            >
-              <Camera className="w-3 h-3 text-white" />
-            </button>
+
+            <Input
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              onBlur={() => handleUsernameChange(username)}
+              className="bg-white/5 border-white/10 text-white font-medium w-32 sm:w-40 h-9"
+              placeholder="username"
+            />
           </div>
 
-          <Input
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
-            onBlur={() => handleUsernameChange(username)}
-            className="bg-white/5 border-white/10 text-white font-medium w-40 h-9"
-            placeholder="username"
-          />
-          <Button
-            onClick={handleRefresh}
-            disabled={balanceLoading}
-            variant="outline"
-            size="sm"
-            className="border-white/10 text-white hover:bg-white/5"
-          >
-            <RefreshCw className={`w-4 h-4 mr-2 ${balanceLoading ? 'animate-spin' : ''}`} />
-            Refresh
-          </Button>
-          <Button
-            onClick={handleBuySol}
-            variant="outline"
-            size="sm"
-            className="border-green-500/50 text-green-400 hover:bg-green-500/10"
-          >
-            <ShoppingCart className="w-4 h-4 mr-2" />
-            Buy SOL
-          </Button>
-          <Button
-            onClick={() => setShowDepositModal(true)}
-            variant="outline"
-            size="sm"
-            className="border-white/10 text-white hover:bg-white/5"
-          >
-            <Download className="w-4 h-4 mr-2" />
-            Deposit
-          </Button>
-          <Button
-            onClick={() => setShowSendModal(true)}
-            variant="outline"
-            size="sm"
-            className="border-white/10 text-white hover:bg-white/5"
-          >
-            <Send className="w-4 h-4 mr-2" />
-            Withdraw
-          </Button>
-          <Button
-            onClick={() => setShowSettingsModal(true)}
-            variant="outline"
-            size="sm"
-            className="border-white/10 text-white hover:bg-white/5"
-          >
-            <Settings className="w-4 h-4 mr-2" />
-            Security
-          </Button>
+          {/* Action Buttons - Wrap on mobile */}
+          <div className="flex flex-wrap items-center justify-center gap-2">
+            <Button
+              onClick={handleRefresh}
+              disabled={balanceLoading}
+              variant="outline"
+              size="sm"
+              className="border-white/10 text-white hover:bg-white/5"
+            >
+              <RefreshCw className={`w-4 h-4 sm:mr-2 ${balanceLoading ? 'animate-spin' : ''}`} />
+              <span className="hidden sm:inline">Refresh</span>
+            </Button>
+            <Button
+              onClick={handleBuySol}
+              variant="outline"
+              size="sm"
+              className="border-green-500/50 text-green-400 hover:bg-green-500/10"
+            >
+              <ShoppingCart className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Buy SOL</span>
+            </Button>
+            <Button
+              onClick={() => setShowDepositModal(true)}
+              variant="outline"
+              size="sm"
+              className="border-white/10 text-white hover:bg-white/5"
+            >
+              <Download className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Deposit</span>
+            </Button>
+            <Button
+              onClick={() => setShowSendModal(true)}
+              variant="outline"
+              size="sm"
+              className="border-white/10 text-white hover:bg-white/5"
+            >
+              <Send className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Withdraw</span>
+            </Button>
+            <Button
+              onClick={() => setShowSettingsModal(true)}
+              variant="outline"
+              size="sm"
+              className="border-white/10 text-white hover:bg-white/5"
+            >
+              <Settings className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Security</span>
+            </Button>
+          </div>
         </div>
+
+        {/* Follower/Following Stats */}
+        {profileData?.success && (
+          <div className="flex items-center justify-center gap-6 mt-4">
+            <a href={`/profile/${primaryWallet.address}/followers`} className="text-center hover:opacity-80 transition-opacity">
+              <div className="text-xl font-bold text-white">{profileData.data.followerCount || 0}</div>
+              <div className="text-xs text-gray-400">Followers</div>
+            </a>
+            <a href={`/profile/${primaryWallet.address}/following`} className="text-center hover:opacity-80 transition-opacity">
+              <div className="text-xl font-bold text-white">{profileData.data.followingCount || 0}</div>
+              <div className="text-xs text-gray-400">Following</div>
+            </a>
+          </div>
+        )}
       </div>
 
       {/* Tokens List */}
@@ -744,7 +767,7 @@ export default function WalletPage() {
 
         {/* Your Predictions Section */}
         <div className="space-y-4">
-          <h3 className="text-xl font-semibold text-white">Your Predictions</h3>
+          <h3 className="text-lg sm:text-xl font-semibold text-white px-2 sm:px-0">Your Predictions</h3>
 
           {positionsLoading ? (
             <Card className="bg-white/5 border-white/10">
@@ -764,29 +787,29 @@ export default function WalletPage() {
                   {positionsData.data.active.map((position: any) => (
                     <Card key={position.marketId} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                          <div className="flex-1 min-w-0">
                             <a href={`/market/${position.marketId}`} className="hover:text-cyan-400 transition-colors">
-                              <h4 className="text-white font-semibold mb-1">{position.marketName}</h4>
+                              <h4 className="text-white font-semibold mb-1 truncate">{position.marketName}</h4>
                             </a>
-                            <div className="flex items-center space-x-3 text-sm">
-                              <span className={`px-2 py-0.5 rounded ${
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
+                              <span className={`px-2 py-0.5 rounded whitespace-nowrap ${
                                 position.voteType === 'yes'
                                   ? 'bg-green-500/20 text-green-400'
                                   : 'bg-red-500/20 text-red-400'
                               }`}>
                                 {position.voteType.toUpperCase()}
                               </span>
-                              <span className="text-gray-400">
+                              <span className="text-gray-400 whitespace-nowrap">
                                 {position.totalAmount.toFixed(4)} SOL
                               </span>
-                              <span className="text-gray-500">•</span>
-                              <span className="text-gray-400">
+                              <span className="text-gray-500 hidden sm:inline">•</span>
+                              <span className="text-gray-400 whitespace-nowrap">
                                 {position.tradeCount} {position.tradeCount === 1 ? 'trade' : 'trades'}
                               </span>
                             </div>
                           </div>
-                          <div className="text-right">
+                          <div className="text-left sm:text-right flex-shrink-0">
                             <p className="text-white font-semibold">
                               {position.voteType === 'yes' ? position.currentYesPrice.toFixed(1) : position.currentNoPrice.toFixed(1)}%
                             </p>
@@ -806,23 +829,23 @@ export default function WalletPage() {
                   {positionsData.data.claimable.map((position: any) => (
                     <Card key={position.marketId} className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20">
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                          <div className="flex-1 min-w-0">
                             <a href={`/market/${position.marketId}`} className="hover:text-cyan-400 transition-colors">
-                              <h4 className="text-white font-semibold mb-1">{position.marketName}</h4>
+                              <h4 className="text-white font-semibold mb-1 truncate">{position.marketName}</h4>
                             </a>
-                            <div className="flex items-center space-x-3 text-sm">
-                              <span className="px-2 py-0.5 rounded bg-green-500/20 text-green-400">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
+                              <span className="px-2 py-0.5 rounded bg-green-500/20 text-green-400 whitespace-nowrap">
                                 WON - {position.voteType.toUpperCase()}
                               </span>
-                              <span className="text-gray-400">
+                              <span className="text-gray-400 whitespace-nowrap">
                                 {position.totalAmount.toFixed(4)} SOL staked
                               </span>
                             </div>
                           </div>
                           <a
                             href={`/market/${position.marketId}`}
-                            className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-lg text-white font-semibold transition-all"
+                            className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-lg text-white font-semibold transition-all text-center sm:text-left flex-shrink-0"
                           >
                             Claim
                           </a>
@@ -840,16 +863,16 @@ export default function WalletPage() {
                   {positionsData.data.resolved.filter((p: any) => !p.canClaim).map((position: any) => (
                     <Card key={position.marketId} className="bg-white/5 border-white/10 opacity-60">
                       <CardContent className="p-4">
-                        <div className="flex items-center justify-between">
-                          <div className="flex-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+                          <div className="flex-1 min-w-0">
                             <a href={`/market/${position.marketId}`} className="hover:text-cyan-400 transition-colors">
-                              <h4 className="text-white font-semibold mb-1">{position.marketName}</h4>
+                              <h4 className="text-white font-semibold mb-1 truncate">{position.marketName}</h4>
                             </a>
-                            <div className="flex items-center space-x-3 text-sm">
-                              <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400">
+                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
+                              <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 whitespace-nowrap">
                                 LOST - {position.voteType.toUpperCase()}
                               </span>
-                              <span className="text-gray-400">
+                              <span className="text-gray-400 whitespace-nowrap">
                                 {position.totalAmount.toFixed(4)} SOL
                               </span>
                             </div>

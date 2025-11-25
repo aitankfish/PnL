@@ -17,15 +17,21 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const limit = parseInt(searchParams.get('limit') || '10');
     const status = searchParams.get('status') || 'active';
-    
-    // Fetch projects from MongoDB with populated market data
-    const projects = await Project.find({ status })
-      .populate('predictionMarkets')
+    const wallet = searchParams.get('wallet');
+
+    // Build query filter
+    const filter: any = { status };
+    if (wallet) {
+      filter.founderWallet = wallet;
+    }
+
+    // Fetch projects from MongoDB
+    const projects = await Project.find(filter)
       .sort({ createdAt: -1 })
       .limit(limit);
-    
+
     // Get total count
-    const totalCount = await Project.countDocuments({ status });
+    const totalCount = await Project.countDocuments(filter);
     
     logger.info('Projects retrieved from MongoDB', {
       count: projects.length,
@@ -51,9 +57,7 @@ export async function GET(request: NextRequest) {
           status: project.status,
           founderWallet: project.founderWallet,
           createdAt: project.createdAt,
-          updatedAt: project.updatedAt,
-          // Include prediction market data if available
-          predictionMarkets: project.predictionMarkets || []
+          updatedAt: project.updatedAt
         })),
         pagination: {
           total: totalCount,
@@ -86,7 +90,8 @@ export async function POST() {
     },
     parameters: {
       limit: 'Number of projects to return (default: 10)',
-      status: 'Filter by status (default: active)'
+      status: 'Filter by status (default: active)',
+      wallet: 'Filter by founder wallet address (optional)'
     }
   });
 }

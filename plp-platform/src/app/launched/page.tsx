@@ -2,163 +2,69 @@
 
 import React from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import {
   Rocket,
   TrendingUp,
-  DollarSign,
-  Users,
-  Calendar,
   ExternalLink,
   Star,
-  Zap
+  Zap,
+  Loader2
 } from 'lucide-react';
 import Link from 'next/link';
+import useSWR from 'swr';
 
-// Mock data for launched projects
-const launchedProjects = [
-  {
-    id: 1,
-    name: "Solana DeFi Hub",
-    symbol: "SDF",
-    launchDate: "2024-01-15",
-    price: "$0.024",
-    change: "+156%",
-    volume: "2.4M",
-    marketCap: "$1.2M",
-    category: "DeFi",
-    description: "Revolutionary DeFi protocol for automated yield farming",
-    status: "success",
-    totalVotes: 89,
-    yesVotes: 67,
-    noVotes: 22,
-    launchPool: "4.5 SOL",
-    tokenAddress: "SoLdEf...1234",
-    website: "https://solanadefi.com",
-    socialLinks: {
-      twitter: "https://twitter.com/solanadefi",
-      telegram: "https://t.me/solanadefi"
-    }
-  },
-  {
-    id: 2,
-    name: "MetaVerse NFT",
-    symbol: "MVN",
-    launchDate: "2024-01-12",
-    price: "$0.089",
-    change: "+89%",
-    volume: "1.8M",
-    marketCap: "$890K",
-    category: "NFT",
-    description: "Cross-chain NFT marketplace with unique features",
-    status: "success",
-    totalVotes: 78,
-    yesVotes: 56,
-    noVotes: 22,
-    launchPool: "4.5 SOL",
-    tokenAddress: "MeTaVe...5678",
-    website: "https://metaversenft.io",
-    socialLinks: {
-      twitter: "https://twitter.com/metaversenft",
-      discord: "https://discord.gg/metaversenft"
-    }
-  },
-  {
-    id: 3,
-    name: "GameFi Token",
-    symbol: "GFT",
-    launchDate: "2024-01-10",
-    price: "$0.156",
-    change: "+234%",
-    volume: "3.2M",
-    marketCap: "$2.1M",
-    category: "Gaming",
-    description: "Play-to-earn gaming ecosystem with unique mechanics",
-    status: "success",
-    totalVotes: 95,
-    yesVotes: 78,
-    noVotes: 17,
-    launchPool: "4.5 SOL",
-    tokenAddress: "GaMeFi...9012",
-    website: "https://gamefi.io",
-    socialLinks: {
-      twitter: "https://twitter.com/gamefi",
-      telegram: "https://t.me/gamefi"
-    }
-  },
-  {
-    id: 4,
-    name: "AI Trading Bot",
-    symbol: "AIT",
-    launchDate: "2024-01-08",
-    price: "$0.067",
-    change: "+67%",
-    volume: "1.1M",
-    marketCap: "$670K",
-    category: "AI/ML",
-    description: "AI-powered trading bot for cryptocurrency markets",
-    status: "success",
-    totalVotes: 72,
-    yesVotes: 45,
-    noVotes: 27,
-    launchPool: "4.5 SOL",
-    tokenAddress: "AiTrAd...3456",
-    website: "https://aitrading.com",
-    socialLinks: {
-      twitter: "https://twitter.com/aitrading",
-      discord: "https://discord.gg/aitrading"
-    }
-  },
-  {
-    id: 5,
-    name: "Web3 Social",
-    symbol: "W3S",
-    launchDate: "2024-01-05",
-    price: "$0.134",
-    change: "+134%",
-    volume: "2.8M",
-    marketCap: "$1.8M",
-    category: "Social",
-    description: "Decentralized social media platform with token rewards",
-    status: "success",
-    totalVotes: 88,
-    yesVotes: 71,
-    noVotes: 17,
-    launchPool: "4.5 SOL",
-    tokenAddress: "WeB3S...7890",
-    website: "https://web3social.com",
-    socialLinks: {
-      twitter: "https://twitter.com/web3social",
-      telegram: "https://t.me/web3social"
-    }
-  },
-  {
-    id: 6,
-    name: "DAO Governance",
-    symbol: "GOV",
-    launchDate: "2024-01-03",
-    price: "$0.098",
-    change: "+98%",
-    volume: "1.5M",
-    marketCap: "$980K",
-    category: "DAO",
-    description: "Advanced governance tools for decentralized organizations",
-    status: "success",
-    totalVotes: 76,
-    yesVotes: 52,
-    noVotes: 24,
-    launchPool: "4.5 SOL",
-    tokenAddress: "DaOgOv...2468",
-    website: "https://daogov.com",
-    socialLinks: {
-      twitter: "https://twitter.com/daogov",
-      discord: "https://discord.gg/daogov"
-    }
-  }
-];
+// Fetcher function for SWR
+const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+// Type for launched token
+interface LaunchedToken {
+  id: string;
+  marketAddress: string;
+  name: string;
+  symbol: string;
+  description: string;
+  category: string;
+  launchDate: string;
+  tokenAddress: string;
+  projectImageUrl?: string;
+  totalVotes: number;
+  yesVotes: number;
+  noVotes: number;
+  yesPercentage: number;
+  launchPool: string;
+  website?: string | null;
+  twitter?: string | null;
+  telegram?: string | null;
+  discord?: string | null;
+}
 
 export default function LaunchedPage() {
+  // Fetch launched tokens from API
+  const { data, error, isLoading } = useSWR('/api/markets/launched', fetcher, {
+    refreshInterval: 30000, // Refresh every 30 seconds
+  });
+
+  const launchedProjects: LaunchedToken[] = data?.data?.launched || [];
+
+  // Helper function to truncate token address
+  const truncateAddress = (address: string) => {
+    if (!address) return '';
+    return `${address.slice(0, 6)}...${address.slice(-4)}`;
+  };
+
+  // Helper function to get Solscan link
+  const getSolscanLink = (address: string) => {
+    const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : '';
+    return `https://solscan.io/token/${address}${network}`;
+  };
+
+  // Helper function to get Pump.fun link
+  const getPumpFunLink = (address: string) => {
+    return `https://pump.fun/${address}`;
+  };
+
   return (
     <div className="p-6 space-y-8">
         {/* Header */}
@@ -171,26 +77,67 @@ export default function LaunchedPage() {
           </p>
         </div>
 
-        {/* Projects Grid */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h2 className="text-3xl font-bold text-white">Launched Tokens</h2>
-            <div className="flex items-center space-x-2">
-              <Star className="w-5 h-5 text-yellow-400" />
-              <span className="text-white/70">Sorted by Launch Date</span>
-            </div>
+        {/* Loading State */}
+        {isLoading && (
+          <div className="flex items-center justify-center py-20">
+            <Loader2 className="w-8 h-8 text-white animate-spin" />
+            <span className="ml-3 text-white/70">Loading launched projects...</span>
           </div>
+        )}
 
-          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            {launchedProjects.map((project) => (
+        {/* Error State */}
+        {error && (
+          <div className="text-center py-20">
+            <p className="text-red-400">Failed to load launched projects. Please try again later.</p>
+          </div>
+        )}
+
+        {/* Empty State */}
+        {!isLoading && !error && launchedProjects.length === 0 && (
+          <div className="text-center py-20">
+            <Rocket className="w-16 h-16 text-white/30 mx-auto mb-4" />
+            <h3 className="text-2xl font-bold text-white mb-2">No Launched Projects Yet</h3>
+            <p className="text-white/70 mb-6">
+              Be the first to create a successful prediction market and launch a token!
+            </p>
+            <Button asChild size="lg" className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600">
+              <Link href="/create">
+                <Zap className="w-5 h-5 mr-2" />
+                Create Market
+              </Link>
+            </Button>
+          </div>
+        )}
+
+        {/* Projects Grid */}
+        {!isLoading && !error && launchedProjects.length > 0 && (
+          <div className="space-y-6">
+            <div className="flex items-center justify-between">
+              <h2 className="text-3xl font-bold text-white">Launched Tokens ({launchedProjects.length})</h2>
+              <div className="flex items-center space-x-2">
+                <Star className="w-5 h-5 text-yellow-400" />
+                <span className="text-white/70">Sorted by Launch Date</span>
+              </div>
+            </div>
+
+            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+              {launchedProjects.map((project) => (
               <Card key={project.id} className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-102 group">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
-                        <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-cyan-500 rounded-xl flex items-center justify-center">
-                          <Rocket className="w-5 h-5 text-white" />
-                        </div>
+                        {project.projectImageUrl ? (
+                          <img
+                            src={project.projectImageUrl}
+                            alt={project.name}
+                            className="w-10 h-10 rounded-xl object-cover"
+                          />
+                        ) : (
+                          <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-cyan-500 rounded-xl flex items-center justify-center">
+                            <Rocket className="w-5 h-5 text-white" />
+                          </div>
+                        )}
                         <div>
                           <h3 className="font-bold text-white group-hover:text-green-300 transition-colors">
                             {project.name}
@@ -211,71 +158,41 @@ export default function LaunchedPage() {
                     </div>
                   </div>
 
-                  {/* Performance Metrics */}
+                  {/* Launch Stats */}
                   <div className="grid grid-cols-2 gap-3 text-sm">
                     <div className="p-3 bg-white/5 rounded-lg border border-white/10">
-                      <div className="text-gray-400 text-xs">Price</div>
-                      <div className="font-bold text-white text-lg">{project.price}</div>
+                      <div className="text-gray-400 text-xs">Pool Raised</div>
+                      <div className="font-bold text-white text-lg">{project.launchPool}</div>
                     </div>
                     <div className="p-3 bg-white/5 rounded-lg border border-white/10">
-                      <div className="text-gray-400 text-xs">Change</div>
-                      <div className="font-bold text-green-400 text-lg">{project.change}</div>
+                      <div className="text-gray-400 text-xs">YES Rate</div>
+                      <div className="font-bold text-green-400 text-lg">{project.yesPercentage}%</div>
                     </div>
                     <div className="p-3 bg-white/5 rounded-lg border border-white/10">
-                      <div className="text-gray-400 text-xs">Volume</div>
-                      <div className="font-bold text-white">{project.volume}</div>
+                      <div className="text-gray-400 text-xs">Total Votes</div>
+                      <div className="font-bold text-white">{project.totalVotes}</div>
                     </div>
                     <div className="p-3 bg-white/5 rounded-lg border border-white/10">
-                      <div className="text-gray-400 text-xs">Market Cap</div>
-                      <div className="font-bold text-white">{project.marketCap}</div>
+                      <div className="text-gray-400 text-xs">Launch Date</div>
+                      <div className="font-bold text-white text-xs">{project.launchDate}</div>
                     </div>
                   </div>
                 </CardHeader>
 
                 <CardContent className="space-y-4">
-                  {/* Launch Info */}
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center space-x-2">
-                        <Calendar className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-400">Launched:</span>
-                      </div>
-                      <span className="text-white font-medium">{project.launchDate}</span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center space-x-2">
-                        <Users className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-400">Total Votes:</span>
-                      </div>
-                      <span className="text-white font-medium">{project.totalVotes}</span>
-                    </div>
-                    
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center space-x-2">
-                        <TrendingUp className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-400">YES Rate:</span>
-                      </div>
-                      <span className="text-green-400 font-medium">
-                        {Math.round((project.yesVotes / project.totalVotes) * 100)}%
-                      </span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-sm">
-                      <div className="flex items-center space-x-2">
-                        <DollarSign className="w-4 h-4 text-gray-400" />
-                        <span className="text-gray-400">Launch Pool:</span>
-                      </div>
-                      <span className="text-white font-medium">{project.launchPool}</span>
-                    </div>
-                  </div>
-
                   {/* Token Address */}
                   <div className="p-3 bg-white/5 rounded-lg border border-white/10">
                     <div className="text-xs text-gray-400 mb-1">Token Address</div>
                     <div className="flex items-center justify-between">
-                      <code className="text-xs text-white font-mono">{project.tokenAddress}</code>
-                      <Button size="sm" variant="ghost" className="h-6 w-6 p-0 text-white/70 hover:text-white hover:bg-white/10">
+                      <code className="text-xs text-white font-mono">{truncateAddress(project.tokenAddress)}</code>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        className="h-6 w-6 p-0 text-white/70 hover:text-white hover:bg-white/10"
+                        onClick={() => {
+                          navigator.clipboard.writeText(project.tokenAddress);
+                        }}
+                      >
                         <ExternalLink className="w-3 h-3" />
                       </Button>
                     </div>
@@ -283,27 +200,76 @@ export default function LaunchedPage() {
 
                   {/* Action Buttons */}
                   <div className="flex gap-2">
-                    <Button 
-                      size="sm" 
+                    <Button
+                      asChild
+                      size="sm"
                       className="flex-1 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600"
                     >
-                      <TrendingUp className="w-4 h-4 mr-2" />
-                      Trade
+                      <a href={getPumpFunLink(project.tokenAddress)} target="_blank" rel="noopener noreferrer">
+                        <TrendingUp className="w-4 h-4 mr-2" />
+                        Trade on Pump.fun
+                      </a>
                     </Button>
-                    <Button 
-                      size="sm" 
+                    <Button
+                      asChild
+                      size="sm"
                       variant="outline"
                       className="flex-1 border-white/20 text-white hover:bg-white/10 hover:border-white/30"
                     >
-                      <ExternalLink className="w-4 h-4 mr-2" />
-                      Website
+                      <a href={getSolscanLink(project.tokenAddress)} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="w-4 h-4 mr-2" />
+                        Solscan
+                      </a>
                     </Button>
                   </div>
+
+                  {/* Social Links (if available) */}
+                  {(project.website || project.twitter || project.telegram || project.discord) && (
+                    <div className="flex gap-2 pt-2 border-t border-white/10">
+                      {project.website && (
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="ghost"
+                          className="flex-1 text-white/70 hover:text-white hover:bg-white/10"
+                        >
+                          <a href={project.website} target="_blank" rel="noopener noreferrer">
+                            Website
+                          </a>
+                        </Button>
+                      )}
+                      {project.twitter && (
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="ghost"
+                          className="flex-1 text-white/70 hover:text-white hover:bg-white/10"
+                        >
+                          <a href={project.twitter} target="_blank" rel="noopener noreferrer">
+                            Twitter
+                          </a>
+                        </Button>
+                      )}
+                      {project.telegram && (
+                        <Button
+                          asChild
+                          size="sm"
+                          variant="ghost"
+                          className="flex-1 text-white/70 hover:text-white hover:bg-white/10"
+                        >
+                          <a href={project.telegram} target="_blank" rel="noopener noreferrer">
+                            Telegram
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             ))}
           </div>
         </div>
+        )}
 
         {/* Call to Action */}
         <div className="text-center space-y-6 py-12">

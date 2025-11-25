@@ -432,6 +432,93 @@ const NotificationSchema = new mongoose.Schema({
 NotificationSchema.index({ userId: 1, createdAt: -1 });
 NotificationSchema.index({ userId: 1, isRead: 1 });
 
+// User Profile Schema
+const UserProfileSchema = new mongoose.Schema({
+  walletAddress: {
+    type: String,
+    required: true,
+    unique: true,
+    index: true,
+  },
+  email: {
+    type: String,
+  },
+  username: {
+    type: String,
+    index: true,
+  },
+  profilePhotoUrl: {
+    type: String,
+  },
+  bio: {
+    type: String,
+    maxlength: 500,
+  },
+  reputationScore: {
+    type: Number,
+    default: 0,
+    index: true,
+  },
+  totalPredictions: {
+    type: Number,
+    default: 0,
+  },
+  correctPredictions: {
+    type: Number,
+    default: 0,
+  },
+  projectsCreated: {
+    type: Number,
+    default: 0,
+  },
+  successfulProjects: {
+    type: Number,
+    default: 0,
+  },
+  followerCount: {
+    type: Number,
+    default: 0,
+  },
+  followingCount: {
+    type: Number,
+    default: 0,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+// Indexes for UserProfile
+UserProfileSchema.index({ walletAddress: 1 });
+UserProfileSchema.index({ reputationScore: -1 });
+UserProfileSchema.index({ followerCount: -1 });
+
+// User Follow Schema
+const UserFollowSchema = new mongoose.Schema({
+  followerWallet: {
+    type: String,
+    required: true,
+    index: true,
+  },
+  followingWallet: {
+    type: String,
+    required: true,
+    index: true,
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+  },
+});
+
+// Compound index for efficient follow lookups
+UserFollowSchema.index({ followerWallet: 1, followingWallet: 1 }, { unique: true });
+
 // Export models - Force recreation to pick up schema changes
 if (mongoose.models.Project) {
   delete mongoose.models.Project;
@@ -445,11 +532,19 @@ if (mongoose.models.PredictionParticipant) {
 if (mongoose.models.Notification) {
   delete mongoose.models.Notification;
 }
+if (mongoose.models.UserProfile) {
+  delete mongoose.models.UserProfile;
+}
+if (mongoose.models.UserFollow) {
+  delete mongoose.models.UserFollow;
+}
 
 export const Project = mongoose.model('Project', ProjectSchema);
 export const PredictionMarket = mongoose.model('PredictionMarket', PredictionMarketSchema);
 export const PredictionParticipant = mongoose.model('PredictionParticipant', PredictionParticipantSchema);
 export const Notification = mongoose.model('Notification', NotificationSchema);
+export const UserProfile = mongoose.model('UserProfile', UserProfileSchema, 'user_profiles');
+export const UserFollow = mongoose.model('UserFollow', UserFollowSchema, 'user_follows');
 
 // Type definitions
 export interface IProject {

@@ -84,8 +84,18 @@ export interface UserProfile {
   correctPredictions: number;
   projectsCreated: number;
   successfulProjects: number;
+  followerCount: number; // Number of followers
+  followingCount: number; // Number of users this user follows
   createdAt: Date;
   updatedAt: Date;
+}
+
+// User Follow Schema
+export interface UserFollow {
+  _id?: ObjectId;
+  followerWallet: string; // Wallet address of the follower
+  followingWallet: string; // Wallet address being followed
+  createdAt: Date;
 }
 
 // Transaction History Schema
@@ -122,6 +132,7 @@ export const COLLECTIONS = {
   PREDICTION_MARKETS: 'predictionmarkets', // Mongoose creates this as lowercase, no underscore
   PREDICTION_PARTICIPANTS: 'predictionparticipants', // Mongoose creates this as lowercase, no underscore
   USER_PROFILES: 'user_profiles',
+  USER_FOLLOWS: 'user_follows',
   TRANSACTION_HISTORY: 'transaction_history',
   TRADE_HISTORY: 'trade_history',
 } as const;
@@ -148,6 +159,12 @@ export const INDEXES = {
   USER_PROFILES: [
     { walletAddress: 1 },
     { reputationScore: -1 },
+  ],
+  USER_FOLLOWS: [
+    { followerWallet: 1, followingWallet: 1 }, // Compound unique index to prevent duplicate follows
+    { followingWallet: 1 }, // For getting followers list
+    { followerWallet: 1 }, // For getting following list
+    { createdAt: -1 },
   ],
   TRANSACTION_HISTORY: [
     { walletAddress: 1 },

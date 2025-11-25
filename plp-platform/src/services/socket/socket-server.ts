@@ -18,10 +18,12 @@ export class SocketServer {
    */
   initialize(httpServer: HTTPServer): void {
     if (this.io) {
+      console.log('⚠️  Socket.IO server already initialized');
       logger.warn('Socket.IO server already initialized');
       return;
     }
 
+    console.log('🔌 Initializing Socket.IO server...');
     logger.info('🔌 Initializing Socket.IO server...');
 
     this.httpServer = httpServer;
@@ -37,6 +39,7 @@ export class SocketServer {
 
     this.setupEventHandlers();
 
+    console.log('✅ Socket.IO server initialized on path /api/socket/io');
     logger.info('✅ Socket.IO server initialized');
   }
 
@@ -223,6 +226,7 @@ export function getSocketServer(): SocketServer {
  * Initialize Socket.IO server
  */
 export function initializeSocketServer(httpServer: HTTPServer): void {
+  console.log('📞 initializeSocketServer() called');
   const server = getSocketServer();
   server.initialize(httpServer);
 }
