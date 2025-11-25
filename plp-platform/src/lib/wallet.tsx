@@ -29,13 +29,17 @@ function WalletProviderInner({ children }: WalletProviderProps) {
       accentColor: '#3b82f6',
       logo: '/logo.png',
       landingHeader: 'Connect to P&L',
-      loginMessage: 'Connect your Solana wallet to get started',
+      loginMessage: 'Bet on the next big project. Let the market decide.',
       showWalletLoginFirst: false, // Show email/socials first
-      walletList: ['detected_solana_wallets', 'phantom', 'backpack', 'solflare'], // Only show specific wallets
+      walletList: ['phantom', 'backpack', 'solflare', 'detected_solana_wallets'], // Specific wallets first, then detected
+      walletChainType: 'solana-only', // Only show Solana wallets
     },
 
     // Login methods configuration - email and socials first
     loginMethods: ['email', 'google', 'twitter', 'discord', 'wallet'],
+
+    // Supported wallets - explicitly include Solana wallets
+    supportedChains: ['solana'],
 
     // Embedded wallet configuration - Solana embedded wallets
     embeddedWallets: {
