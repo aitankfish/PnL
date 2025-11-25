@@ -31,7 +31,7 @@ function WalletProviderInner({ children }: WalletProviderProps) {
       landingHeader: 'Connect to P&L',
       loginMessage: 'Connect your Solana wallet to get started',
       showWalletLoginFirst: false, // Show email/socials first
-      walletList: ['detected_solana_wallets', 'backpack', 'phantom', 'exodus', 'solflare'], // Only show specific wallets
+      walletList: ['detected_solana_wallets', 'phantom', 'backpack', 'solflare'], // Only show specific wallets
     },
 
     // Login methods configuration - email and socials first
