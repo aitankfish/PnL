@@ -81,8 +81,8 @@
 }
 
 @layer base {
-  *:not(html):not(body):not(main):not(footer):not(header):not(nav):not(section):not(article):not(aside):not(div[class*="min-h-screen"]):not(div[class*="container"]):not(div[class*="flex"]):not(div[class*="space-y"]):not(div[class*="p-"]):not(div[class*="pt-"]):not(div[class*="pb-"]) {
-    @apply border-border outline-ring/50;
+  *:not(html):not(body):not(main):not(footer):not(header):not(nav):not(section):not(article):not(aside):not(div[class*="min-h-screen"]):not(div[class*="container"]):not(div[class*="flex"]):not(div[class*="space-y"]):not(div[class*="p-"]):not(div[class*="pt-"]):not(div[class*="pb-"]):not(input):not(textarea):not(select):not(button) {
+    @apply border-border;
   }
   body {
     @apply bg-background text-foreground;

@@ -7,6 +7,7 @@
     "dev:unified": "NODE_OPTIONS='--no-warnings' tsx server.ts",
     "build": "(next build || [ -d .next ]) && node scripts/post-build.js",
     "start": "next start",
+    "start:prod": "NODE_OPTIONS='--no-warnings' tsx scripts/start-production.ts",
     "lint": "eslint",
     "setup-mongodb": "tsx scripts/setup-mongodb.ts",
     "setup-env-databases": "tsx scripts/setup-env-databases.ts"

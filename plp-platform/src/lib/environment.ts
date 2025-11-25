@@ -4,6 +4,11 @@
  * Automatically handles devnet/mainnet switching and other environment-specific settings
  */
 
+// Load .env file if not in browser environment
+if (typeof window === 'undefined') {
+  require('dotenv').config();
+}
+
 export interface EnvironmentConfig {
   // Network Configuration
   network: 'devnet' | 'mainnet-beta';

@@ -6,6 +6,9 @@
  * Or add to package.json: "dev": "ts-node server.ts"
  */
 
+import { config as dotenvConfig } from 'dotenv';
+dotenvConfig(); // Load .env file
+
 import { createServer } from 'http';
 import { parse } from 'url';
 import next from 'next';

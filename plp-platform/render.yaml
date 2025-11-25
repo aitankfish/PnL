@@ -1,0 +1,96 @@
+# Render.com Deployment Configuration
+# This file defines how PNL Platform should be deployed on Render
+
+services:
+  # Main Web Service - Next.js App + Blockchain Sync
+  - type: web
+    name: pnl-platform
+    runtime: node
+    region: oregon
+    plan: starter # Change to 'standard' or higher for production traffic
+    branch: main # Deploy from main branch
+    buildCommand: npm install --legacy-peer-deps && npm run build
+    startCommand: npm run start:prod
+
+    # Health check
+    healthCheckPath: /api/health
+
+    # Environment variables
+    envVars:
+      - key: NODE_ENV
+        value: production
+
+      # Enable blockchain sync in production
+      - key: AUTO_START_SYNC
+        value: true
+
+      # Solana Network (change to mainnet-beta for production)
+      - key: NEXT_PUBLIC_SOLANA_NETWORK
+        sync: false # Don't sync from Render dashboard
+
+      # MongoDB URI (add from Render dashboard)
+      - key: MONGODB_URI
+        sync: false
+
+      # Redis URL (add from Render dashboard)
+      - key: REDIS_URL
+        sync: false
+
+      # Helius API Key (add from Render dashboard)
+      - key: HELIUS_API_KEY
+        sync: false
+
+      # Privy App ID (add from Render dashboard)
+      - key: NEXT_PUBLIC_PRIVY_APP_ID
+        sync: false
+
+      # Pinata JWT (add from Render dashboard)
+      - key: NEXT_PUBLIC_PINATA_JWT
+        sync: false
+
+      # Program IDs (add from Render dashboard)
+      - key: NEXT_PUBLIC_PLP_PROGRAM_ID_DEVNET
+        sync: false
+      - key: NEXT_PUBLIC_PLP_PROGRAM_ID_MAINNET
+        sync: false
+
+      # Socket.IO Port
+      - key: SOCKET_PORT
+        value: 3001
+
+      # App URLs (update with your Render URL)
+      - key: NEXT_PUBLIC_APP_URL
+        generateValue: true # Automatically use Render's URL
+      - key: NEXT_PUBLIC_API_URL
+        generateValue: true
+
+    # Auto-deploy on push
+    autoDeploy: true
+
+    # Disk for Next.js cache
+    disk:
+      name: nextjs-cache
+      mountPath: /app/.next
+      sizeGB: 1
+
+# Alternative: Separate Services Architecture (Recommended for high traffic)
+# Uncomment this section if you want to run sync as a separate background worker
+#
+# - type: worker
+#   name: pnl-blockchain-sync
+#   runtime: node
+#   region: oregon
+#   plan: starter
+#   branch: main
+#   buildCommand: npm install --legacy-peer-deps
+#   startCommand: npx tsx scripts/start-sync-system.ts
+#
+#   envVars:
+#     # Same environment variables as web service
+#     - key: NODE_ENV
+#       value: production
+#     - key: MONGODB_URI
+#       sync: false
+#     - key: REDIS_URL
+#       sync: false
+#     # ... (copy all other env vars)
