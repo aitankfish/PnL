@@ -137,6 +137,43 @@ function getMarketStatus(market: Market): { status: string; badgeClass: string }
   };
 }
 
+// Check if trading is disabled based on market resolution and phase
+function isTradingDisabled(market: Market): boolean {
+  const resolution = market.resolution || 'Unresolved';
+  const phase = market.phase || 'Prediction';
+
+  // If NO wins, trading is always disabled
+  if (resolution === 'NoWins') return true;
+
+  // If YES wins but not extended to Funding phase yet, trading is disabled
+  if (resolution === 'YesWins' && phase === 'Prediction') return true;
+
+  // If market is refunded, trading is disabled
+  if (resolution === 'Refund') return true;
+
+  return false;
+}
+
+// Get reason why trading is disabled (for display)
+function getTradingDisabledReason(market: Market): string {
+  const resolution = market.resolution || 'Unresolved';
+  const phase = market.phase || 'Prediction';
+
+  if (resolution === 'NoWins') {
+    return 'NO Won';
+  }
+
+  if (resolution === 'YesWins' && phase === 'Prediction') {
+    return 'Awaiting Extension';
+  }
+
+  if (resolution === 'Refund') {
+    return 'Refunded';
+  }
+
+  return 'Disabled';
+}
+
 export default function BrowsePage() {
   const router = useRouter();
   const [markets, setMarkets] = useState<Market[]>([]);
@@ -413,11 +450,13 @@ export default function BrowsePage() {
                         e.stopPropagation();
                         handleQuickVote(hotProject, 'yes');
                       }}
-                      disabled={votingState !== null}
+                      disabled={votingState !== null || isTradingDisabled(hotProject)}
                       className="flex-1 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       size="sm"
                     >
-                      {votingState?.marketId === hotProject.id && votingState?.voteType === 'yes' ? (
+                      {isTradingDisabled(hotProject) ? (
+                        getTradingDisabledReason(hotProject)
+                      ) : votingState?.marketId === hotProject.id && votingState?.voteType === 'yes' ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         'Vote YES'
@@ -429,12 +468,14 @@ export default function BrowsePage() {
                         e.stopPropagation();
                         handleQuickVote(hotProject, 'no');
                       }}
-                      disabled={votingState !== null}
+                      disabled={votingState !== null || isTradingDisabled(hotProject)}
                       variant="outline"
                       className="flex-1 border-white/20 text-white hover:bg-white/10 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed"
                       size="sm"
                     >
-                      {votingState?.marketId === hotProject.id && votingState?.voteType === 'no' ? (
+                      {isTradingDisabled(hotProject) ? (
+                        getTradingDisabledReason(hotProject)
+                      ) : votingState?.marketId === hotProject.id && votingState?.voteType === 'no' ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         'Vote NO'
@@ -643,11 +684,13 @@ export default function BrowsePage() {
                         e.stopPropagation();
                         handleQuickVote(project, 'yes');
                       }}
-                      disabled={votingState !== null}
+                      disabled={votingState !== null || isTradingDisabled(project)}
                       className="flex-1 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
                       size="sm"
                     >
-                      {votingState?.marketId === project.id && votingState?.voteType === 'yes' ? (
+                      {isTradingDisabled(project) ? (
+                        getTradingDisabledReason(project)
+                      ) : votingState?.marketId === project.id && votingState?.voteType === 'yes' ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         'Vote YES'
@@ -659,12 +702,14 @@ export default function BrowsePage() {
                         e.stopPropagation();
                         handleQuickVote(project, 'no');
                       }}
-                      disabled={votingState !== null}
+                      disabled={votingState !== null || isTradingDisabled(project)}
                       variant="outline"
                       className="flex-1 border-white/20 text-white hover:bg-white/10 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed"
                       size="sm"
                     >
-                      {votingState?.marketId === project.id && votingState?.voteType === 'no' ? (
+                      {isTradingDisabled(project) ? (
+                        getTradingDisabledReason(project)
+                      ) : votingState?.marketId === project.id && votingState?.voteType === 'no' ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
                         'Vote NO'

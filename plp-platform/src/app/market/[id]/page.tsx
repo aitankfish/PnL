@@ -25,6 +25,7 @@ import { useWallet } from '@/hooks/useWallet';
 import useSWR from 'swr';
 import ErrorDialog from '@/components/ErrorDialog';
 import SuccessDialog from '@/components/SuccessDialog';
+import { useMarketSocket } from '@/lib/hooks/useSocket';
 
 // Lazy load heavy components to reduce initial bundle size
 const ProbabilityChart = dynamic(() => import('@/components/ProbabilityChart'), {
@@ -279,11 +280,38 @@ export default function MarketDetailsPage() {
     }
   );
 
+  // Real-time Socket.IO updates for vote counts and percentages
+  const { marketData: socketMarketData, isConnected: socketConnected } = useMarketSocket(
+    market?.marketAddress || null
+  );
+
   useEffect(() => {
     if (params.id) {
       fetchMarketDetails(params.id as string);
     }
   }, [params.id]);
+
+  // Update market state when Socket.IO sends real-time data
+  useEffect(() => {
+    if (!socketMarketData || !market) return;
+
+    // Update market with real-time data from Socket.IO
+    setMarket((prevMarket) => {
+      if (!prevMarket) return prevMarket;
+
+      return {
+        ...prevMarket,
+        yesVotes: socketMarketData.yesVotes ?? prevMarket.yesVotes,
+        noVotes: socketMarketData.noVotes ?? prevMarket.noVotes,
+        totalYesStake: socketMarketData.totalYesStake ?? prevMarket.totalYesStake,
+        totalNoStake: socketMarketData.totalNoStake ?? prevMarket.totalNoStake,
+      };
+    });
+
+    // Trigger SWR revalidation for history and holders to get fresh data
+    refetchHistory();
+    refetchHolders();
+  }, [socketMarketData, market, refetchHistory, refetchHolders]);
 
   const fetchMarketDetails = async (id: string) => {
     try {
@@ -310,6 +338,46 @@ export default function MarketDetailsPage() {
     const now = new Date().getTime();
     const expiry = new Date(market.expiryTime).getTime();
     return now >= expiry;
+  };
+
+  // Check if trading is disabled due to market resolution
+  const isTradingDisabled = () => {
+    if (!onchainData?.success || !onchainData?.data) return false;
+
+    const { resolution, phase } = onchainData.data;
+
+    // If NO wins, trading is always disabled
+    if (resolution === 'NoWins') return true;
+
+    // If YES wins but not extended to Funding phase yet, trading is disabled
+    if (resolution === 'YesWins' && phase === 'Prediction') return true;
+
+    // If market is refunded, trading is disabled
+    if (resolution === 'Refund') return true;
+
+    // Otherwise, trading is allowed
+    return false;
+  };
+
+  // Get reason why trading is disabled (for display)
+  const getTradingDisabledReason = () => {
+    if (!onchainData?.success || !onchainData?.data) return '';
+
+    const { resolution, phase } = onchainData.data;
+
+    if (resolution === 'NoWins') {
+      return 'Market Resolved - NO Won';
+    }
+
+    if (resolution === 'YesWins' && phase === 'Prediction') {
+      return 'Waiting for Funding Extension';
+    }
+
+    if (resolution === 'Refund') {
+      return 'Market Refunded';
+    }
+
+    return '';
   };
 
   const handleVote = async (voteType: 'yes' | 'no') => {
@@ -1652,11 +1720,12 @@ export default function MarketDetailsPage() {
             <div className="grid grid-cols-2 gap-3 p-1 bg-white/5 rounded-lg">
               <button
                 onClick={() => setSelectedSide('yes')}
+                disabled={isTradingDisabled() || isMarketExpired()}
                 className={`py-3 px-4 rounded-lg font-semibold transition-all ${
                   selectedSide === 'yes'
                     ? 'bg-gradient-to-r from-green-500 to-cyan-500 text-white shadow-lg'
                     : 'text-gray-400 hover:text-white hover:bg-white/10'
-                }`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <CheckCircle className="w-5 h-5" />
@@ -1666,11 +1735,12 @@ export default function MarketDetailsPage() {
               </button>
               <button
                 onClick={() => setSelectedSide('no')}
+                disabled={isTradingDisabled() || isMarketExpired()}
                 className={`py-3 px-4 rounded-lg font-semibold transition-all ${
                   selectedSide === 'no'
                     ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg'
                     : 'text-gray-400 hover:text-white hover:bg-white/10'
-                }`}
+                } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 <div className="flex items-center justify-center space-x-2">
                   <XCircle className="w-5 h-5" />
@@ -1690,11 +1760,12 @@ export default function MarketDetailsPage() {
                   onChange={(e) => setAmount(e.target.value)}
                   min={QUICK_VOTE_AMOUNT}
                   step="0.01"
+                  disabled={isTradingDisabled() || isMarketExpired()}
                   className={`w-full px-4 py-4 bg-white/10 border-2 rounded-lg text-white text-lg font-mono focus:outline-none transition-all ${
                     selectedSide === 'yes'
                       ? 'border-green-500/30 focus:border-green-500 focus:ring-2 focus:ring-green-500/50'
                       : 'border-red-500/30 focus:border-red-500 focus:ring-2 focus:ring-red-500/50'
-                  }`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                   placeholder="0.00"
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">SOL</span>
@@ -1706,13 +1777,14 @@ export default function MarketDetailsPage() {
                   <button
                     key={quickAmount}
                     onClick={() => setAmount(quickAmount)}
+                    disabled={isTradingDisabled() || isMarketExpired()}
                     className={`py-2 px-3 text-sm font-semibold rounded-lg border-2 transition-all ${
                       amount === quickAmount
                         ? selectedSide === 'yes'
                           ? 'border-green-500 bg-green-500/20 text-green-400'
                           : 'border-red-500 bg-red-500/20 text-red-400'
                         : 'border-white/20 bg-white/5 text-gray-400 hover:bg-white/10 hover:text-white'
-                    }`}
+                    } disabled:opacity-50 disabled:cursor-not-allowed`}
                   >
                     {quickAmount}
                   </button>
@@ -1750,9 +1822,14 @@ export default function MarketDetailsPage() {
                   ? 'bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600'
                   : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'
               } text-white shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed`}
-              disabled={isProcessingVote || !amount || parseFloat(amount) < QUICK_VOTE_AMOUNT || isMarketExpired()}
+              disabled={isProcessingVote || !amount || parseFloat(amount) < QUICK_VOTE_AMOUNT || isMarketExpired() || isTradingDisabled()}
             >
-              {isMarketExpired() ? (
+              {isTradingDisabled() ? (
+                <>
+                  <XCircle className="w-5 h-5 mr-2" />
+                  {getTradingDisabledReason()}
+                </>
+              ) : isMarketExpired() ? (
                 <>
                   <XCircle className="w-5 h-5 mr-2" />
                   Market Expired
