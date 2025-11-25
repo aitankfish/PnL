@@ -38,9 +38,6 @@ function WalletProviderInner({ children }: WalletProviderProps) {
     // Login methods configuration - email and socials first
     loginMethods: ['email', 'google', 'twitter', 'discord', 'wallet'],
 
-    // Supported wallets - explicitly include Solana wallets
-    supportedChains: ['solana'],
-
     // Embedded wallet configuration - Solana embedded wallets
     embeddedWallets: {
       solana: {
