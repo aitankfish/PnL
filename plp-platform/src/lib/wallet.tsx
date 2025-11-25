@@ -30,11 +30,12 @@ function WalletProviderInner({ children }: WalletProviderProps) {
       logo: '/logo.png',
       landingHeader: 'Connect to P&L',
       loginMessage: 'Connect your Solana wallet to get started',
-      showWalletLoginFirst: true,
+      showWalletLoginFirst: false, // Show email/socials first
+      walletList: ['detected_solana_wallets', 'backpack', 'phantom', 'exodus', 'solflare'], // Only show specific wallets
     },
 
-    // Login methods configuration - wallet first for Solana
-    loginMethods: ['wallet', 'email', 'google', 'twitter', 'discord'],
+    // Login methods configuration - email and socials first
+    loginMethods: ['email', 'google', 'twitter', 'discord', 'wallet'],
 
     // Embedded wallet configuration - Solana embedded wallets
     embeddedWallets: {
