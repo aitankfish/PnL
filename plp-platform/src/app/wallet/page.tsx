@@ -24,7 +24,8 @@ import {
   EyeOff,
   Shield,
   ShoppingCart,
-  Heart
+  Heart,
+  Rocket
 } from 'lucide-react';
 import { Connection, PublicKey, LAMPORTS_PER_SOL, SystemProgram, VersionedTransaction, TransactionMessage } from '@solana/web3.js';
 import { RPC_ENDPOINT, SOLANA_NETWORK } from '@/config/solana';
@@ -61,6 +62,83 @@ function FavoriteMarketCard({ marketId }: { marketId: string }) {
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
             </svg>
           </div>
+        </a>
+      </CardContent>
+    </Card>
+  );
+}
+
+// Component to display a project created by the user
+function MyProjectCard({ project }: { project: any }) {
+  // Determine status badge color
+  const getStatusBadge = () => {
+    switch (project.status) {
+      case 'Launched':
+        return 'bg-green-500/20 text-green-400 border-green-400/30';
+      case 'Not Launched':
+        return 'bg-red-500/20 text-red-400 border-red-400/30';
+      case 'Pending Resolution':
+        return 'bg-yellow-500/20 text-yellow-400 border-yellow-400/30';
+      default:
+        return 'bg-blue-500/20 text-blue-400 border-blue-400/30';
+    }
+  };
+
+  return (
+    <Card className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
+      <CardContent className="p-4">
+        <a href={`/market/${project.id}`} className="block group">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
+              {project.projectImageUrl ? (
+                <img
+                  src={project.projectImageUrl}
+                  alt={project.name}
+                  className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Rocket className="w-5 h-5 text-white" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <h4 className="text-white font-semibold group-hover:text-cyan-400 transition-colors truncate">
+                  {project.name}
+                </h4>
+                <p className="text-xs text-gray-400">{project.tokenSymbol}</p>
+              </div>
+            </div>
+            <span className={`px-2 py-1 rounded text-xs border ${getStatusBadge()} whitespace-nowrap`}>
+              {project.status}
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="bg-white/5 rounded p-2 border border-white/10">
+              <div className="text-gray-400 text-xs">Pool Progress</div>
+              <div className="font-semibold text-white">
+                {project.poolProgressPercentage.toFixed(0)}%
+              </div>
+              <div className="text-xs text-gray-500">
+                {project.poolBalance.toFixed(2)} / {project.targetPool.toFixed(0)} SOL
+              </div>
+            </div>
+            <div className="bg-white/5 rounded p-2 border border-white/10">
+              <div className="text-gray-400 text-xs">YES Rate</div>
+              <div className="font-semibold text-green-400">
+                {project.sharesYesPercentage.toFixed(1)}%
+              </div>
+              <div className="text-xs text-gray-500">
+                {project.yesVoteCount + project.noVoteCount} votes
+              </div>
+            </div>
+          </div>
+
+          {project.status === 'Active' && !project.isExpired && (
+            <div className="mt-3 text-xs text-gray-400">
+              <span className="text-white font-medium">{project.timeLeft}</span> remaining
+            </div>
+          )}
         </a>
       </CardContent>
     </Card>
@@ -386,6 +464,13 @@ export default function WalletPage() {
   // Fetch user positions
   const { data: positionsData, isLoading: positionsLoading } = useSWR(
     primaryWallet?.address ? `/api/user/${primaryWallet.address}/positions` : null,
+    fetcher,
+    { refreshInterval: 30000 } // Refresh every 30 seconds
+  );
+
+  // Fetch user's created projects
+  const { data: projectsData, isLoading: projectsLoading } = useSWR(
+    primaryWallet?.address ? `/api/user/${primaryWallet.address}/projects` : null,
     fetcher,
     { refreshInterval: 30000 } // Refresh every 30 seconds
   );
@@ -923,6 +1008,47 @@ export default function WalletPage() {
                 <div className="text-center text-gray-400 py-8">
                   <p className="text-sm">No active predictions yet</p>
                   <p className="text-xs mt-2">Start voting on markets to see them here</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* My Projects Section */}
+        <div className="space-y-4 mt-8">
+          <div className="flex items-center space-x-2 px-2 sm:px-0">
+            <Rocket className="w-5 h-5 text-purple-400" />
+            <h3 className="text-lg sm:text-xl font-semibold text-white">My Projects</h3>
+          </div>
+
+          {projectsLoading ? (
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="p-6">
+                <div className="text-center text-gray-400 py-8">
+                  <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
+                  <p className="text-sm">Loading your projects...</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : projectsData?.success && projectsData.data?.projects?.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {projectsData.data.projects.map((project: any) => (
+                <MyProjectCard key={project.id} project={project} />
+              ))}
+            </div>
+          ) : (
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="p-6">
+                <div className="text-center text-gray-400 py-8">
+                  <Rocket className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">You haven't created any projects yet</p>
+                  <p className="text-xs mt-2">Start by creating your first prediction market</p>
+                  <a
+                    href="/create"
+                    className="inline-block mt-4 px-4 py-2 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 rounded-lg text-white font-semibold transition-all text-sm"
+                  >
+                    Create Project
+                  </a>
                 </div>
               </CardContent>
             </Card>
