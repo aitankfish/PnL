@@ -86,6 +86,7 @@ export interface UserProfile {
   successfulProjects: number;
   followerCount: number; // Number of followers
   followingCount: number; // Number of users this user follows
+  favoriteMarkets?: string[]; // Array of market IDs (as strings)
   createdAt: Date;
   updatedAt: Date;
 }

@@ -1,12 +1,14 @@
 /**
  * useClaiming Hook
- * Handles the claim rewards flow: prepare → sign → send → confirm
+ * Handles the claim rewards flow: prepare → sign → send → confirm → parse amount
  * Uses VersionedTransaction and Privy wallet signer
+ * Parses actual claim amount from confirmed transaction
  */
 
 import { useState } from 'react';
 import { useWallet } from '@/hooks/useWallet';
 import { getSolanaConnection } from '@/lib/solana';
+import { parseClaimAmount } from '@/lib/solana/transaction-parser';
 import { useWallets, useSignAndSendTransaction, useStandardWallets } from '@privy-io/react-auth/solana';
 import bs58 from 'bs58';
 
@@ -48,9 +50,9 @@ export function useClaiming() {
 
       console.log('✅ Claim transaction prepared');
       console.log(`   Resolution: ${prepareResult.data.resolutionType}`);
-      console.log(`   Claimable amount: ${prepareResult.data.claimableAmount} lamports (${(prepareResult.data.claimableAmount / 1e9).toFixed(4)} SOL)`);
 
       let signature: string;
+      let claimableAmount: number = 0;
 
       try {
         // STEP 2: Get serialized transaction
@@ -100,6 +102,13 @@ export function useClaiming() {
         await connection.confirmTransaction(signature, 'confirmed');
         console.log('✅ Transaction confirmed on blockchain!');
 
+        // STEP 3.5: Parse actual claim amount from confirmed transaction
+        console.log('📊 Parsing actual claim amount from transaction...');
+        const parseResult = await parseClaimAmount(connection, signature);
+        claimableAmount = parseResult.amount;
+        const claimType = parseResult.type;
+        console.log(`✅ Actual claim amount: ${claimableAmount} ${claimType === 'sol' ? 'lamports' : 'tokens'} (${(claimableAmount / 1e9).toFixed(4)} ${claimType === 'sol' ? 'SOL' : 'tokens'})`);
+
       } catch (signerError: unknown) {
         const errorMessage = signerError instanceof Error ? signerError.message : 'Unknown error';
         console.error('❌ Privy signing/sending failed:', errorMessage);
@@ -116,7 +125,7 @@ export function useClaiming() {
             marketId: params.marketId,
             userWallet: primaryWallet.address,
             signature,
-            claimAmount: prepareResult.data.claimableAmount,
+            claimAmount: claimableAmount,
           }),
         });
         console.log('✅ Database updated');
@@ -129,7 +138,7 @@ export function useClaiming() {
       return {
         success: true,
         signature,
-        claimAmount: prepareResult.data.claimableAmount,
+        claimAmount: claimableAmount,
       };
 
     } catch (error) {

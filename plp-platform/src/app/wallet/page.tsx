@@ -18,13 +18,13 @@ import {
   Check,
   X,
   Camera,
-  Edit2,
   RefreshCw,
   User,
   Eye,
   EyeOff,
   Shield,
-  ShoppingCart
+  ShoppingCart,
+  Heart
 } from 'lucide-react';
 import { Connection, PublicKey, LAMPORTS_PER_SOL, SystemProgram, VersionedTransaction, TransactionMessage } from '@solana/web3.js';
 import { RPC_ENDPOINT, SOLANA_NETWORK } from '@/config/solana';
@@ -33,6 +33,39 @@ import { ipfsUtils } from '@/lib/ipfs';
 import useSWR from 'swr';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+// Lightweight component to display a favorite market with minimal data fetching
+function FavoriteMarketCard({ marketId }: { marketId: string }) {
+  const { data: marketData } = useSWR(`/api/markets/${marketId}`, fetcher, {
+    revalidateOnFocus: false,
+  });
+
+  const marketName = marketData?.success ? marketData.data.name : `Market #${marketId.slice(0, 8)}...`;
+  const marketStatus = marketData?.success ? marketData.data.resolution : 'Loading...';
+
+  return (
+    <Card className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
+      <CardContent className="p-4">
+        <a href={`/market/${marketId}`} className="flex items-center justify-between group">
+          <div className="flex items-center space-x-3 flex-1 min-w-0">
+            <Heart className="w-4 h-4 text-red-400 fill-red-400 flex-shrink-0" />
+            <div className="flex-1 min-w-0">
+              <h4 className="text-white font-medium group-hover:text-cyan-400 transition-colors truncate">
+                {marketName}
+              </h4>
+              <p className="text-xs text-gray-400">{marketStatus}</p>
+            </div>
+          </div>
+          <div className="text-gray-400 group-hover:text-cyan-400 transition-colors flex-shrink-0">
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            </svg>
+          </div>
+        </a>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface SendModalProps {
   isOpen: boolean;
@@ -890,6 +923,32 @@ export default function WalletPage() {
                 <div className="text-center text-gray-400 py-8">
                   <p className="text-sm">No active predictions yet</p>
                   <p className="text-xs mt-2">Start voting on markets to see them here</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Watchlist/Favorites Section */}
+        <div className="space-y-4 mt-8">
+          <div className="flex items-center space-x-2 px-2 sm:px-0">
+            <Heart className="w-5 h-5 text-red-400 fill-red-400" />
+            <h3 className="text-lg sm:text-xl font-semibold text-white">Your Watchlist</h3>
+          </div>
+
+          {profileData?.success && profileData.data?.favoriteMarkets?.length > 0 ? (
+            <div className="space-y-3">
+              {profileData.data.favoriteMarkets.map((marketId: string) => (
+                <FavoriteMarketCard key={marketId} marketId={marketId} />
+              ))}
+            </div>
+          ) : (
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="p-6">
+                <div className="text-center text-gray-400 py-8">
+                  <Heart className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No markets in your watchlist yet</p>
+                  <p className="text-xs mt-2">Click the heart icon on any market to add it to your watchlist</p>
                 </div>
               </CardContent>
             </Card>

@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Loader2, ArrowLeft, ExternalLink, Users, Target, MapPin, Briefcase, Globe, Github, Twitter, MessageCircle, Send } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, ArrowLeft, ExternalLink, Users, Target, MapPin, Briefcase, Globe, Github, Twitter, MessageCircle, Send, Share2, Heart } from 'lucide-react';
 import Link from 'next/link';
 import { FEES, SOLANA_NETWORK } from '@/config/solana';
 import { useVoting } from '@/lib/hooks/useVoting';
@@ -234,8 +234,72 @@ export default function MarketDetailsPage() {
   const QUICK_VOTE_AMOUNT = FEES.MINIMUM_INVESTMENT / 1_000_000_000; // 0.01 SOL
   const [amount, setAmount] = useState<string>(QUICK_VOTE_AMOUNT.toString());
 
-  // Fetch trade history with SWR for live updates (pass network parameter)
+  // Favorite/Watchlist state
+  const [isFavorite, setIsFavorite] = useState(false);
+  const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
+
+  // Toast notification state
+  const [showToast, setShowToast] = useState(false);
+  const [toastMessage, setToastMessage] = useState('');
+
+  // Define fetcher before using it
   const fetcher = (url: string) => fetch(url).then((res) => res.json());
+
+  // Fetch user profile for favorite status
+  const { data: profileData, mutate: refetchProfile } = useSWR(
+    primaryWallet?.address ? `/api/profile/${primaryWallet.address}` : null,
+    fetcher,
+    { revalidateOnFocus: false }
+  );
+
+  // Update favorite status when profile loads
+  useEffect(() => {
+    if (profileData?.success && profileData.data && params.id) {
+      const favoriteMarkets = profileData.data.favoriteMarkets || [];
+      setIsFavorite(favoriteMarkets.includes(params.id as string));
+    }
+  }, [profileData, params.id]);
+
+  // Toggle favorite/watchlist
+  const toggleFavorite = async () => {
+    if (!primaryWallet?.address || !params.id) return;
+
+    setIsTogglingFavorite(true);
+    try {
+      const response = await fetch(`/api/profile/${primaryWallet.address}/favorites`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ marketId: params.id }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setIsFavorite(result.data.isFavorite);
+        refetchProfile();
+      }
+    } catch (error) {
+      console.error('Failed to toggle favorite:', error);
+    } finally {
+      setIsTogglingFavorite(false);
+    }
+  };
+
+  // Share market
+  const handleShare = async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      setToastMessage('Link copied to clipboard!');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    } catch (err) {
+      console.error('Failed to copy link:', err);
+      setToastMessage('Failed to copy link');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
+    }
+  };
+
+  // Fetch trade history with SWR for live updates (pass network parameter)
   const { data: historyData, error: historyError, mutate: refetchHistory } = useSWR(
     params.id ? `/api/markets/${params.id}/history?network=${network}` : null,
     fetcher,
@@ -881,6 +945,32 @@ export default function MarketDetailsPage() {
                 <div className="flex-1">
                   <div className="flex items-center space-x-3 mb-2">
                     <CardTitle className="text-2xl text-white">{market.name}</CardTitle>
+
+                    {/* Share and Favorite Icons */}
+                    <button
+                      onClick={handleShare}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
+                      title="Share this market"
+                    >
+                      <Share2 className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
+                    </button>
+                    {primaryWallet?.address && (
+                      <button
+                        onClick={toggleFavorite}
+                        disabled={isTogglingFavorite}
+                        className="p-2 hover:bg-white/10 rounded-lg transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+                        title={isFavorite ? "Remove from watchlist" : "Add to watchlist"}
+                      >
+                        <Heart
+                          className={`w-5 h-5 transition-all ${
+                            isFavorite
+                              ? 'text-red-500 fill-red-500'
+                              : 'text-gray-400 group-hover:text-red-400'
+                          }`}
+                        />
+                      </button>
+                    )}
+
                     <Badge className={marketStatus.badgeClass}>{marketStatus.status}</Badge>
                     {/* Phase Badge */}
                     {onchainData?.success && (
@@ -2062,6 +2152,16 @@ export default function MarketDetailsPage() {
           signature={successDialog.signature}
           details={successDialog.details}
         />
+
+        {/* Toast Notification */}
+        {showToast && (
+          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2">
+            <div className="bg-gray-900 border border-white/20 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2">
+              <CheckCircle className="w-5 h-5 text-green-400" />
+              <span>{toastMessage}</span>
+            </div>
+          </div>
+        )}
       </div>
   );
 }

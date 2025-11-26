@@ -122,8 +122,9 @@ export default function LaunchedPage() {
 
             <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
               {launchedProjects.map((project) => (
-              <Card key={project.id} className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-102 group">
-                <CardHeader className="pb-3">
+              <Link key={project.id} href={`/market/${project.id}`} className="block">
+                <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-102 group cursor-pointer">
+                  <CardHeader className="pb-3">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex-1">
                       <div className="flex items-center space-x-2 mb-2">
@@ -199,7 +200,7 @@ export default function LaunchedPage() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="flex gap-2">
+                  <div className="flex gap-2" onClick={(e) => e.stopPropagation()}>
                     <Button
                       asChild
                       size="sm"
@@ -225,7 +226,7 @@ export default function LaunchedPage() {
 
                   {/* Social Links (if available) */}
                   {(project.website || project.twitter || project.telegram || project.discord) && (
-                    <div className="flex gap-2 pt-2 border-t border-white/10">
+                    <div className="flex gap-2 pt-2 border-t border-white/10" onClick={(e) => e.stopPropagation()}>
                       {project.website && (
                         <Button
                           asChild
@@ -266,6 +267,7 @@ export default function LaunchedPage() {
                   )}
                 </CardContent>
               </Card>
+            </Link>
             ))}
           </div>
         </div>

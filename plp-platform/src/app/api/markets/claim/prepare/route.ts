@@ -223,54 +223,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Calculate claimable amount based on resolution type
-    let claimableAmount = 0;
+    // Determine resolution type (actual amount will be parsed from transaction after claim)
     let resolutionType = '';
 
     if (marketAccount.resolution === 1) {
-      // YesWins - User receives tokens
       resolutionType = 'YesWins';
-
-      if (positionAccount.yesShares > 0 && marketAccount.totalYesShares > 0) {
-        // Calculate proportional token claim
-        // user_tokens = (user_yes_shares / total_yes_shares) * yes_voter_tokens_allocated
-        const userYesShares = BigInt(positionAccount.yesShares.toString());
-        const totalYesShares = BigInt(marketAccount.totalYesShares.toString());
-        const yesVoterTokens = BigInt(marketAccount.yesVoterTokensAllocated.toString());
-
-        claimableAmount = Number((userYesShares * yesVoterTokens) / totalYesShares);
-      }
     } else if (marketAccount.resolution === 2) {
-      // NoWins - User receives SOL
       resolutionType = 'NoWins';
-
-      if (positionAccount.noShares > 0 && marketAccount.totalNoShares > 0) {
-        // Calculate proportional SOL payout
-        // payout = (user_no_shares / total_no_shares) * pool_balance
-        const userNoShares = BigInt(positionAccount.noShares.toString());
-        const totalNoShares = BigInt(marketAccount.totalNoShares.toString());
-        const poolBalance = BigInt(marketAccount.poolBalance.toString());
-
-        claimableAmount = Number((userNoShares * poolBalance) / totalNoShares);
-      }
     } else if (marketAccount.resolution === 3) {
-      // Refund - User receives invested amount minus trading fees (98.5%)
       resolutionType = 'Refund';
-
-      if (positionAccount.totalInvested > 0) {
-        // Calculate refund: 98.5% of invested (1.5% was trading fees)
-        const totalInvested = BigInt(positionAccount.totalInvested.toString());
-        const TRADE_FEE_BPS = BigInt(150);
-        const BPS_DIVISOR = BigInt(10000);
-
-        claimableAmount = Number((totalInvested * (BPS_DIVISOR - TRADE_FEE_BPS)) / BPS_DIVISOR);
-      }
     }
 
-    logger.info('Claimable amount calculated', {
+    logger.info('Preparing claim transaction', {
       resolutionType,
-      claimableAmount,
-      claimableAmountSOL: (claimableAmount / 1e9).toFixed(4),
+      userYesShares: positionAccount.yesShares.toString(),
+      userNoShares: positionAccount.noShares.toString(),
+      totalInvested: positionAccount.totalInvested.toString(),
     });
 
     // Build claim_rewards instruction manually (since IDL is incomplete)
@@ -335,7 +303,6 @@ export async function POST(request: NextRequest) {
       marketAddress: marketPubkey.toBase58(),
       positionPda: positionPda.toBase58(),
       resolutionType,
-      claimableAmount,
       serializedLength: serializedTransaction.length,
       lastValidBlockHeight,
     });
@@ -346,7 +313,6 @@ export async function POST(request: NextRequest) {
         serializedTransaction,
         positionPda: positionPda.toBase58(),
         resolutionType,
-        claimableAmount,
         lastValidBlockHeight,
       },
     });

@@ -43,6 +43,9 @@ export async function GET(
         correctPredictions: 0,
         projectsCreated: 0,
         successfulProjects: 0,
+        followerCount: 0,
+        followingCount: 0,
+        favoriteMarkets: [],
         createdAt: new Date(),
         updatedAt: new Date(),
       };
