@@ -1,4 +1,4 @@
-# PLP - Project Launch Platform
+# PNL - Predict & Launch
 
 Community-driven token launch platform powered by prediction markets on Solana.
 
