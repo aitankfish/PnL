@@ -71,7 +71,9 @@ function formatLabel(value: string): string {
     'nft': 'NFT',
     'ai': 'AI/ML',
     'defi': 'DeFi',
-    'mvp': 'MVP'
+    'mvp': 'MVP',
+    'realestate': 'Real Estate',
+    'real estate': 'Real Estate'
   };
 
   if (uppercaseValues[value.toLowerCase()]) {

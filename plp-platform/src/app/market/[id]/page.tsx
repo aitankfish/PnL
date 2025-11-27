@@ -6,7 +6,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Loader2, ArrowLeft, ExternalLink, Users, Target, MapPin, Briefcase, Globe, Github, Twitter, MessageCircle, Send, Share2, Heart } from 'lucide-react';
+import { CheckCircle, XCircle, Loader2, ArrowLeft, ExternalLink, Users, Target, MapPin, Briefcase, Globe, Github, Twitter, MessageCircle, Send, Share2, Heart, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { FEES, SOLANA_NETWORK } from '@/config/solana';
 import { useVoting } from '@/lib/hooks/useVoting';
@@ -60,6 +60,7 @@ interface MarketDetails {
   status: string;
   metadataUri?: string;
   projectImageUrl?: string;
+  documentUrls?: string[];
   metadata?: {
     name: string;
     description: string;
@@ -78,6 +79,7 @@ interface MarketDetails {
       linkedin?: string;
     };
     additionalNotes?: string;
+    documents?: string[];
   };
 }
 
@@ -88,7 +90,9 @@ function formatLabel(value: string): string {
     'nft': 'NFT',
     'ai': 'AI/ML',
     'defi': 'DeFi',
-    'mvp': 'MVP'
+    'mvp': 'MVP',
+    'realestate': 'Real Estate',
+    'real estate': 'Real Estate'
   };
 
   if (uppercaseValues[value.toLowerCase()]) {
@@ -999,6 +1003,21 @@ export default function MarketDetailsPage() {
                     <Badge className="bg-white/10 text-white border-white/20">
                       {formatLabel(market.stage)}
                     </Badge>
+
+                    {/* Documentation Link */}
+                    {market.documentUrls && market.documentUrls.length > 0 && (
+                      <a
+                        href={market.documentUrls[0]}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center space-x-1 px-3 py-1.5 bg-blue-500/20 rounded-lg border border-blue-400/30 hover:bg-blue-500/30 transition-colors"
+                        title="View project documentation"
+                      >
+                        <FileText className="w-4 h-4 text-blue-300" />
+                        <span className="text-sm font-medium text-blue-300">Documentation</span>
+                        <ExternalLink className="w-3 h-3 text-blue-300" />
+                      </a>
+                    )}
 
                     {/* Social Links */}
                     {market.metadata?.socialLinks && Object.values(market.metadata.socialLinks).some(link => link) && (
@@ -2061,6 +2080,16 @@ export default function MarketDetailsPage() {
               <CardTitle className="text-2xl text-white">Project Details</CardTitle>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* What This Project Offers */}
+              {market.metadata.additionalNotes && (
+                <div className="p-4 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-lg border border-cyan-400/30">
+                  <h3 className="text-cyan-400 text-base mb-2 font-bold flex items-center gap-2">
+                    <span className="text-xl">✨</span> What This Project Offers
+                  </h3>
+                  <p className="text-white text-base leading-relaxed whitespace-pre-wrap">{market.metadata.additionalNotes}</p>
+                </div>
+              )}
+
               {/* Project Info Grid */}
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {market.metadata.projectType && (
@@ -2119,14 +2148,6 @@ export default function MarketDetailsPage() {
                 <div className="p-4 bg-white/5 rounded-lg">
                   <h3 className="text-gray-400 text-sm mb-2 font-semibold">Full Description</h3>
                   <p className="text-white text-base leading-relaxed whitespace-pre-wrap">{market.metadata.description}</p>
-                </div>
-              )}
-
-              {/* Additional Notes */}
-              {market.metadata.additionalNotes && (
-                <div className="p-4 bg-white/5 rounded-lg border border-cyan-500/20">
-                  <h3 className="text-cyan-400 text-sm mb-2 font-semibold">Additional Information</h3>
-                  <p className="text-white text-base leading-relaxed whitespace-pre-wrap">{market.metadata.additionalNotes}</p>
                 </div>
               )}
 

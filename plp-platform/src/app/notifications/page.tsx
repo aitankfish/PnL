@@ -14,7 +14,6 @@ import {
   Users,
   DollarSign,
   Clock,
-  Star,
   ExternalLink,
   Filter,
   Check,
@@ -152,26 +151,25 @@ export default function NotificationsPage() {
 
   const filteredNotifications = notifications.filter(notification => {
     if (selectedFilter === 'all') return true;
-    if (selectedFilter === 'unread') return !notification.isRead;
+    if (selectedFilter === 'market_resolved') {
+      return notification.type === 'market_resolved' || notification.type === 'claim_ready';
+    }
     return notification.type === selectedFilter;
   });
 
   const notificationTypes = [
     { id: 'all', label: 'All', count: notifications.length },
-    { id: 'unread', label: 'Unread', count: notifications.filter(n => !n.isRead).length },
-    { id: 'vote_result', label: 'Vote Results', count: notifications.filter(n => n.type === 'vote_result').length },
-    { id: 'token_launched', label: 'Token Launched', count: notifications.filter(n => n.type === 'token_launched').length },
-    { id: 'reward_earned', label: 'Rewards', count: notifications.filter(n => n.type === 'reward_earned').length },
-    { id: 'vote_reminder', label: 'Reminders', count: notifications.filter(n => n.type === 'vote_reminder').length }
+    { id: 'market_resolved', label: 'Market Resolved', count: notifications.filter(n => n.type === 'market_resolved' || n.type === 'claim_ready').length },
+    { id: 'token_launched', label: 'Token Launched', count: notifications.filter(n => n.type === 'token_launched').length }
   ];
 
   const getNotificationIcon = (type: string) => {
     switch (type) {
-      case 'vote_result': return <CheckCircle className="w-5 h-5" />;
+      case 'claim_ready': return <DollarSign className="w-5 h-5" />;
       case 'token_launched': return <Rocket className="w-5 h-5" />;
-      case 'vote_reminder': return <Clock className="w-5 h-5" />;
-      case 'reward_earned': return <Star className="w-5 h-5" />;
+      case 'market_resolved': return <CheckCircle className="w-5 h-5" />;
       case 'project_update': return <TrendingUp className="w-5 h-5" />;
+      case 'vote_result': return <CheckCircle className="w-5 h-5" />;
       case 'weekly_digest': return <Bell className="w-5 h-5" />;
       case 'community_milestone': return <Users className="w-5 h-5" />;
       default: return <Bell className="w-5 h-5" />;
@@ -181,14 +179,20 @@ export default function NotificationsPage() {
   const getNotificationColor = (type: string, priority: string) => {
     if (priority === 'high') {
       switch (type) {
-        case 'vote_result': return 'from-green-500 to-cyan-500';
+        case 'claim_ready': return 'from-green-500 to-emerald-500';
         case 'token_launched': return 'from-blue-500 to-purple-500';
+        case 'market_resolved': return 'from-cyan-500 to-blue-500';
         case 'community_milestone': return 'from-yellow-500 to-orange-500';
         default: return 'from-purple-500 to-pink-500';
       }
     }
     if (priority === 'medium') {
-      return 'from-blue-500 to-cyan-500';
+      switch (type) {
+        case 'claim_ready': return 'from-green-400 to-emerald-400';
+        case 'market_resolved': return 'from-blue-400 to-cyan-400';
+        case 'project_update': return 'from-purple-400 to-pink-400';
+        default: return 'from-blue-500 to-cyan-500';
+      }
     }
     return 'from-gray-500 to-gray-600';
   };
@@ -255,8 +259,8 @@ export default function NotificationsPage() {
                 <Bell className="w-16 h-16 text-white/30 mx-auto mb-4" />
                 <h3 className="text-xl font-bold text-white mb-2">No Notifications</h3>
                 <p className="text-white/70">
-                  {selectedFilter === 'unread' 
-                    ? "You're all caught up! No unread notifications."
+                  {selectedFilter === 'all'
+                    ? "You don't have any notifications yet."
                     : "No notifications match your current filter."
                   }
                 </p>
@@ -321,21 +325,27 @@ export default function NotificationsPage() {
                             </span>
 
                             <div className="flex items-center space-x-2">
-                              {notification.action && (
-                                <Button
-                                  size="sm"
-                                  className="bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
-                                >
-                                  {notification.action === 'view_project' && <ExternalLink className="w-3 h-3 mr-1" />}
-                                  {notification.action === 'trade_token' && <TrendingUp className="w-3 h-3 mr-1" />}
-                                  {notification.action === 'vote_now' && <CheckCircle className="w-3 h-3 mr-1" />}
-                                  {notification.action === 'claim_reward' && <Star className="w-3 h-3 mr-1" />}
-                                  {notification.action === 'view_update' && <ExternalLink className="w-3 h-3 mr-1" />}
-                                  {notification.action === 'view_results' && <TrendingUp className="w-3 h-3 mr-1" />}
-                                  {notification.action === 'view_digest' && <Bell className="w-3 h-3 mr-1" />}
-                                  {notification.action === 'celebrate' && <Star className="w-3 h-3 mr-1" />}
-                                  {notification.action.replace('_', ' ')}
-                                </Button>
+                              {notification.action && notification.actionUrl && (
+                                <Link href={notification.actionUrl}>
+                                  <Button
+                                    size="sm"
+                                    className={
+                                      notification.type === 'claim_ready'
+                                        ? "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                                        : notification.type === 'token_launched'
+                                        ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                                        : "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
+                                    }
+                                  >
+                                    {notification.action === 'claim_rewards' && <DollarSign className="w-3 h-3 mr-1" />}
+                                    {notification.action === 'view_market' && <ExternalLink className="w-3 h-3 mr-1" />}
+                                    {notification.action === 'view_token' && <Rocket className="w-3 h-3 mr-1" />}
+                                    {notification.action === 'trade_token' && <TrendingUp className="w-3 h-3 mr-1" />}
+                                    {notification.action === 'view_project' && <ExternalLink className="w-3 h-3 mr-1" />}
+                                    {notification.action === 'view_results' && <CheckCircle className="w-3 h-3 mr-1" />}
+                                    {notification.action.replace(/_/g, ' ')}
+                                  </Button>
+                                </Link>
                               )}
                             </div>
                           </div>

@@ -13,3 +13,4 @@ private/
 # Ignore database dumps
 *.dump
 *.sql
+

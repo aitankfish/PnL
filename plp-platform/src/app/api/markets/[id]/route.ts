@@ -74,6 +74,21 @@ export async function GET(
       imageUrl = undefined;
     }
 
+    // Convert document URLs to gateway URLs
+    let documentUrls: string[] = [];
+    if (project?.documentUrls && project.documentUrls.length > 0 && process.env.PINATA_GATEWAY_URL) {
+      const gatewayUrl = process.env.PINATA_GATEWAY_URL;
+      documentUrls = project.documentUrls.map((docUrl: string) => {
+        if (docUrl.startsWith('ipfs://')) {
+          const ipfsHash = docUrl.replace('ipfs://', '');
+          return `https://${gatewayUrl}/ipfs/${ipfsHash}`;
+        } else if (!docUrl.startsWith('http')) {
+          return `https://${gatewayUrl}/ipfs/${docUrl}`;
+        }
+        return docUrl;
+      });
+    }
+
     // Calculate vote counts from MongoDB
     const voteCounts = await calculateVoteCounts(market._id);
 
@@ -152,6 +167,7 @@ export async function GET(
       status: market.marketState === 0 ? 'active' : 'resolved',
       metadataUri: market.metadataUri,
       projectImageUrl: imageUrl,
+      documentUrls,
       metadata,
 
       // On-chain fields from blockchain sync (MongoDB has fresh data via WebSocket)
@@ -190,7 +206,7 @@ export async function GET(
     );
 
   } catch (error) {
-    logger.error('Failed to fetch market details:', error);
+    logger.error('Failed to fetch market details:', error as any);
 
     return NextResponse.json(
       {

@@ -33,7 +33,21 @@ export async function POST(request: NextRequest) {
         body.projectImage = imageFile;
         logger.info('📊 API: Image file found, size:', imageFile.size);
       }
-      
+
+      // Handle document upload
+      const documentFile = formData.get('projectDocument') as File;
+      logger.info('📊 API: Document from FormData:', {
+        exists: !!documentFile,
+        type: typeof documentFile,
+        isFile: documentFile instanceof File,
+        size: documentFile?.size,
+        name: documentFile?.name
+      });
+      if (documentFile && documentFile.size > 0) {
+        body.projectDocument = documentFile;
+        logger.info('📊 API: Document file found, size:', documentFile.size);
+      }
+
       // Parse JSON fields
       if (body.socialLinks && typeof body.socialLinks === 'string') {
         logger.info('📊 API: Parsing socialLinks JSON');
@@ -67,17 +81,25 @@ export async function POST(request: NextRequest) {
     // Check if metadata is already uploaded (from client-side)
     let metadataUri: string;
     let imageUri: string | undefined;
-    
+    let documentUri: string | undefined;
+
     if (body.metadataUri) {
       // Metadata already uploaded by client
       logger.info('Using pre-uploaded metadata URI');
       metadataUri = body.metadataUri;
       imageUri = body.imageUri;
+      documentUri = body.documentUri;
     } else {
       // Upload image to IPFS if provided
       if (body.projectImage) {
         logger.info('Uploading project image to IPFS');
         imageUri = await ipfsUtils.uploadImage(body.projectImage);
+      }
+
+      // Upload document to IPFS if provided
+      if (body.projectDocument) {
+        logger.info('Uploading project document to IPFS');
+        documentUri = await ipfsUtils.uploadDocument(body.projectDocument);
       }
 
       // Create project metadata
@@ -153,6 +175,7 @@ export async function POST(request: NextRequest) {
       tokenSymbol: body.tokenSymbol,
       socialLinks: body.socialLinks || {},
       projectImageUrl: imageUri,
+      documentUrls: documentUri ? [documentUri] : [],
       status: 'active',
       createdAt: new Date(),
       updatedAt: new Date(),

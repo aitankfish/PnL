@@ -32,6 +32,7 @@ interface ProjectFormData {
   targetPool: string;
   marketDuration: string;
   projectImage?: File;
+  projectDocument?: File;
   socialLinks: {
     website: string;
     github: string;
@@ -86,7 +87,7 @@ export default function CreatePage() {
   }, []);
 
   // Calculate form completion percentage
-  const requiredFields = ['name', 'description', 'category', 'projectType', 'projectStage', 'teamSize', 'tokenSymbol', 'targetPool', 'marketDuration'];
+  const requiredFields = ['name', 'description', 'category', 'projectType', 'projectStage', 'teamSize', 'tokenSymbol', 'targetPool', 'marketDuration', 'projectImage'];
   const completedFields = requiredFields.filter(field => formData[field as keyof ProjectFormData]).length;
   const completionPercentage = (completedFields / requiredFields.length) * 100;
 
@@ -113,6 +114,7 @@ export default function CreatePage() {
     }
     if (!formData.targetPool) newErrors.targetPool = 'Target pool is required';
     if (!formData.marketDuration) newErrors.marketDuration = 'Market duration is required';
+    if (!formData.projectImage) (newErrors as any).projectImage = 'Project image is required';
     if (formData.additionalNotes.length > config.ui.maxAdditionalNotesLength) {
       newErrors.additionalNotes = `Additional notes must be less than ${config.ui.maxAdditionalNotesLength} characters`;
     }
@@ -172,6 +174,13 @@ export default function CreatePage() {
         imageUri = await ipfsUtils.uploadImage(formData.projectImage);
       }
 
+      // Step 1.5: Upload project document to IPFS if provided
+      let documentUri: string | undefined;
+      if (formData.projectDocument) {
+        logger.info('Uploading project document to IPFS');
+        documentUri = await ipfsUtils.uploadDocument(formData.projectDocument);
+      }
+
       // Step 2: Create project metadata
       const metadata: ProjectMetadata = {
         name: formData.name,
@@ -194,6 +203,7 @@ export default function CreatePage() {
         },
         additionalNotes: formData.additionalNotes || undefined,
         image: imageUri,
+        documents: documentUri ? [documentUri] : undefined,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
       };
@@ -212,13 +222,19 @@ export default function CreatePage() {
           submitData.append('socialLinks', JSON.stringify(value));
         } else if (key === 'projectImage' && value instanceof File) {
           submitData.append('projectImage', value);
+        } else if (key === 'projectDocument' && value instanceof File) {
+          // Skip projectDocument here - it's already uploaded to IPFS
+          // and documentUri is added separately below
         } else if (value !== undefined && value !== null && value !== '') {
           submitData.append(key, value.toString());
         }
       });
       
-      // Add the metadata URI and creator wallet address
+      // Add the metadata URI, document URI, and creator wallet address
       submitData.append('metadataUri', metadataUri);
+      if (documentUri) {
+        submitData.append('documentUri', documentUri);
+      }
       submitData.append('creatorWalletAddress', primaryWallet.address);
       
       const response = await fetch('/api/projects/create', {
@@ -437,13 +453,27 @@ export default function CreatePage() {
                       className={`h-10 w-full bg-white/10 border border-white/20 text-white text-sm rounded-md px-3 py-2 ${errors.category ? 'border-red-500' : ''}`}
                     >
                       <option value="" className="bg-slate-800">Select category</option>
-                      <option value="defi" className="bg-slate-800">DeFi</option>
-                      <option value="nft" className="bg-slate-800">NFT</option>
-                      <option value="gaming" className="bg-slate-800">Gaming</option>
-                      <option value="dao" className="bg-slate-800">DAO</option>
-                      <option value="infrastructure" className="bg-slate-800">Infrastructure</option>
-                      <option value="social" className="bg-slate-800">Social</option>
-                      <option value="ai" className="bg-slate-800">AI/ML</option>
+                      <optgroup label="Web3 & Crypto" className="bg-slate-800">
+                        <option value="defi" className="bg-slate-800">DeFi</option>
+                        <option value="nft" className="bg-slate-800">NFT</option>
+                        <option value="gaming" className="bg-slate-800">Gaming</option>
+                        <option value="dao" className="bg-slate-800">DAO</option>
+                        <option value="ai" className="bg-slate-800">AI/ML</option>
+                        <option value="infrastructure" className="bg-slate-800">Infrastructure</option>
+                        <option value="social" className="bg-slate-800">Social</option>
+                      </optgroup>
+                      <optgroup label="Traditional Markets" className="bg-slate-800">
+                        <option value="healthcare" className="bg-slate-800">Healthcare</option>
+                        <option value="science" className="bg-slate-800">Science</option>
+                        <option value="education" className="bg-slate-800">Education</option>
+                        <option value="finance" className="bg-slate-800">Finance</option>
+                        <option value="commerce" className="bg-slate-800">Commerce</option>
+                        <option value="realestate" className="bg-slate-800">Real Estate</option>
+                        <option value="energy" className="bg-slate-800">Energy</option>
+                        <option value="media" className="bg-slate-800">Media</option>
+                        <option value="manufacturing" className="bg-slate-800">Manufacturing</option>
+                        <option value="mobility" className="bg-slate-800">Mobility</option>
+                      </optgroup>
                       <option value="other" className="bg-slate-800">Other</option>
                     </select>
                     {errors.category && <p className="text-sm text-red-400">{errors.category}</p>}
@@ -556,7 +586,7 @@ export default function CreatePage() {
 
                   <div className="space-y-2">
                     <Label htmlFor="projectImage">Project Image</Label>
-                    <div className="relative">
+                    <div className="relative flex flex-col items-center">
                       <Input
                         id="projectImage"
                         type="file"
@@ -568,11 +598,45 @@ export default function CreatePage() {
                             setFormData(prev => ({ ...prev, projectImage: file }));
                           }
                         }}
-                        className="bg-white/10 border-white/20 text-white file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600"
+                        className="bg-white/10 border-white/20 text-white text-center file:mx-auto file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-blue-500 file:text-white hover:file:bg-blue-600 file:cursor-pointer file:leading-none file:flex file:items-center file:justify-center cursor-pointer"
                       />
-                      <p className="text-xs text-white/60 mt-1">
-                        Upload a logo or image for your project (optional)
+                      <p className="text-xs text-white/60 mt-2 text-center">
+                        Upload a logo or image for your project (required)
                       </p>
+                      {errors.projectImage && <p className="text-sm text-red-400 mt-1 text-center">{errors.projectImage as string}</p>}
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="projectDocument">Project Documentation</Label>
+                    <div className="relative flex flex-col items-center">
+                      <Input
+                        id="projectDocument"
+                        type="file"
+                        accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            // Validate file size (max 10MB)
+                            if (file.size > 10 * 1024 * 1024) {
+                              alert('Document must be less than 10MB');
+                              e.target.value = '';
+                              return;
+                            }
+                            // Store file for upload to IPFS
+                            setFormData(prev => ({ ...prev, projectDocument: file }));
+                          }
+                        }}
+                        className="bg-white/10 border-white/20 text-white text-center file:mx-auto file:py-2.5 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-teal-500 file:text-white hover:file:bg-teal-600 file:cursor-pointer file:leading-none file:flex file:items-center file:justify-center cursor-pointer"
+                      />
+                      <p className="text-xs text-white/60 mt-2 text-center">
+                        Upload project documentation, whitepaper, or pitch deck (PDF or Word, max 10MB, optional)
+                      </p>
+                      {formData.projectDocument && (
+                        <p className="text-xs text-green-400 mt-2 text-center">
+                          ✓ {formData.projectDocument.name} selected
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -726,18 +790,18 @@ export default function CreatePage() {
               </CardContent>
             </Card>
 
-            {/* Additional Notes */}
+            {/* What This Project Has to Offer */}
             <Card className="bg-white/10 backdrop-blur-xl border-white/20 text-white">
               <CardHeader>
-                <CardTitle>Additional Notes</CardTitle>
+                <CardTitle>What This Project Has to Offer</CardTitle>
                 <CardDescription className="text-white/70">
-                  Any additional information about your project (optional)
+                  Describe the unique value, features, or benefits your project brings to users (optional)
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-2">
                   <Textarea
-                    placeholder="Add any additional details about your project..."
+                    placeholder="e.g., Revolutionary DeFi features, unique tokenomics, innovative use cases, competitive advantages..."
                     value={formData.additionalNotes}
                     onChange={(e) => handleInputChange('additionalNotes', e.target.value)}
                     className="min-h-24 bg-white/10 border-white/20 text-white placeholder:text-white/50"
@@ -804,6 +868,11 @@ export default function CreatePage() {
                     // Add image file if provided
                     if (formData.projectImage) {
                       apiFormData.append('projectImage', formData.projectImage);
+                    }
+
+                    // Add document file if provided
+                    if (formData.projectDocument) {
+                      apiFormData.append('projectDocument', formData.projectDocument);
                     }
 
                     // Step 2: Send data to server for IPFS upload and metadata creation

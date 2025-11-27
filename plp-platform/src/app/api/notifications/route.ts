@@ -236,14 +236,11 @@ export async function POST(request: NextRequest) {
 
     // Validate type
     const validTypes = [
-      'vote_result',
+      'claim_ready',
       'token_launched',
-      'vote_reminder',
-      'reward_earned',
-      'project_update',
+      'market_resolved',
       'weekly_digest',
       'community_milestone',
-      'market_resolved',
     ];
     if (!validTypes.includes(type)) {
       return NextResponse.json(
@@ -270,7 +267,7 @@ export async function POST(request: NextRequest) {
     logger.info('Notification created', {
       userId,
       type,
-      notificationId: notification._id,
+      notificationId: notification._id?.toString(),
     });
 
     return NextResponse.json({

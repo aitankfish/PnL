@@ -4,7 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { CheckCircle, XCircle, Loader2 } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CheckCircle, XCircle, Loader2, Filter } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useVoting } from '@/lib/hooks/useVoting';
@@ -46,7 +47,9 @@ function formatLabel(value: string): string {
     'nft': 'NFT',
     'ai': 'AI/ML',
     'defi': 'DeFi',
-    'mvp': 'MVP'
+    'mvp': 'MVP',
+    'realestate': 'Real Estate',
+    'real estate': 'Real Estate'
   };
 
   if (uppercaseValues[value.toLowerCase()]) {
@@ -197,7 +200,14 @@ export default function BrowsePage() {
   });
 
   // Categories for filtering
-  const categories = ['All', 'DeFi', 'Gaming', 'NFT', 'AI/ML', 'Social', 'Infrastructure', 'DAO', 'Other'];
+  const categories = [
+    'All',
+    // Web3 & Crypto
+    'DeFi', 'Gaming', 'NFT', 'AI/ML', 'Social', 'Infrastructure', 'DAO',
+    // Traditional Markets
+    'Healthcare', 'Science', 'Education', 'Finance', 'Commerce', 'Real Estate', 'Energy', 'Media', 'Manufacturing', 'Mobility',
+    'Other'
+  ];
 
   // Minimum vote amount from config
   const QUICK_VOTE_AMOUNT = FEES.MINIMUM_INVESTMENT / 1_000_000_000; // 0.01 SOL
@@ -496,23 +506,28 @@ export default function BrowsePage() {
           <div className="flex items-center justify-between flex-wrap gap-4">
             <h2 className="text-3xl font-bold text-white">Live Markets</h2>
 
-            {/* Category Filter Pills */}
-            <div className="flex flex-wrap gap-2">
-              {categories.map((category) => (
-                <button
-                  key={category}
-                  onClick={() => setSelectedCategory(category)}
-                  className={`
-                    px-4 py-2 rounded-full text-sm font-semibold transition-all duration-300
-                    ${selectedCategory === category
-                      ? 'bg-gradient-to-r from-purple-500 to-pink-500 text-white shadow-lg shadow-purple-500/50 scale-105'
-                      : 'bg-white/10 text-white/70 hover:bg-white/20 hover:text-white hover:scale-105'
-                    }
-                  `}
-                >
-                  {category}
-                </button>
-              ))}
+            {/* Category Filter Dropdown */}
+            <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Filter className="w-5 h-5 text-gray-400" />
+                <span className="text-sm text-gray-400 font-medium">Filter by:</span>
+              </div>
+              <Select value={selectedCategory} onValueChange={setSelectedCategory}>
+                <SelectTrigger className="w-[200px] bg-white/10 border-white/20 text-white hover:bg-white/20 transition-colors">
+                  <SelectValue placeholder="Select category" />
+                </SelectTrigger>
+                <SelectContent className="bg-gray-900 border-white/20">
+                  {categories.map((category) => (
+                    <SelectItem
+                      key={category}
+                      value={category}
+                      className="text-white hover:bg-white/10 focus:bg-white/10 cursor-pointer"
+                    >
+                      {category}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 

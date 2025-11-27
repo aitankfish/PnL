@@ -68,7 +68,28 @@ const ProjectSchema = new mongoose.Schema({
   category: {
     type: String,
     required: true,
-    enum: ['DeFi', 'Gaming', 'NFT', 'Infrastructure', 'AI/ML', 'Social', 'Other', 'DAO', 'nft', 'gaming', 'defi', 'social', 'infrastructure', 'ai', 'ai/ml', 'dao', 'other'],
+    enum: [
+      // Crypto-native categories
+      'DeFi', 'defi',
+      'NFT', 'nft',
+      'Gaming', 'gaming',
+      'DAO', 'dao',
+      'AI/ML', 'ai/ml', 'ai',
+      'Infrastructure', 'infrastructure',
+      'Social', 'social',
+      // Broader market categories
+      'Healthcare', 'healthcare',
+      'Science', 'science',
+      'Education', 'education',
+      'Finance', 'finance',
+      'Commerce', 'commerce',
+      'Real Estate', 'real estate', 'realestate',
+      'Energy', 'energy',
+      'Media', 'media',
+      'Manufacturing', 'manufacturing',
+      'Mobility', 'mobility',
+      'Other', 'other'
+    ],
   },
   projectType: {
     type: String,
@@ -103,6 +124,10 @@ const ProjectSchema = new mongoose.Schema({
   },
   projectImageUrl: {
     type: String,
+  },
+  documentUrls: {
+    type: [String],
+    default: [],
   },
   status: {
     type: String,
@@ -560,6 +585,7 @@ export interface IProject {
   tokenSymbol: string;
   socialLinks: Map<string, string>;
   projectImageUrl?: string;
+  documentUrls?: string[];
   status: string;
   createdAt: Date;
   updatedAt: Date;
