@@ -10,61 +10,97 @@ npm install
 ```
 
 ### 2. Environment Setup
-Create a `.env.local` file in the root directory with the following variables:
+Create a `.env` file in the root directory with the following variables:
 
 ```env
-# Environment Configuration
-NODE_ENV=development
-NEXT_PUBLIC_APP_ENV=development
+# Privy Configuration
+# Get your App ID from https://dashboard.privy.io/
+NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
+
+# MongoDB Configuration
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+MONGODB_DEV_DATABASE=plp-platform
+MONGODB_PROD_DATABASE=plp_platform_prod
 
 # Solana Network Configuration
 NEXT_PUBLIC_SOLANA_NETWORK=devnet
-NEXT_PUBLIC_SOLANA_RPC_URL=https://api.devnet.solana.com
 
-# For production, use:
-# NEXT_PUBLIC_SOLANA_NETWORK=mainnet-beta
-# NEXT_PUBLIC_SOLANA_RPC_URL=https://api.mainnet-beta.solana.com
+# PLP Program IDs
+NEXT_PUBLIC_PLP_PROGRAM_ID_DEVNET=your_devnet_program_id
+NEXT_PUBLIC_PLP_PROGRAM_ID_MAINNET=your_mainnet_program_id
 
-# MongoDB Configuration
-MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/plp-platform?retryWrites=true&w=majority
+# Helius RPC Configuration (Required for WebSocket support)
+HELIUS_API_KEY=your_helius_api_key
+NEXT_PUBLIC_HELIUS_MAINNET_RPC=https://mainnet.helius-rpc.com/?api-key=your_api_key
+NEXT_PUBLIC_HELIUS_DEVNET_RPC=https://devnet.helius-rpc.com/?api-key=your_api_key
+HELIUS_WS_DEVNET=wss://devnet.helius-rpc.com/?api-key=your_api_key
+HELIUS_WS_MAINNET=wss://mainnet.helius-rpc.com/?api-key=your_api_key
 
-# Dynamic Wallet Configuration
-NEXT_PUBLIC_DYNAMIC_ENVIRONMENT_ID=08c4eb87-d159-4fed-82cd-e20233f87984
+# Redis Configuration (Upstash)
+REDIS_URL=redis://default:password@your-redis.upstash.io:6379
 
-# Actions Protocol Configuration
-NEXT_PUBLIC_ACTIONS_PLATFORM_ID=your_platform_id
+# Socket.IO Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_SOCKET_PORT=3000
+SOCKET_PORT=3000
+AUTO_START_SYNC=false
 
-# Slerf Tools API (when available)
-SLERF_TOOLS_API_KEY=your_slerf_api_key
+# API Configuration
+NEXT_PUBLIC_API_URL=http://localhost:3000/api
+
+# Development Settings
+NODE_ENV=development
+
+# IPFS Storage (Pinata) - Client-side accessible
+NEXT_PUBLIC_PINATA_API_KEY=your_pinata_api_key
+NEXT_PUBLIC_PINATA_SECRET_KEY=your_pinata_secret_key
+NEXT_PUBLIC_PINATA_GATEWAY_URL=https://your-gateway.mypinata.cloud
+NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt
+
+# Server-side IPFS Gateway (used by API routes)
+PINATA_GATEWAY_URL=your-gateway.mypinata.cloud
 
 # Platform Configuration
-NEXT_PUBLIC_PLATFORM_FEE=500000000
-NEXT_PUBLIC_TARGET_POOL=5000000000
-NEXT_PUBLIC_YES_VOTE_COST=50000000
+PLATFORM_FEE_PERCENTAGE=3
+CREATOR_FEE_PERCENTAGE=2
+TARGET_POOL_SOL=5
+YES_VOTE_COST_SOL=0.05
+PLATFORM_FEE_SOL=0.5
 ```
 
 ### 3. Run Development Server
 ```bash
-npm run dev
+npm run dev:unified
 ```
+
+This will start:
+- Next.js development server on port 3000
+- Socket.IO server for real-time updates
+- Blockchain sync manager for monitoring on-chain events
 
 Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ## 📱 Features
 
 - **Mobile-First Design**: Optimized for mobile devices with responsive design
-- **Dark Theme**: Modern, professional appearance
-- **Dynamic Wallet Integration**: Easy wallet connection with multiple Solana wallets
-- **Project Creation**: Comprehensive form for project submission
-- **Prediction Markets**: Community validation through prediction markets
-- **Automated Token Launch**: Integration with pump.fun for token creation
+- **Dark Theme**: Modern, professional appearance with glassmorphic UI
+- **Privy Wallet Integration**: Seamless embedded wallet or external wallet connection
+- **Project Creation**: Comprehensive form with IPFS document storage
+- **Prediction Markets**: Community validation through on-chain prediction markets
+- **Real-Time Updates**: WebSocket integration for live market data synchronization
+- **Document Viewing**: IPFS-based project documentation with prominent display
+- **User Profiles**: Track investments, favorites, and project portfolios
+- **Social Features**: Share markets, follow projects, and engage with the community
 
 ## 🏗️ Tech Stack
 
-- **Frontend**: Next.js 14, TypeScript, Tailwind CSS, shadcn/ui
-- **Blockchain**: Solana, Actions Protocol, Dynamic Labs
-- **Database**: MongoDB Cloud
-- **Wallet**: Dynamic Labs wallet connection
+- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- **Blockchain**: Solana (Anchor Framework), Helius RPC & WebSocket
+- **Database**: MongoDB Cloud (network-aware devnet/mainnet switching)
+- **Storage**: IPFS via Pinata (metadata, images, documents)
+- **Authentication**: Privy (embedded + external wallets)
+- **Real-Time**: Socket.IO for live blockchain event streaming
+- **Caching**: Redis (Upstash) for performance optimization
 
 ## 📋 Development Rules
 
@@ -88,12 +124,32 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 ```
 src/
 ├── app/                 # Next.js app router
+│   ├── api/            # API routes
+│   ├── browse/         # Market browsing page
+│   ├── create/         # Project creation form
+│   ├── market/[id]/    # Individual market details
+│   └── launchpad/      # Launched projects page
 ├── components/          # Reusable UI components
+│   └── ui/             # shadcn/ui components
 ├── lib/                # Utility functions and configs
-├── hooks/              # Custom React hooks
+│   ├── hooks/          # Custom React hooks
+│   ├── services/       # Blockchain sync services
+│   └── database/       # MongoDB utilities
 ├── types/              # TypeScript type definitions
-└── utils/              # Helper functions
+└── config/             # Configuration files
 ```
+
+## 🔄 Real-Time Architecture
+
+The platform uses a sophisticated real-time update system:
+
+- **Helius WebSocket**: Monitors on-chain program accounts for state changes
+- **Event Queue**: Processes blockchain events with retry logic
+- **Socket.IO**: Broadcasts updates to connected clients in real-time
+- **MongoDB Sync**: Automatically syncs on-chain data to database
+- **Redis Cache**: Reduces database load and improves response times
+
+This ensures users see market updates, votes, and pool changes instantly without refreshing.
 
 ## 🔧 Configuration
 
@@ -112,10 +168,14 @@ The platform supports both development and production environments:
 
 ## 🚀 Deployment
 
-1. Set up MongoDB Cloud database
-2. Configure environment variables for production
-3. Deploy to Vercel, Netlify, or your preferred platform
-4. Update Dynamic environment ID for production
+1. Set up MongoDB Cloud database with separate collections for devnet/mainnet
+2. Configure Helius RPC endpoints for production
+3. Set up Pinata IPFS storage account
+4. Configure Redis (Upstash) for caching
+5. Update Privy App ID for production environment
+6. Set up environment variables on your hosting platform
+7. Deploy to Vercel, Railway, or your preferred Node.js hosting platform
+8. Ensure WebSocket support is enabled for real-time updates
 
 ## 📄 License
 
