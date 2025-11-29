@@ -603,6 +603,11 @@ export default function CreatePage() {
                       <p className="text-xs text-white/60 mt-2 text-center">
                         Upload a logo or image for your project (required)
                       </p>
+                      {formData.projectImage && (
+                        <p className="text-xs text-green-400 mt-2 text-center">
+                          ✓ {formData.projectImage.name} selected
+                        </p>
+                      )}
                       {errors.projectImage && <p className="text-sm text-red-400 mt-1 text-center">{errors.projectImage as string}</p>}
                     </div>
                   </div>
