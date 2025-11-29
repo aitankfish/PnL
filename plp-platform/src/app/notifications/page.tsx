@@ -198,26 +198,26 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-white mb-2">Notifications</h1>
-            <p className="text-white/70">
+            <h1 className="text-2xl sm:text-3xl font-bold text-white mb-2">Notifications</h1>
+            <p className="text-sm sm:text-base text-white/70">
               Stay updated with your prediction market activities and platform updates
             </p>
           </div>
-          <div className="flex items-center space-x-3">
-            <Badge className="bg-red-500/20 text-red-300 border-red-400/30">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <Badge className="bg-red-500/20 text-red-300 border-red-400/30 text-xs sm:text-sm">
               {unreadCount} Unread
             </Badge>
             <Button
               onClick={markAllAsRead}
               variant="outline"
               size="sm"
-              className="border-white/20 text-white hover:bg-white/10 hover:border-white/30"
+              className="border-white/20 text-white hover:bg-white/10 hover:border-white/30 text-xs sm:text-sm"
             >
-              <Check className="w-4 h-4 mr-2" />
+              <Check className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
               Mark All Read
             </Button>
           </div>
@@ -225,7 +225,7 @@ export default function NotificationsPage() {
 
         {/* Filter Tabs */}
         <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white">
-          <CardContent className="p-4">
+          <CardContent className="p-3 sm:p-4">
             <div className="flex flex-wrap gap-2">
               {notificationTypes.map((type) => (
                 <Button
@@ -233,15 +233,15 @@ export default function NotificationsPage() {
                   variant={selectedFilter === type.id ? "default" : "ghost"}
                   size="sm"
                   onClick={() => setSelectedFilter(type.id)}
-                  className={
+                  className={`text-xs sm:text-sm ${
                     selectedFilter === type.id
                       ? "bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
                       : "text-white/70 hover:text-white hover:bg-white/10"
-                  }
+                  }`}
                 >
                   {type.label}
                   {type.count > 0 && (
-                    <Badge className="ml-2 bg-white/20 text-white text-xs">
+                    <Badge className="ml-1 sm:ml-2 bg-white/20 text-white text-xs">
                       {type.count}
                     </Badge>
                   )}
@@ -252,13 +252,13 @@ export default function NotificationsPage() {
         </Card>
 
         {/* Notifications List */}
-        <div className="space-y-4">
+        <div className="space-y-3 sm:space-y-4">
           {filteredNotifications.length === 0 ? (
             <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white">
-              <CardContent className="p-12 text-center">
-                <Bell className="w-16 h-16 text-white/30 mx-auto mb-4" />
-                <h3 className="text-xl font-bold text-white mb-2">No Notifications</h3>
-                <p className="text-white/70">
+              <CardContent className="p-6 sm:p-12 text-center">
+                <Bell className="w-12 h-12 sm:w-16 sm:h-16 text-white/30 mx-auto mb-3 sm:mb-4" />
+                <h3 className="text-lg sm:text-xl font-bold text-white mb-2">No Notifications</h3>
+                <p className="text-sm sm:text-base text-white/70">
                   {selectedFilter === 'all'
                     ? "You don't have any notifications yet."
                     : "No notifications match your current filter."
@@ -268,109 +268,114 @@ export default function NotificationsPage() {
             </Card>
           ) : (
             filteredNotifications.map((notification) => (
-              <Card 
-                key={notification.id} 
+              <Card
+                key={notification.id}
                 className={`backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-102 group ${
                   notification.isRead ? 'bg-white/5' : 'bg-white/10 border-white/20'
                 }`}
               >
-                <CardContent className="p-6">
-                  <div className="flex items-start space-x-4">
+                <CardContent className="p-3 sm:p-6">
+                  <div className="flex items-start gap-2 sm:gap-4">
                     {/* Notification Icon */}
-                    <div className={`w-12 h-12 bg-gradient-to-r ${getNotificationColor(notification.type, notification.priority)} rounded-xl flex items-center justify-center flex-shrink-0`}>
+                    <div className={`w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-r ${getNotificationColor(notification.type, notification.priority)} rounded-xl flex items-center justify-center flex-shrink-0`}>
                       {getNotificationIcon(notification.type)}
                     </div>
 
                     {/* Notification Content */}
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center space-x-2 mb-1">
-                            <h3 className={`font-semibold ${notification.isRead ? 'text-white' : 'text-white font-bold'}`}>
-                              {notification.title}
-                            </h3>
-                            {!notification.isRead && (
-                              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-                            )}
-                            <Badge className={`text-xs ${
-                              notification.priority === 'high' 
-                                ? 'bg-red-500/20 text-red-300 border-red-400/30'
-                                : notification.priority === 'medium'
-                                ? 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30'
-                                : 'bg-gray-500/20 text-gray-300 border-gray-400/30'
-                            }`}>
-                              {notification.priority}
-                            </Badge>
-                          </div>
-                          
-                          <p className="text-white/70 text-sm mb-2">
-                            {notification.message}
-                          </p>
-
-                          {notification.project && (
-                            <div className="flex items-center space-x-2 mb-3">
-                              <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30 text-xs">
-                                {notification.project.category}
+                      <div className="flex flex-col gap-2">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-1">
+                              <h3 className={`text-sm sm:text-base font-semibold ${notification.isRead ? 'text-white' : 'text-white font-bold'}`}>
+                                {notification.title}
+                              </h3>
+                              {!notification.isRead && (
+                                <div className="w-2 h-2 bg-blue-500 rounded-full flex-shrink-0"></div>
+                              )}
+                              <Badge className={`text-xs ${
+                                notification.priority === 'high'
+                                  ? 'bg-red-500/20 text-red-300 border-red-400/30'
+                                  : notification.priority === 'medium'
+                                  ? 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30'
+                                  : 'bg-gray-500/20 text-gray-300 border-gray-400/30'
+                              }`}>
+                                {notification.priority}
                               </Badge>
-                              <span className="text-white/60 text-sm">
-                                {notification.project.name} ({notification.project.symbol})
-                              </span>
                             </div>
-                          )}
 
-                          <div className="flex items-center justify-between">
-                            <span className="text-white/50 text-xs flex items-center">
-                              <Clock className="w-3 h-3 mr-1" />
-                              {notification.timestamp}
-                            </span>
+                            <p className="text-white/70 text-xs sm:text-sm mb-2">
+                              {notification.message}
+                            </p>
 
-                            <div className="flex items-center space-x-2">
-                              {notification.action && notification.actionUrl && (
-                                <Link href={notification.actionUrl}>
+                            {notification.project && (
+                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2 sm:mb-3">
+                                <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30 text-xs">
+                                  {notification.project.category}
+                                </Badge>
+                                <span className="text-white/60 text-xs sm:text-sm">
+                                  {notification.project.name} ({notification.project.symbol})
+                                </span>
+                              </div>
+                            )}
+
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                              <span className="text-white/50 text-xs flex items-center">
+                                <Clock className="w-3 h-3 mr-1" />
+                                {notification.timestamp}
+                              </span>
+
+                              <div className="flex items-center gap-2 flex-wrap">
+                                {notification.action && notification.actionUrl && (
+                                  <Link href={notification.actionUrl}>
+                                    <Button
+                                      size="sm"
+                                      className={`text-xs sm:text-sm ${
+                                        notification.type === 'claim_ready'
+                                          ? "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                                          : notification.type === 'token_launched'
+                                          ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
+                                          : "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
+                                      }`}
+                                    >
+                                      {notification.action === 'claim_rewards' && <DollarSign className="w-3 h-3 mr-1" />}
+                                      {notification.action === 'view_market' && <ExternalLink className="w-3 h-3 mr-1" />}
+                                      {notification.action === 'view_token' && <Rocket className="w-3 h-3 mr-1" />}
+                                      {notification.action === 'trade_token' && <TrendingUp className="w-3 h-3 mr-1" />}
+                                      {notification.action === 'view_project' && <ExternalLink className="w-3 h-3 mr-1" />}
+                                      {notification.action === 'view_results' && <CheckCircle className="w-3 h-3 mr-1" />}
+                                      <span className="hidden sm:inline">{notification.action.replace(/_/g, ' ')}</span>
+                                      <span className="sm:hidden">{notification.action.split('_')[0]}</span>
+                                    </Button>
+                                  </Link>
+                                )}
+
+                                {/* Action Buttons */}
+                                <div className="flex items-center gap-1 sm:gap-2">
+                                  {!notification.isRead && (
+                                    <Button
+                                      size="sm"
+                                      variant="ghost"
+                                      onClick={() => markAsRead(notification.id)}
+                                      className="text-white/70 hover:text-white hover:bg-white/10 h-8 w-8 p-0"
+                                      title="Mark as read"
+                                    >
+                                      <Check className="w-3 h-3 sm:w-4 sm:h-4" />
+                                    </Button>
+                                  )}
                                   <Button
                                     size="sm"
-                                    className={
-                                      notification.type === 'claim_ready'
-                                        ? "bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                                        : notification.type === 'token_launched'
-                                        ? "bg-gradient-to-r from-blue-500 to-purple-500 hover:from-blue-600 hover:to-purple-600"
-                                        : "bg-gradient-to-r from-cyan-500 to-blue-500 hover:from-cyan-600 hover:to-blue-600"
-                                    }
+                                    variant="ghost"
+                                    onClick={() => deleteNotification(notification.id)}
+                                    className="text-white/70 hover:text-red-400 hover:bg-red-500/10 h-8 w-8 p-0"
+                                    title="Delete notification"
                                   >
-                                    {notification.action === 'claim_rewards' && <DollarSign className="w-3 h-3 mr-1" />}
-                                    {notification.action === 'view_market' && <ExternalLink className="w-3 h-3 mr-1" />}
-                                    {notification.action === 'view_token' && <Rocket className="w-3 h-3 mr-1" />}
-                                    {notification.action === 'trade_token' && <TrendingUp className="w-3 h-3 mr-1" />}
-                                    {notification.action === 'view_project' && <ExternalLink className="w-3 h-3 mr-1" />}
-                                    {notification.action === 'view_results' && <CheckCircle className="w-3 h-3 mr-1" />}
-                                    {notification.action.replace(/_/g, ' ')}
+                                    <Trash2 className="w-3 h-3 sm:w-4 sm:h-4" />
                                   </Button>
-                                </Link>
-                              )}
+                                </div>
+                              </div>
                             </div>
                           </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex items-center space-x-2 ml-4">
-                          {!notification.isRead && (
-                            <Button
-                              size="sm"
-                              variant="ghost"
-                              onClick={() => markAsRead(notification.id)}
-                              className="text-white/70 hover:text-white hover:bg-white/10"
-                            >
-                              <Check className="w-4 h-4" />
-                            </Button>
-                          )}
-                          <Button
-                            size="sm"
-                            variant="ghost"
-                            onClick={() => deleteNotification(notification.id)}
-                            className="text-white/70 hover:text-red-400 hover:bg-red-500/10"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
                         </div>
                       </div>
                     </div>
