@@ -302,28 +302,28 @@ export default function BrowsePage() {
   }
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="p-3 sm:p-6 space-y-6 sm:space-y-8">
         {/* Header */}
         <div className="text-center">
-          <h1 className="text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 tracking-tight">
+          <h1 className="text-lg sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-purple-400 via-pink-400 to-cyan-400 tracking-tight">
             Vote on projects. Earn rewards. Shape Web3.
           </h1>
         </div>
 
         {/* Hot Projects Section */}
         {!loading && hotProjects.length > 0 && (
-          <div className="space-y-4">
-            <div className="flex items-center justify-center space-x-3">
+          <div className="space-y-3 sm:space-y-4">
+            <div className="flex items-center justify-center space-x-2 sm:space-x-3">
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-orange-500 to-transparent"></div>
-              <h2 className="text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 flex items-center space-x-2 animate-pulse">
-                <span>🔥</span>
+              <h2 className="text-base sm:text-2xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-orange-400 via-red-400 to-pink-400 flex items-center space-x-1.5 sm:space-x-2 animate-pulse">
+                <span className="text-lg sm:text-2xl">🔥</span>
                 <span>Hottest Markets</span>
-                <span>🔥</span>
+                <span className="text-lg sm:text-2xl">🔥</span>
               </h2>
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-orange-500 to-transparent"></div>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
               {hotProjects.map((hotProject, index) => {
                 // First card: Orange/Red theme, Second card: Purple/Blue theme
                 const isFirstCard = index === 0;
@@ -363,9 +363,9 @@ export default function BrowsePage() {
                 <div className={`absolute bottom-0 left-0 w-4 h-4 border-b-2 border-l-2 ${cardColors.cornerBorder} animate-pulse`}></div>
                 <div className={`absolute bottom-0 right-0 w-4 h-4 border-b-2 border-r-2 ${cardColors.cornerBorder} animate-pulse`}></div>
 
-                <CardHeader>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-start space-x-3 flex-1">
+                <CardHeader className="pb-3 sm:pb-6">
+                  <div className="flex items-start justify-between mb-2 sm:mb-3">
+                    <div className="flex items-start space-x-2 sm:space-x-3 flex-1">
                       {/* Project Image */}
                       {hotProject.projectImageUrl ? (
                         <div className="flex-shrink-0 relative">
@@ -373,7 +373,7 @@ export default function BrowsePage() {
                           <img
                             src={hotProject.projectImageUrl}
                             alt={hotProject.name}
-                            className={`relative w-16 h-16 rounded-lg object-cover ring-2 ${cardColors.imageRing} ${cardColors.imageRingHover} transition-all transform group-hover:scale-110`}
+                            className={`relative w-12 h-12 sm:w-16 sm:h-16 rounded-lg object-cover ring-2 ${cardColors.imageRing} ${cardColors.imageRingHover} transition-all transform group-hover:scale-110`}
                             onError={(e) => {
                               const target = e.target as HTMLImageElement;
                               target.style.display = 'none';
@@ -381,79 +381,79 @@ export default function BrowsePage() {
                               if (fallback) fallback.style.display = 'flex';
                             }}
                           />
-                          <div className={`hidden w-16 h-16 rounded-lg bg-gradient-to-br ${cardColors.fallbackGradient} items-center justify-center ring-2 ${cardColors.imageRing} ${cardColors.imageRingHover} transition-all flex-shrink-0`}>
-                            <span className="text-2xl font-bold text-white/70">{hotProject.name.charAt(0)}</span>
+                          <div className={`hidden w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-gradient-to-br ${cardColors.fallbackGradient} items-center justify-center ring-2 ${cardColors.imageRing} ${cardColors.imageRingHover} transition-all flex-shrink-0`}>
+                            <span className="text-xl sm:text-2xl font-bold text-white/70">{hotProject.name.charAt(0)}</span>
                           </div>
                         </div>
                       ) : (
-                        <div className={`w-16 h-16 rounded-lg bg-gradient-to-br ${cardColors.fallbackGradient} flex items-center justify-center ring-2 ${cardColors.imageRing} ${cardColors.imageRingHover} transition-all flex-shrink-0`}>
-                          <span className="text-2xl font-bold text-white/70">{hotProject.name.charAt(0)}</span>
+                        <div className={`w-12 h-12 sm:w-16 sm:h-16 rounded-lg bg-gradient-to-br ${cardColors.fallbackGradient} flex items-center justify-center ring-2 ${cardColors.imageRing} ${cardColors.imageRingHover} transition-all flex-shrink-0`}>
+                          <span className="text-xl sm:text-2xl font-bold text-white/70">{hotProject.name.charAt(0)}</span>
                         </div>
                       )}
 
                       {/* Project Info */}
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center space-x-3 mb-2">
-                          <CardTitle className={`text-2xl text-white ${cardColors.titleHover} transition-colors truncate`}>{hotProject.name}</CardTitle>
-                          <Badge className={`${getMarketStatus(hotProject).badgeClass} ml-2 flex-shrink-0`}>{getMarketStatus(hotProject).status}</Badge>
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mb-1.5 sm:mb-2 gap-1 sm:gap-0">
+                          <CardTitle className={`text-base sm:text-2xl text-white ${cardColors.titleHover} transition-colors truncate`}>{hotProject.name}</CardTitle>
+                          <Badge className={`${getMarketStatus(hotProject).badgeClass} flex-shrink-0 text-xs sm:text-sm w-fit`}>{getMarketStatus(hotProject).status}</Badge>
                         </div>
-                        <CardDescription className="text-gray-300 group-hover:text-white transition-colors line-clamp-2">{hotProject.description}</CardDescription>
+                        <CardDescription className="text-gray-300 group-hover:text-white transition-colors line-clamp-2 text-xs sm:text-sm">{hotProject.description}</CardDescription>
                       </div>
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="flex items-center justify-between text-sm">
+                <CardContent className="space-y-3 sm:space-y-4">
+                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
                       <span className="text-gray-400">Category:</span>
-                      <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30">{formatLabel(hotProject.category)}</Badge>
+                      <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30 text-xs">{formatLabel(hotProject.category)}</Badge>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
                       <span className="text-gray-400">Stage:</span>
-                      <span className="text-white">{formatLabel(hotProject.stage)}</span>
+                      <span className="text-white text-xs sm:text-sm">{formatLabel(hotProject.stage)}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
                       <span className="text-gray-400">Token:</span>
-                      <span className="font-mono font-bold text-white">${hotProject.tokenSymbol}</span>
+                      <span className="font-mono font-bold text-white text-xs sm:text-sm">${hotProject.tokenSymbol}</span>
                     </div>
-                    <div className="flex items-center justify-between text-sm">
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
                       <span className="text-gray-400">Pool:</span>
-                      <span className="font-bold text-white">{hotProject.targetPool}</span>
+                      <span className="font-bold text-white text-xs sm:text-sm">{hotProject.targetPool}</span>
                     </div>
                   </div>
 
                   {/* Voting Stats */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <div className="flex items-center space-x-1">
-                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
                         <span className="text-green-400">YES: {hotProject.yesVotes}</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <span className="text-red-400">NO: {hotProject.noVotes}</span>
-                        <XCircle className="w-4 h-4 text-red-400" />
+                        <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
                       </div>
                     </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div className="w-full bg-gray-700 rounded-full h-1.5 sm:h-2">
                       <div
-                        className="bg-gradient-to-r from-green-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
+                        className="bg-gradient-to-r from-green-500 to-cyan-500 h-1.5 sm:h-2 rounded-full transition-all duration-500"
                         style={{ width: `${calculateYesPercentage(hotProject)}%` }}
                       ></div>
                     </div>
                     <div className="text-center">
-                      <span className="text-lg font-bold text-white">
+                      <span className="text-base sm:text-lg font-bold text-white">
                         {calculateYesPercentage(hotProject)}%
                       </span>
-                      <span className="text-sm text-gray-400 ml-1">YES</span>
+                      <span className="text-xs sm:text-sm text-gray-400 ml-1">YES</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-sm pt-2 border-t border-white/10">
+                  <div className="flex items-center justify-between text-xs sm:text-sm pt-1.5 sm:pt-2 border-t border-white/10">
                     <span className="text-gray-400">Time Left:</span>
                     <CountdownTimer expiryTime={hotProject.expiryTime} />
                   </div>
 
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-1.5 sm:gap-2 pt-1.5 sm:pt-2">
                     <Button
                       onClick={(e) => {
                         e.preventDefault();
@@ -502,18 +502,18 @@ export default function BrowsePage() {
         )}
 
         {/* Projects List */}
-        <div className="space-y-6">
-          <div className="flex items-center justify-between flex-wrap gap-4">
-            <h2 className="text-3xl font-bold text-white">Live Markets</h2>
+        <div className="space-y-4 sm:space-y-6">
+          <div className="flex items-center justify-between flex-wrap gap-3 sm:gap-4">
+            <h2 className="text-xl sm:text-3xl font-bold text-white">Live Markets</h2>
 
             {/* Category Filter Dropdown */}
-            <div className="flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Filter className="w-5 h-5 text-gray-400" />
-                <span className="text-sm text-gray-400 font-medium">Filter by:</span>
+            <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-1.5 sm:gap-2">
+                <Filter className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400" />
+                <span className="text-xs sm:text-sm text-gray-400 font-medium hidden sm:inline">Filter by:</span>
               </div>
               <Select value={selectedCategory} onValueChange={setSelectedCategory}>
-                <SelectTrigger className="w-[200px] bg-white/10 border-white/20 text-white hover:bg-white/20 transition-colors">
+                <SelectTrigger className="w-[140px] sm:w-[200px] bg-white/10 border-white/20 text-white hover:bg-white/20 transition-colors text-sm">
                   <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent className="bg-gray-900 border-white/20">
@@ -533,7 +533,7 @@ export default function BrowsePage() {
 
           {/* Loading State with Skeletons */}
           {loading && (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
               {[...Array(6)].map((_, i) => (
                 <Card key={i} className="bg-white/5 backdrop-blur-xl border-white/10">
                   <CardHeader>
@@ -597,23 +597,23 @@ export default function BrowsePage() {
 
           {/* Markets Grid */}
           {!loading && !error && regularMarkets.length > 0 && (
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
               {regularMarkets.map((project) => {
                 const marketStatus = getMarketStatus(project);
 
                 return (
               <Link href={`/market/${project.id}`} key={project.id} prefetch={true} className="block">
               <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-102 group cursor-pointer">
-                <CardHeader>
-                  <div className="flex items-start justify-between mb-3">
-                    <div className="flex items-start space-x-3 flex-1">
+                <CardHeader className="pb-3 sm:pb-6">
+                  <div className="flex items-start justify-between mb-2 sm:mb-3">
+                    <div className="flex items-start space-x-2 sm:space-x-3 flex-1">
                       {/* Project Image */}
                       {project.projectImageUrl ? (
                         <div className="flex-shrink-0">
                           <img
                             src={project.projectImageUrl}
                             alt={project.name}
-                            className="w-12 h-12 rounded-lg object-cover ring-2 ring-white/10 group-hover:ring-cyan-300/50 transition-all"
+                            className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg object-cover ring-2 ring-white/10 group-hover:ring-cyan-300/50 transition-all"
                             onError={(e) => {
                               // Fallback if image fails to load
                               const target = e.target as HTMLImageElement;
@@ -622,77 +622,77 @@ export default function BrowsePage() {
                               if (fallback) fallback.style.display = 'flex';
                             }}
                           />
-                          <div className="hidden w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 items-center justify-center ring-2 ring-white/10 group-hover:ring-cyan-300/50 transition-all flex-shrink-0">
-                            <span className="text-lg font-bold text-white/70">{project.name.charAt(0)}</span>
+                          <div className="hidden w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 items-center justify-center ring-2 ring-white/10 group-hover:ring-cyan-300/50 transition-all flex-shrink-0">
+                            <span className="text-base sm:text-lg font-bold text-white/70">{project.name.charAt(0)}</span>
                           </div>
                         </div>
                       ) : (
-                        <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center ring-2 ring-white/10 group-hover:ring-cyan-300/50 transition-all flex-shrink-0">
-                          <span className="text-lg font-bold text-white/70">{project.name.charAt(0)}</span>
+                        <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-lg bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center ring-2 ring-white/10 group-hover:ring-cyan-300/50 transition-all flex-shrink-0">
+                          <span className="text-base sm:text-lg font-bold text-white/70">{project.name.charAt(0)}</span>
                         </div>
                       )}
 
                       {/* Project Info */}
                       <div className="flex-1 min-w-0">
-                        <CardTitle className="text-xl text-white group-hover:text-cyan-300 transition-colors truncate">{project.name}</CardTitle>
-                        <CardDescription className="mt-1 text-gray-300 group-hover:text-white transition-colors line-clamp-2">{project.description}</CardDescription>
+                        <CardTitle className="text-base sm:text-xl text-white group-hover:text-cyan-300 transition-colors truncate">{project.name}</CardTitle>
+                        <CardDescription className="mt-0.5 sm:mt-1 text-gray-300 group-hover:text-white transition-colors line-clamp-2 text-xs sm:text-sm">{project.description}</CardDescription>
                       </div>
                     </div>
 
                     {/* Status Badge */}
-                    <Badge className={`${marketStatus.badgeClass} ml-2 flex-shrink-0`}>{marketStatus.status}</Badge>
+                    <Badge className={`${marketStatus.badgeClass} ml-1.5 sm:ml-2 flex-shrink-0 text-xs`}>{marketStatus.status}</Badge>
                   </div>
                 </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between text-sm">
+                <CardContent className="space-y-3 sm:space-y-4">
+                  <div className="flex items-center justify-between text-xs sm:text-sm">
                     <span className="text-gray-400">Category:</span>
-                    <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30">{formatLabel(project.category)}</Badge>
+                    <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30 text-xs">{formatLabel(project.category)}</Badge>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs sm:text-sm">
                     <span className="text-gray-400">Stage:</span>
-                    <span className="text-white">{formatLabel(project.stage)}</span>
+                    <span className="text-white text-xs sm:text-sm">{formatLabel(project.stage)}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs sm:text-sm">
                     <span className="text-gray-400">Token:</span>
-                    <span className="font-mono font-bold text-white">${project.tokenSymbol}</span>
+                    <span className="font-mono font-bold text-white text-xs sm:text-sm">${project.tokenSymbol}</span>
                   </div>
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs sm:text-sm">
                     <span className="text-gray-400">Pool:</span>
-                    <span className="font-bold text-white">{project.targetPool}</span>
+                    <span className="font-bold text-white text-xs sm:text-sm">{project.targetPool}</span>
                   </div>
-                  
+
                   {/* Voting Stats */}
-                  <div className="space-y-2">
-                    <div className="flex justify-between text-sm">
+                  <div className="space-y-1.5 sm:space-y-2">
+                    <div className="flex justify-between text-xs sm:text-sm">
                       <div className="flex items-center space-x-1">
-                        <CheckCircle className="w-4 h-4 text-green-400" />
+                        <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
                         <span className="text-green-400">YES: {project.yesVotes}</span>
                       </div>
                       <div className="flex items-center space-x-1">
                         <span className="text-red-400">NO: {project.noVotes}</span>
-                        <XCircle className="w-4 h-4 text-red-400" />
+                        <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
                       </div>
                     </div>
-                    <div className="w-full bg-gray-700 rounded-full h-2">
+                    <div className="w-full bg-gray-700 rounded-full h-1.5 sm:h-2">
                       <div
-                        className="bg-gradient-to-r from-green-500 to-cyan-500 h-2 rounded-full transition-all duration-500"
+                        className="bg-gradient-to-r from-green-500 to-cyan-500 h-1.5 sm:h-2 rounded-full transition-all duration-500"
                         style={{ width: `${calculateYesPercentage(project)}%` }}
                       ></div>
                     </div>
                     <div className="text-center">
-                      <span className="text-lg font-bold text-white">
+                      <span className="text-base sm:text-lg font-bold text-white">
                         {calculateYesPercentage(project)}%
                       </span>
-                      <span className="text-sm text-gray-400 ml-1">YES</span>
+                      <span className="text-xs sm:text-sm text-gray-400 ml-1">YES</span>
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between text-sm">
+                  <div className="flex items-center justify-between text-xs sm:text-sm">
                     <span className="text-gray-400">Time Left:</span>
                     <CountdownTimer expiryTime={project.expiryTime} />
                   </div>
 
-                  <div className="flex gap-2 pt-2">
+                  <div className="flex gap-1.5 sm:gap-2 pt-1.5 sm:pt-2">
                     <Button
                       onClick={(e) => {
                         e.preventDefault();
@@ -741,16 +741,16 @@ export default function BrowsePage() {
         </div>
 
         {/* Call to Action */}
-        <div className="text-center space-y-4 py-12">
-          <h2 className="text-3xl font-bold text-white">Don&apos;t See Your Project?</h2>
-          <p className="text-white/70">
+        <div className="text-center space-y-3 sm:space-y-4 py-8 sm:py-12">
+          <h2 className="text-xl sm:text-3xl font-bold text-white">Don&apos;t See Your Project?</h2>
+          <p className="text-white/70 text-sm sm:text-base px-4">
             Launch your own prediction market and let the community decide if your project should get a token.
           </p>
           <div className="flex justify-center">
             <Link
               href="/create"
               prefetch={true}
-              className="inline-flex items-center justify-center px-8 py-3 text-lg font-semibold text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-md hover:from-purple-600 hover:to-pink-600 transition-all duration-200 hover:scale-105 cursor-pointer"
+              className="inline-flex items-center justify-center px-6 sm:px-8 py-2.5 sm:py-3 text-base sm:text-lg font-semibold text-white bg-gradient-to-r from-purple-500 to-pink-500 rounded-md hover:from-purple-600 hover:to-pink-600 transition-all duration-200 hover:scale-105 cursor-pointer"
             >
               Launch Your Project
             </Link>
