@@ -916,91 +916,97 @@ export default function MarketDetailsPage() {
   const marketStatus = getDetailedMarketStatus(market, onchainData);
 
   return (
-    <div className="p-4 max-w-6xl mx-auto space-y-4">
+    <div className="p-3 sm:p-4 max-w-6xl mx-auto space-y-3 sm:space-y-4">
         {/* Back Button */}
         <Button
           variant="ghost"
           onClick={() => router.push('/browse')}
-          className="text-white hover:bg-white/10"
+          className="text-white hover:bg-white/10 text-sm sm:text-base"
         >
-          <ArrowLeft className="w-4 h-4 mr-2" />
+          <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
           Back to Markets
         </Button>
 
         {/* Combined Header & Voting Stats Section */}
         <Card className="bg-white/5 backdrop-blur-xl border-white/10">
-          <CardHeader className="pb-4">
-            <div className="flex items-start justify-between">
-              <div className="flex items-start space-x-4 flex-1">
+          <CardHeader className="pb-3 sm:pb-4">
+            <div className="flex flex-col gap-3 sm:gap-0 sm:flex-row sm:items-start sm:justify-between">
+              <div className="flex items-start gap-2 sm:gap-4 flex-1">
                 {/* Project Image */}
                 {market.projectImageUrl ? (
                   <img
                     src={market.projectImageUrl}
                     alt={market.name}
-                    className="w-20 h-20 rounded-xl object-cover ring-2 ring-white/10"
+                    className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl object-cover ring-2 ring-white/10 flex-shrink-0"
                   />
                 ) : (
-                  <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center ring-2 ring-white/10">
-                    <span className="text-3xl font-bold text-white/70">{market.name.charAt(0)}</span>
+                  <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-xl bg-gradient-to-br from-purple-500/20 to-pink-500/20 flex items-center justify-center ring-2 ring-white/10 flex-shrink-0">
+                    <span className="text-2xl sm:text-3xl font-bold text-white/70">{market.name.charAt(0)}</span>
                   </div>
                 )}
 
                 {/* Project Info */}
-                <div className="flex-1">
-                  <div className="flex items-center space-x-3 mb-2">
-                    <CardTitle className="text-2xl text-white">{market.name}</CardTitle>
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-start gap-1 sm:gap-2 mb-2">
+                    <CardTitle className="text-lg sm:text-2xl text-white break-words">{market.name}</CardTitle>
 
                     {/* Share and Favorite Icons */}
-                    <button
-                      onClick={handleShare}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors group"
-                      title="Share this market"
-                    >
-                      <Share2 className="w-5 h-5 text-gray-400 group-hover:text-white transition-colors" />
-                    </button>
-                    {primaryWallet?.address && (
+                    <div className="flex items-center gap-1 ml-auto sm:ml-0">
                       <button
-                        onClick={toggleFavorite}
-                        disabled={isTogglingFavorite}
-                        className="p-2 hover:bg-white/10 rounded-lg transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
-                        title={isFavorite ? "Remove from watchlist" : "Add to watchlist"}
+                        onClick={handleShare}
+                        className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors group"
+                        title="Share this market"
                       >
-                        <Heart
-                          className={`w-5 h-5 transition-all ${
-                            isFavorite
-                              ? 'text-red-500 fill-red-500'
-                              : 'text-gray-400 group-hover:text-red-400'
-                          }`}
-                        />
+                        <Share2 className="w-4 h-4 sm:w-5 sm:h-5 text-gray-400 group-hover:text-white transition-colors" />
                       </button>
-                    )}
+                      {primaryWallet?.address && (
+                        <button
+                          onClick={toggleFavorite}
+                          disabled={isTogglingFavorite}
+                          className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors group disabled:opacity-50 disabled:cursor-not-allowed"
+                          title={isFavorite ? "Remove from watchlist" : "Add to watchlist"}
+                        >
+                          <Heart
+                            className={`w-4 h-4 sm:w-5 sm:h-5 transition-all ${
+                              isFavorite
+                                ? 'text-red-500 fill-red-500'
+                                : 'text-gray-400 group-hover:text-red-400'
+                            }`}
+                          />
+                        </button>
+                      )}
+                    </div>
+                  </div>
 
-                    <Badge className={marketStatus.badgeClass}>{marketStatus.status}</Badge>
+                  {/* Badges Row */}
+                  <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
+                    <Badge className={`${marketStatus.badgeClass} text-xs`}>{marketStatus.status}</Badge>
                     {/* Phase Badge */}
                     {onchainData?.success && (
-                      <Badge className={`${
+                      <Badge className={`text-xs ${
                         onchainData.data.phase === 'Funding'
                           ? 'bg-purple-500/20 text-purple-300 border-purple-400/30'
                           : 'bg-blue-500/20 text-blue-300 border-blue-400/30'
                       }`}>
-                        {onchainData.data.phase === 'Funding' ? '💰 Funding Phase' : '📊 Prediction Phase'}
+                        {onchainData.data.phase === 'Funding' ? '💰 Funding' : '📊 Prediction'}
                       </Badge>
                     )}
                   </div>
-                  <CardDescription className="text-gray-300 mb-2">
+
+                  <CardDescription className="text-gray-300 mb-2 text-sm sm:text-base">
                     {market.description}
                   </CardDescription>
 
                   {/* Token, Category, Stage & Social Links - All on same line */}
-                  <div className="flex items-center flex-wrap gap-2">
-                    <div className="flex items-center space-x-1 px-3 py-1.5 bg-white/5 rounded-lg border border-white/10">
-                      <Target className="w-4 h-4 text-gray-400" />
-                      <span className="text-sm font-semibold text-white">${market.tokenSymbol}</span>
+                  <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
+                    <div className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/5 rounded-lg border border-white/10">
+                      <Target className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
+                      <span className="text-xs sm:text-sm font-semibold text-white">${market.tokenSymbol}</span>
                     </div>
-                    <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30">
+                    <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30 text-xs">
                       {formatLabel(market.category)}
                     </Badge>
-                    <Badge className="bg-white/10 text-white border-white/20">
+                    <Badge className="bg-white/10 text-white border-white/20 text-xs">
                       {formatLabel(market.stage)}
                     </Badge>
 
@@ -1010,12 +1016,12 @@ export default function MarketDetailsPage() {
                         href={market.documentUrls[0]}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="flex items-center space-x-1 px-3 py-1.5 bg-blue-500/20 rounded-lg border border-blue-400/30 hover:bg-blue-500/30 transition-colors"
+                        className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-blue-500/20 rounded-lg border border-blue-400/30 hover:bg-blue-500/30 transition-colors"
                         title="View project documentation"
                       >
-                        <FileText className="w-4 h-4 text-blue-300" />
-                        <span className="text-sm font-medium text-blue-300">Documentation</span>
-                        <ExternalLink className="w-3 h-3 text-blue-300" />
+                        <FileText className="w-3 h-3 sm:w-4 sm:h-4 text-blue-300" />
+                        <span className="text-xs sm:text-sm font-medium text-blue-300 hidden sm:inline">Documentation</span>
+                        <ExternalLink className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-blue-300 sm:inline hidden" />
                       </a>
                     )}
 
@@ -1027,10 +1033,11 @@ export default function MarketDetailsPage() {
                             href={market.metadata.socialLinks.website}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30 border border-blue-400/30 rounded-lg transition-all hover:scale-105"
+                            className="flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-blue-500/20 to-cyan-500/20 hover:from-blue-500/30 hover:to-cyan-500/30 border border-blue-400/30 rounded-lg transition-all hover:scale-105"
+                            title="Website"
                           >
-                            <Globe className="w-4 h-4 text-blue-400" />
-                            <span className="text-white text-sm font-medium">Website</span>
+                            <Globe className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
+                            <span className="text-white text-xs sm:text-sm font-medium hidden sm:inline">Website</span>
                           </a>
                         )}
                         {market.metadata.socialLinks.twitter && (
@@ -1038,10 +1045,11 @@ export default function MarketDetailsPage() {
                             href={market.metadata.socialLinks.twitter}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-sky-500/20 to-blue-500/20 hover:from-sky-500/30 hover:to-blue-500/30 border border-sky-400/30 rounded-lg transition-all hover:scale-105"
+                            className="flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-sky-500/20 to-blue-500/20 hover:from-sky-500/30 hover:to-blue-500/30 border border-sky-400/30 rounded-lg transition-all hover:scale-105"
+                            title="Twitter"
                           >
-                            <Twitter className="w-4 h-4 text-sky-400" />
-                            <span className="text-white text-sm font-medium">Twitter</span>
+                            <Twitter className="w-3 h-3 sm:w-4 sm:h-4 text-sky-400" />
+                            <span className="text-white text-xs sm:text-sm font-medium hidden sm:inline">Twitter</span>
                           </a>
                         )}
                         {market.metadata.socialLinks.discord && (
@@ -1049,10 +1057,11 @@ export default function MarketDetailsPage() {
                             href={market.metadata.socialLinks.discord}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-400/30 rounded-lg transition-all hover:scale-105"
+                            className="flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-indigo-500/20 to-purple-500/20 hover:from-indigo-500/30 hover:to-purple-500/30 border border-indigo-400/30 rounded-lg transition-all hover:scale-105"
+                            title="Discord"
                           >
-                            <MessageCircle className="w-4 h-4 text-indigo-400" />
-                            <span className="text-white text-sm font-medium">Discord</span>
+                            <MessageCircle className="w-3 h-3 sm:w-4 sm:h-4 text-indigo-400" />
+                            <span className="text-white text-xs sm:text-sm font-medium hidden sm:inline">Discord</span>
                           </a>
                         )}
                         {market.metadata.socialLinks.github && (
@@ -1060,10 +1069,11 @@ export default function MarketDetailsPage() {
                             href={market.metadata.socialLinks.github}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-gray-500/20 to-slate-500/20 hover:from-gray-500/30 hover:to-slate-500/30 border border-gray-400/30 rounded-lg transition-all hover:scale-105"
+                            className="flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-gray-500/20 to-slate-500/20 hover:from-gray-500/30 hover:to-slate-500/30 border border-gray-400/30 rounded-lg transition-all hover:scale-105"
+                            title="GitHub"
                           >
-                            <Github className="w-4 h-4 text-gray-300" />
-                            <span className="text-white text-sm font-medium">GitHub</span>
+                            <Github className="w-3 h-3 sm:w-4 sm:h-4 text-gray-300" />
+                            <span className="text-white text-xs sm:text-sm font-medium hidden sm:inline">GitHub</span>
                           </a>
                         )}
                         {market.metadata.socialLinks.telegram && (
@@ -1071,10 +1081,11 @@ export default function MarketDetailsPage() {
                             href={market.metadata.socialLinks.telegram}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 hover:from-blue-400/30 hover:to-cyan-400/30 border border-blue-300/30 rounded-lg transition-all hover:scale-105"
+                            className="flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-blue-400/20 to-cyan-400/20 hover:from-blue-400/30 hover:to-cyan-400/30 border border-blue-300/30 rounded-lg transition-all hover:scale-105"
+                            title="Telegram"
                           >
-                            <Send className="w-4 h-4 text-blue-400" />
-                            <span className="text-white text-sm font-medium">Telegram</span>
+                            <Send className="w-3 h-3 sm:w-4 sm:h-4 text-blue-400" />
+                            <span className="text-white text-xs sm:text-sm font-medium hidden sm:inline">Telegram</span>
                           </a>
                         )}
                         {market.metadata.socialLinks.linkedin && (
@@ -1082,10 +1093,11 @@ export default function MarketDetailsPage() {
                             href={market.metadata.socialLinks.linkedin}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="flex items-center space-x-1 px-3 py-1.5 bg-gradient-to-r from-blue-600/20 to-blue-700/20 hover:from-blue-600/30 hover:to-blue-700/30 border border-blue-500/30 rounded-lg transition-all hover:scale-105"
+                            className="flex items-center gap-0.5 sm:gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-gradient-to-r from-blue-600/20 to-blue-700/20 hover:from-blue-600/30 hover:to-blue-700/30 border border-blue-500/30 rounded-lg transition-all hover:scale-105"
+                            title="LinkedIn"
                           >
-                            <Globe className="w-4 h-4 text-blue-500" />
-                            <span className="text-white text-sm font-medium">LinkedIn</span>
+                            <Globe className="w-3 h-3 sm:w-4 sm:h-4 text-blue-500" />
+                            <span className="text-white text-xs sm:text-sm font-medium hidden sm:inline">LinkedIn</span>
                           </a>
                         )}
                       </>
@@ -1101,10 +1113,10 @@ export default function MarketDetailsPage() {
         <div className="grid gap-4 lg:grid-cols-2">
           {/* Combined Market Status Card */}
           <Card className="bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-cyan-500/10 backdrop-blur-xl border-purple-400/30">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-white text-xl">Market Status</CardTitle>
+          <CardHeader className="pb-2 sm:pb-3">
+            <CardTitle className="text-white text-lg sm:text-xl">Market Status</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-6">
+          <CardContent className="space-y-4 sm:space-y-6">
             {/* Probability Trends Chart */}
             <div>
               <ProbabilityChart
@@ -1114,38 +1126,38 @@ export default function MarketDetailsPage() {
             </div>
 
             {/* Voting Stats Section */}
-            <div className="space-y-3">
+            <div className="space-y-2 sm:space-y-3">
               <div className="flex justify-between items-center">
-                <div className="flex items-center space-x-2">
-                  <CheckCircle className="w-4 h-4 text-green-400" />
-                  <span className="text-base text-green-400 font-medium">YES: {market.yesVotes}</span>
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <CheckCircle className="w-3 h-3 sm:w-4 sm:h-4 text-green-400" />
+                  <span className="text-sm sm:text-base text-green-400 font-medium">YES: {market.yesVotes}</span>
                 </div>
-                <div className="flex items-center space-x-2">
-                  <span className="text-base text-red-400 font-medium">NO: {market.noVotes}</span>
-                  <XCircle className="w-4 h-4 text-red-400" />
+                <div className="flex items-center space-x-1 sm:space-x-2">
+                  <span className="text-sm sm:text-base text-red-400 font-medium">NO: {market.noVotes}</span>
+                  <XCircle className="w-3 h-3 sm:w-4 sm:h-4 text-red-400" />
                 </div>
               </div>
 
-              <div className="w-full bg-gray-700 rounded-full h-3">
+              <div className="w-full bg-gray-700 rounded-full h-2.5 sm:h-3">
                 <div
-                  className="bg-gradient-to-r from-green-500 to-cyan-500 h-3 rounded-full transition-all duration-500"
+                  className="bg-gradient-to-r from-green-500 to-cyan-500 h-2.5 sm:h-3 rounded-full transition-all duration-500"
                   style={{ width: `${yesPercentage}%` }}
                 ></div>
               </div>
 
               <div className="text-center space-y-1">
                 <div>
-                  <span className="text-2xl font-bold text-white">{yesPercentage}%</span>
-                  <span className="text-sm text-gray-400 ml-2">in favor</span>
+                  <span className="text-xl sm:text-2xl font-bold text-white">{yesPercentage}%</span>
+                  <span className="text-xs sm:text-sm text-gray-400 ml-1 sm:ml-2">in favor</span>
                 </div>
 
                 {/* Pool Progress Info */}
                 {onchainData?.success && (
-                  <div className="text-sm text-gray-400">
+                  <div className="text-xs sm:text-sm text-gray-400">
                     <span className="text-cyan-400 font-semibold">
                       {(Number(onchainData.data.poolBalance) / 1e9).toFixed(2)} / {(Number(onchainData.data.targetPool) / 1e9).toFixed(0)} SOL
                     </span>
-                    <span className="mx-2">•</span>
+                    <span className="mx-1 sm:mx-2">•</span>
                     <span className="text-purple-400 font-semibold">{onchainData.data.poolProgressPercentage}% funded</span>
                   </div>
                 )}
@@ -1780,22 +1792,22 @@ export default function MarketDetailsPage() {
 
             {/* User's Position Section - Show if user has position */}
             {positionData?.success && positionData.data.hasPosition && (
-              <div className="border-t border-white/10 pt-4">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center space-x-3">
-                    <div className={`p-2 rounded-full ${
+              <div className="border-t border-white/10 pt-3 sm:pt-4">
+                <div className="flex items-center justify-between mb-2 sm:mb-3">
+                  <div className="flex items-center space-x-2 sm:space-x-3">
+                    <div className={`p-1.5 sm:p-2 rounded-full ${
                       positionData.data.side === 'yes'
                         ? 'bg-green-500/20'
                         : 'bg-red-500/20'
                     }`}>
                       {positionData.data.side === 'yes' ? (
-                        <CheckCircle className="w-5 h-5 text-green-400" />
+                        <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400" />
                       ) : (
-                        <XCircle className="w-5 h-5 text-red-400" />
+                        <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400" />
                       )}
                     </div>
                     <div>
-                      <h3 className="text-white text-base font-semibold">Your Position</h3>
+                      <h3 className="text-white text-sm sm:text-base font-semibold">Your Position</h3>
                       <p className="text-gray-300 text-xs">
                         Voted <span className={`font-bold ${
                           positionData.data.side === 'yes' ? 'text-green-400' : 'text-red-400'
@@ -1807,7 +1819,7 @@ export default function MarketDetailsPage() {
                   </div>
                   <div className="text-right">
                     <div className="text-gray-400 text-xs">Total Trades</div>
-                    <div className="text-white text-xl font-bold">{positionData.data.tradeCount}</div>
+                    <div className="text-white text-lg sm:text-xl font-bold">{positionData.data.tradeCount}</div>
                   </div>
                 </div>
               </div>
@@ -1819,49 +1831,49 @@ export default function MarketDetailsPage() {
         {/* Trading Section - Unified Card */}
         <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white">
           <CardHeader>
-            <CardTitle className="text-2xl text-white">Trade on Market</CardTitle>
-            <CardDescription className="text-gray-300">
+            <CardTitle className="text-lg sm:text-2xl text-white">Trade on Market</CardTitle>
+            <CardDescription className="text-gray-300 text-sm sm:text-base">
               Should we launch ${market.tokenSymbol} token?
             </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-3 sm:space-y-4">
             {/* Side Selection Tabs */}
-            <div className="grid grid-cols-2 gap-3 p-1 bg-white/5 rounded-lg">
+            <div className="grid grid-cols-2 gap-2 sm:gap-3 p-1 bg-white/5 rounded-lg">
               <button
                 onClick={() => setSelectedSide('yes')}
                 disabled={isTradingDisabled() || isMarketExpired()}
-                className={`py-3 px-4 rounded-lg font-semibold transition-all ${
+                className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg font-semibold transition-all ${
                   selectedSide === 'yes'
                     ? 'bg-gradient-to-r from-green-500 to-cyan-500 text-white shadow-lg'
                     : 'text-gray-400 hover:text-white hover:bg-white/10'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                <div className="flex items-center justify-center space-x-2">
-                  <CheckCircle className="w-5 h-5" />
-                  <span>YES</span>
-                  <span className="text-sm opacity-75">{yesPercentage}%</span>
+                <div className="flex items-center justify-center space-x-1 sm:space-x-2">
+                  <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="text-sm sm:text-base">YES</span>
+                  <span className="text-xs sm:text-sm opacity-75">{yesPercentage}%</span>
                 </div>
               </button>
               <button
                 onClick={() => setSelectedSide('no')}
                 disabled={isTradingDisabled() || isMarketExpired()}
-                className={`py-3 px-4 rounded-lg font-semibold transition-all ${
+                className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg font-semibold transition-all ${
                   selectedSide === 'no'
                     ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg'
                     : 'text-gray-400 hover:text-white hover:bg-white/10'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
-                <div className="flex items-center justify-center space-x-2">
-                  <XCircle className="w-5 h-5" />
-                  <span>NO</span>
-                  <span className="text-sm opacity-75">{100 - yesPercentage}%</span>
+                <div className="flex items-center justify-center space-x-1 sm:space-x-2">
+                  <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
+                  <span className="text-sm sm:text-base">NO</span>
+                  <span className="text-xs sm:text-sm opacity-75">{100 - yesPercentage}%</span>
                 </div>
               </button>
             </div>
 
             {/* Amount Input */}
             <div className="space-y-2">
-              <label className="text-sm text-gray-400 font-medium">Amount</label>
+              <label className="text-xs sm:text-sm text-gray-400 font-medium">Amount</label>
               <div className="relative">
                 <input
                   type="number"
@@ -1870,24 +1882,24 @@ export default function MarketDetailsPage() {
                   min={QUICK_VOTE_AMOUNT}
                   step="0.01"
                   disabled={isTradingDisabled() || isMarketExpired()}
-                  className={`w-full px-4 py-4 bg-white/10 border-2 rounded-lg text-white text-lg font-mono focus:outline-none transition-all ${
+                  className={`w-full px-3 sm:px-4 py-3 sm:py-4 bg-white/10 border-2 rounded-lg text-white text-base sm:text-lg font-mono focus:outline-none transition-all ${
                     selectedSide === 'yes'
                       ? 'border-green-500/30 focus:border-green-500 focus:ring-2 focus:ring-green-500/50'
                       : 'border-red-500/30 focus:border-red-500 focus:ring-2 focus:ring-red-500/50'
                   } disabled:opacity-50 disabled:cursor-not-allowed`}
                   placeholder="0.00"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold">SOL</span>
+                <span className="absolute right-3 sm:right-4 top-1/2 -translate-y-1/2 text-gray-400 font-semibold text-sm sm:text-base">SOL</span>
               </div>
 
               {/* Quick Amount Buttons */}
-              <div className="grid grid-cols-4 gap-2">
+              <div className="grid grid-cols-4 gap-1.5 sm:gap-2">
                 {[QUICK_VOTE_AMOUNT.toString(), '0.1', '0.5', '1'].map((quickAmount) => (
                   <button
                     key={quickAmount}
                     onClick={() => setAmount(quickAmount)}
                     disabled={isTradingDisabled() || isMarketExpired()}
-                    className={`py-2 px-3 text-sm font-semibold rounded-lg border-2 transition-all ${
+                    className={`py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-semibold rounded-lg border-2 transition-all ${
                       amount === quickAmount
                         ? selectedSide === 'yes'
                           ? 'border-green-500 bg-green-500/20 text-green-400'
@@ -1902,22 +1914,22 @@ export default function MarketDetailsPage() {
             </div>
 
             {/* Trade Summary */}
-            <div className="p-4 bg-white/5 rounded-lg border border-white/10 space-y-2">
-              <div className="flex justify-between text-sm">
+            <div className="p-3 sm:p-4 bg-white/5 rounded-lg border border-white/10 space-y-1.5 sm:space-y-2">
+              <div className="flex justify-between text-xs sm:text-sm">
                 <span className="text-gray-400">Position</span>
                 <span className={`font-semibold ${selectedSide === 'yes' ? 'text-green-400' : 'text-red-400'}`}>
                   {selectedSide.toUpperCase()}
                 </span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs sm:text-sm">
                 <span className="text-gray-400">Amount</span>
                 <span className="text-white font-mono">{amount || '0.00'} SOL</span>
               </div>
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-xs sm:text-sm">
                 <span className="text-gray-400">Estimated Fee (1.5%)</span>
                 <span className="text-white font-mono">{(parseFloat(amount || '0') * 0.015).toFixed(4)} SOL</span>
               </div>
-              <div className="flex justify-between text-sm pt-2 border-t border-white/10">
+              <div className="flex justify-between text-xs sm:text-sm pt-1.5 sm:pt-2 border-t border-white/10">
                 <span className="text-gray-300 font-semibold">Total Cost</span>
                 <span className="text-white font-mono font-bold">{(parseFloat(amount || '0') * 1.015).toFixed(4)} SOL</span>
               </div>
@@ -1926,7 +1938,7 @@ export default function MarketDetailsPage() {
             {/* Trade Button */}
             <Button
               onClick={() => handleVote(selectedSide)}
-              className={`w-full py-6 text-lg font-bold ${
+              className={`w-full py-4 sm:py-6 text-base sm:text-lg font-bold ${
                 selectedSide === 'yes'
                   ? 'bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600'
                   : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'
@@ -1935,25 +1947,25 @@ export default function MarketDetailsPage() {
             >
               {isTradingDisabled() ? (
                 <>
-                  <XCircle className="w-5 h-5 mr-2" />
-                  {getTradingDisabledReason()}
+                  <XCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" />
+                  <span className="text-sm sm:text-lg">{getTradingDisabledReason()}</span>
                 </>
               ) : isMarketExpired() ? (
                 <>
-                  <XCircle className="w-5 h-5 mr-2" />
+                  <XCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" />
                   Market Expired
                 </>
               ) : isProcessingVote ? (
                 <>
-                  <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                  <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2 animate-spin" />
                   Processing...
                 </>
               ) : (
                 <>
                   {selectedSide === 'yes' ? (
-                    <CheckCircle className="w-5 h-5 mr-2" />
+                    <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" />
                   ) : (
-                    <XCircle className="w-5 h-5 mr-2" />
+                    <XCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" />
                   )}
                   Buy {selectedSide.toUpperCase()} for {amount || '0.00'} SOL
                 </>
@@ -1961,50 +1973,50 @@ export default function MarketDetailsPage() {
             </Button>
 
             {/* Market Information */}
-            <div className="pt-4 border-t border-white/10">
-              <h3 className="text-sm font-semibold text-gray-400 mb-3">Market Info</h3>
-              <div className="grid grid-cols-2 gap-3">
+            <div className="pt-3 sm:pt-4 border-t border-white/10">
+              <h3 className="text-xs sm:text-sm font-semibold text-gray-400 mb-2 sm:mb-3">Market Info</h3>
+              <div className="grid grid-cols-2 gap-2 sm:gap-3">
                 {/* Target Pool */}
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <div className="text-xs text-gray-400 mb-1">Target Pool</div>
-                  <div className="text-base font-bold text-white">{market.targetPool}</div>
+                <div className="p-2 sm:p-3 bg-white/5 rounded-lg">
+                  <div className="text-xs text-gray-400 mb-0.5 sm:mb-1">Target Pool</div>
+                  <div className="text-sm sm:text-base font-bold text-white">{market.targetPool}</div>
                 </div>
 
                 {/* Total Votes */}
-                <div className="p-3 bg-white/5 rounded-lg">
-                  <div className="text-xs text-gray-400 mb-1">Total Votes</div>
+                <div className="p-2 sm:p-3 bg-white/5 rounded-lg">
+                  <div className="text-xs text-gray-400 mb-0.5 sm:mb-1">Total Votes</div>
                   <div className="flex items-center space-x-1">
-                    <Users className="w-4 h-4 text-cyan-400" />
-                    <span className="text-base font-bold text-white">{market.yesVotes + market.noVotes}</span>
+                    <Users className="w-3 h-3 sm:w-4 sm:h-4 text-cyan-400" />
+                    <span className="text-sm sm:text-base font-bold text-white">{market.yesVotes + market.noVotes}</span>
                   </div>
                 </div>
 
                 {/* Market Address (PDA) */}
-                <div className="p-3 bg-white/5 rounded-lg col-span-2">
-                  <div className="text-xs text-gray-400 mb-1">Market Address</div>
+                <div className="p-2 sm:p-3 bg-white/5 rounded-lg col-span-2">
+                  <div className="text-xs text-gray-400 mb-0.5 sm:mb-1">Market Address</div>
                   <a
                     href={`https://explorer.solana.com/address/${market.marketAddress}?cluster=${SOLANA_NETWORK}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center space-x-1 text-cyan-400 hover:text-cyan-300 transition-colors text-xs group"
                   >
-                    <span className="font-mono">{market.marketAddress.slice(0, 8)}...{market.marketAddress.slice(-8)}</span>
-                    <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+                    <span className="font-mono break-all sm:break-normal">{market.marketAddress.slice(0, 8)}...{market.marketAddress.slice(-8)}</span>
+                    <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100 flex-shrink-0" />
                   </a>
                 </div>
 
                 {/* Creator Address */}
                 {onchainData?.success && onchainData.data.founder && (
-                  <div className="p-3 bg-white/5 rounded-lg col-span-2">
-                    <div className="text-xs text-gray-400 mb-1">Creator</div>
+                  <div className="p-2 sm:p-3 bg-white/5 rounded-lg col-span-2">
+                    <div className="text-xs text-gray-400 mb-0.5 sm:mb-1">Creator</div>
                     <a
                       href={`https://explorer.solana.com/address/${onchainData.data.founder}?cluster=${SOLANA_NETWORK}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center space-x-1 text-purple-400 hover:text-purple-300 transition-colors text-xs group"
                     >
-                      <span className="font-mono">{onchainData.data.founder.slice(0, 8)}...{onchainData.data.founder.slice(-8)}</span>
-                      <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+                      <span className="font-mono break-all sm:break-normal">{onchainData.data.founder.slice(0, 8)}...{onchainData.data.founder.slice(-8)}</span>
+                      <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100 flex-shrink-0" />
                     </a>
                   </div>
                 )}
@@ -2017,16 +2029,16 @@ export default function MarketDetailsPage() {
                       new PublicKey(primaryWallet.address)
                     );
                     return (
-                      <div className="p-3 bg-white/5 rounded-lg col-span-2">
-                        <div className="text-xs text-gray-400 mb-1">Your Position</div>
+                      <div className="p-2 sm:p-3 bg-white/5 rounded-lg col-span-2">
+                        <div className="text-xs text-gray-400 mb-0.5 sm:mb-1">Your Position</div>
                         <a
                           href={`https://explorer.solana.com/address/${positionPda.toBase58()}?cluster=${SOLANA_NETWORK}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center space-x-1 text-green-400 hover:text-green-300 transition-colors text-xs group"
                         >
-                          <span className="font-mono">{positionPda.toBase58().slice(0, 8)}...{positionPda.toBase58().slice(-8)}</span>
-                          <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+                          <span className="font-mono break-all sm:break-normal">{positionPda.toBase58().slice(0, 8)}...{positionPda.toBase58().slice(-8)}</span>
+                          <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100 flex-shrink-0" />
                         </a>
                       </div>
                     );
@@ -2037,16 +2049,16 @@ export default function MarketDetailsPage() {
 
                 {/* Token Mint (if created) */}
                 {onchainData?.success && onchainData.data.tokenMint && (
-                  <div className="p-3 bg-white/5 rounded-lg col-span-2">
-                    <div className="text-xs text-gray-400 mb-1">Token Mint</div>
+                  <div className="p-2 sm:p-3 bg-white/5 rounded-lg col-span-2">
+                    <div className="text-xs text-gray-400 mb-0.5 sm:mb-1">Token Mint</div>
                     <a
                       href={`https://explorer.solana.com/address/${onchainData.data.tokenMint}?cluster=${SOLANA_NETWORK}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center space-x-1 text-pink-400 hover:text-pink-300 transition-colors text-xs group"
                     >
-                      <span className="font-mono">{onchainData.data.tokenMint.slice(0, 8)}...{onchainData.data.tokenMint.slice(-8)}</span>
-                      <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100" />
+                      <span className="font-mono break-all sm:break-normal">{onchainData.data.tokenMint.slice(0, 8)}...{onchainData.data.tokenMint.slice(-8)}</span>
+                      <ExternalLink className="w-3 h-3 opacity-60 group-hover:opacity-100 flex-shrink-0" />
                     </a>
                   </div>
                 )}
@@ -2057,7 +2069,7 @@ export default function MarketDetailsPage() {
         </div>
 
         {/* Market Holders and Live Activity Feed - Side by Side */}
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
           <LiveActivityFeed
             trades={historyData?.data?.recentTrades || []}
             className="w-full"
@@ -2077,67 +2089,67 @@ export default function MarketDetailsPage() {
         {market.metadata && (
           <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white">
             <CardHeader>
-              <CardTitle className="text-2xl text-white">Project Details</CardTitle>
+              <CardTitle className="text-lg sm:text-2xl text-white">Project Details</CardTitle>
             </CardHeader>
-            <CardContent className="space-y-6">
+            <CardContent className="space-y-4 sm:space-y-6">
               {/* What This Project Offers */}
               {market.metadata.additionalNotes && (
-                <div className="p-4 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-lg border border-cyan-400/30">
-                  <h3 className="text-cyan-400 text-base mb-2 font-bold flex items-center gap-2">
-                    <span className="text-xl">✨</span> What This Project Offers
+                <div className="p-3 sm:p-4 bg-gradient-to-r from-cyan-500/10 to-blue-500/10 rounded-lg border border-cyan-400/30">
+                  <h3 className="text-cyan-400 text-sm sm:text-base mb-1.5 sm:mb-2 font-bold flex items-center gap-1.5 sm:gap-2">
+                    <span className="text-base sm:text-xl">✨</span> What This Project Offers
                   </h3>
-                  <p className="text-white text-base leading-relaxed whitespace-pre-wrap">{market.metadata.additionalNotes}</p>
+                  <p className="text-white text-sm sm:text-base leading-relaxed whitespace-pre-wrap">{market.metadata.additionalNotes}</p>
                 </div>
               )}
 
               {/* Project Info Grid */}
-              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-2.5 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {market.metadata.projectType && (
-                  <div className="flex items-start space-x-3 p-4 bg-white/5 rounded-lg">
-                    <Briefcase className="w-5 h-5 text-cyan-400 mt-1 flex-shrink-0" />
+                  <div className="flex items-start space-x-2 sm:space-x-3 p-2.5 sm:p-4 bg-white/5 rounded-lg">
+                    <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 mt-0.5 sm:mt-1 flex-shrink-0" />
                     <div>
-                      <h3 className="text-gray-400 text-sm mb-1">Project Type</h3>
-                      <p className="text-white text-lg font-medium capitalize">{market.metadata.projectType}</p>
+                      <h3 className="text-gray-400 text-xs sm:text-sm mb-0.5 sm:mb-1">Project Type</h3>
+                      <p className="text-white text-sm sm:text-lg font-medium capitalize">{market.metadata.projectType}</p>
                     </div>
                   </div>
                 )}
 
                 {market.metadata.projectStage && (
-                  <div className="flex items-start space-x-3 p-4 bg-white/5 rounded-lg">
-                    <Target className="w-5 h-5 text-purple-400 mt-1 flex-shrink-0" />
+                  <div className="flex items-start space-x-2 sm:space-x-3 p-2.5 sm:p-4 bg-white/5 rounded-lg">
+                    <Target className="w-4 h-4 sm:w-5 sm:h-5 text-purple-400 mt-0.5 sm:mt-1 flex-shrink-0" />
                     <div>
-                      <h3 className="text-gray-400 text-sm mb-1">Stage</h3>
-                      <p className="text-white text-lg font-medium">{formatLabel(market.metadata.projectStage)}</p>
+                      <h3 className="text-gray-400 text-xs sm:text-sm mb-0.5 sm:mb-1">Stage</h3>
+                      <p className="text-white text-sm sm:text-lg font-medium">{formatLabel(market.metadata.projectStage)}</p>
                     </div>
                   </div>
                 )}
 
                 {market.metadata.category && (
-                  <div className="flex items-start space-x-3 p-4 bg-white/5 rounded-lg">
-                    <Target className="w-5 h-5 text-pink-400 mt-1 flex-shrink-0" />
+                  <div className="flex items-start space-x-2 sm:space-x-3 p-2.5 sm:p-4 bg-white/5 rounded-lg">
+                    <Target className="w-4 h-4 sm:w-5 sm:h-5 text-pink-400 mt-0.5 sm:mt-1 flex-shrink-0" />
                     <div>
-                      <h3 className="text-gray-400 text-sm mb-1">Category</h3>
-                      <p className="text-white text-lg font-medium">{formatLabel(market.metadata.category)}</p>
+                      <h3 className="text-gray-400 text-xs sm:text-sm mb-0.5 sm:mb-1">Category</h3>
+                      <p className="text-white text-sm sm:text-lg font-medium">{formatLabel(market.metadata.category)}</p>
                     </div>
                   </div>
                 )}
 
                 {market.metadata.location && (
-                  <div className="flex items-start space-x-3 p-4 bg-white/5 rounded-lg">
-                    <MapPin className="w-5 h-5 text-green-400 mt-1 flex-shrink-0" />
+                  <div className="flex items-start space-x-2 sm:space-x-3 p-2.5 sm:p-4 bg-white/5 rounded-lg">
+                    <MapPin className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 mt-0.5 sm:mt-1 flex-shrink-0" />
                     <div>
-                      <h3 className="text-gray-400 text-sm mb-1">Location</h3>
-                      <p className="text-white text-lg font-medium">{market.metadata.location}</p>
+                      <h3 className="text-gray-400 text-xs sm:text-sm mb-0.5 sm:mb-1">Location</h3>
+                      <p className="text-white text-sm sm:text-lg font-medium">{market.metadata.location}</p>
                     </div>
                   </div>
                 )}
 
                 {market.metadata.teamSize && (
-                  <div className="flex items-start space-x-3 p-4 bg-white/5 rounded-lg">
-                    <Users className="w-5 h-5 text-orange-400 mt-1 flex-shrink-0" />
+                  <div className="flex items-start space-x-2 sm:space-x-3 p-2.5 sm:p-4 bg-white/5 rounded-lg">
+                    <Users className="w-4 h-4 sm:w-5 sm:h-5 text-orange-400 mt-0.5 sm:mt-1 flex-shrink-0" />
                     <div>
-                      <h3 className="text-gray-400 text-sm mb-1">Team Size</h3>
-                      <p className="text-white text-lg font-medium">{market.metadata.teamSize} {market.metadata.teamSize === 1 ? 'member' : 'members'}</p>
+                      <h3 className="text-gray-400 text-xs sm:text-sm mb-0.5 sm:mb-1">Team Size</h3>
+                      <p className="text-white text-sm sm:text-lg font-medium">{market.metadata.teamSize} {market.metadata.teamSize === 1 ? 'member' : 'members'}</p>
                     </div>
                   </div>
                 )}
@@ -2145,9 +2157,9 @@ export default function MarketDetailsPage() {
 
               {/* Description */}
               {market.metadata.description && market.metadata.description !== market.description && (
-                <div className="p-4 bg-white/5 rounded-lg">
-                  <h3 className="text-gray-400 text-sm mb-2 font-semibold">Full Description</h3>
-                  <p className="text-white text-base leading-relaxed whitespace-pre-wrap">{market.metadata.description}</p>
+                <div className="p-3 sm:p-4 bg-white/5 rounded-lg">
+                  <h3 className="text-gray-400 text-xs sm:text-sm mb-1.5 sm:mb-2 font-semibold">Full Description</h3>
+                  <p className="text-white text-sm sm:text-base leading-relaxed whitespace-pre-wrap">{market.metadata.description}</p>
                 </div>
               )}
 
@@ -2176,10 +2188,10 @@ export default function MarketDetailsPage() {
 
         {/* Toast Notification */}
         {showToast && (
-          <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2">
-            <div className="bg-gray-900 border border-white/20 text-white px-6 py-3 rounded-lg shadow-lg flex items-center space-x-2">
-              <CheckCircle className="w-5 h-5 text-green-400" />
-              <span>{toastMessage}</span>
+          <div className="fixed top-3 sm:top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 px-3 sm:px-0">
+            <div className="bg-gray-900 border border-white/20 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg shadow-lg flex items-center space-x-2">
+              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 flex-shrink-0" />
+              <span className="text-sm sm:text-base">{toastMessage}</span>
             </div>
           </div>
         )}
