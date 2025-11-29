@@ -608,7 +608,7 @@ export default function CreatePage() {
                           ✓ {formData.projectImage.name} selected
                         </p>
                       )}
-                      {errors.projectImage && <p className="text-sm text-red-400 mt-1 text-center">{errors.projectImage as string}</p>}
+                      {errors.projectImage && <p className="text-sm text-red-400 mt-1 text-center">{String(errors.projectImage)}</p>}
                     </div>
                   </div>
 
