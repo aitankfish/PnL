@@ -115,14 +115,14 @@ export default function GlobalSearch() {
         // Collapsed state - just an icon
         <button
           onClick={handleExpand}
-          className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200"
+          className="flex items-center justify-center w-9 h-9 sm:w-12 sm:h-12 rounded-xl text-white/70 hover:text-white hover:bg-white/10 transition-all duration-200 flex-shrink-0"
           title="Search users and markets"
         >
           <Search className="w-4 h-4 sm:w-5 sm:h-5" />
         </button>
       ) : (
         // Expanded state - search bar
-        <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-xl px-3 h-10 sm:h-12 w-[200px] sm:w-[300px] border border-white/20">
+        <div className="flex items-center bg-white/10 backdrop-blur-sm rounded-xl px-2 sm:px-3 h-9 sm:h-12 w-[140px] sm:w-[280px] border border-white/20">
           <Search className="w-4 h-4 text-white/70 mr-2 flex-shrink-0" />
           <input
             ref={inputRef}

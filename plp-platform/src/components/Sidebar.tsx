@@ -121,10 +121,10 @@ function Sidebar({ currentPage }: SidebarProps) {
   }, [unreadCount, currentPage]);
 
   return (
-    <div className={`fixed top-2 sm:top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-2 sm:px-4 transition-transform duration-300 ${
+    <div className={`fixed top-2 sm:top-4 left-1/2 -translate-x-1/2 z-50 w-full max-w-6xl px-1 sm:px-4 transition-transform duration-300 ${
       isVisible ? 'translate-y-0' : '-translate-y-20'
     }`}>
-      <div className="bg-black/20 backdrop-blur-xl rounded-2xl shadow-2xl shadow-white/5 p-2 sm:p-4 relative overflow-visible">
+      <div className="bg-black/20 backdrop-blur-xl rounded-2xl shadow-2xl shadow-white/5 p-1.5 sm:p-4 relative overflow-visible">
         {/* Space Background Elements */}
         <div className="absolute inset-0 opacity-20 overflow-hidden rounded-2xl">
           <div className="absolute top-2 left-8 w-1 h-1 bg-white rounded-full animate-pulse"></div>
@@ -133,11 +133,11 @@ function Sidebar({ currentPage }: SidebarProps) {
           <div className="absolute top-2 right-1/4 w-1 h-1 bg-white rounded-full animate-pulse" style={{animationDelay: '0.5s'}}></div>
           <div className="absolute top-3 left-2/3 w-0.5 h-0.5 bg-cyan-500 rounded-full animate-pulse" style={{animationDelay: '1.5s'}}></div>
         </div>
-        <div className="flex items-center justify-between relative z-10">
+        <div className="flex items-center justify-between gap-1 sm:gap-0 relative z-10">
           {/* Logo */}
-          <div className="flex items-center">
-            <Link href="/launchpad" prefetch={true} className="flex items-center hover:scale-105 transition-transform mr-2 sm:mr-6 group">
-              <span className="text-xl sm:text-2xl font-bold">
+          <div className="flex items-center flex-shrink-0">
+            <Link href="/launchpad" prefetch={true} className="flex items-center hover:scale-105 transition-transform mr-1 sm:mr-6 group">
+              <span className="text-lg sm:text-2xl font-bold">
                 <span className="text-green-400">P</span>
                 <span className="text-blue-400">&</span>
                 <span className="text-red-400">L</span>
@@ -146,15 +146,12 @@ function Sidebar({ currentPage }: SidebarProps) {
           </div>
 
           {/* Navigation Icons */}
-          <nav className="flex items-center space-x-1 sm:space-x-2">
+          <nav className="flex items-center space-x-1 sm:space-x-2 flex-shrink min-w-0">
             {sidebarItems.map((item, index) => {
               const Icon = item.icon;
               const isActive = currentPage === item.id;
               const showNotificationBadge = item.id === 'notifications' && unreadCount > 0;
               const showNewBadge = item.badge === 'New';
-
-              // Hide "Create" on very small screens, show on sm+
-              const hideOnMobile = item.id === 'create';
 
               return (
                 <React.Fragment key={item.id}>
@@ -162,12 +159,11 @@ function Sidebar({ currentPage }: SidebarProps) {
                     href={item.href || '#'}
                     prefetch={true}
                     className={`
-                      flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 rounded-xl transition-all duration-200 group relative
+                      flex items-center justify-center w-9 h-9 sm:w-12 sm:h-12 rounded-xl transition-all duration-200 group relative flex-shrink-0
                       ${isActive
                         ? 'bg-white/20 text-white shadow-lg shadow-purple-500/20'
                         : 'text-white/70 hover:text-white hover:bg-white/10'
                       }
-                      ${hideOnMobile ? 'hidden sm:flex' : ''}
                     `}
                     title={item.label}
                   >
@@ -191,13 +187,13 @@ function Sidebar({ currentPage }: SidebarProps) {
           </nav>
 
           {/* User Information & Wallet Management */}
-          <div className="flex items-center space-x-1 sm:space-x-3">
+          <div className="flex items-center space-x-1 sm:space-x-3 flex-shrink-0">
             {/* User Info Component - Always show on larger screens */}
             <UserInfo compact={true} className="hidden lg:flex" />
             <button
               onClick={handleWalletClick}
               disabled={isPending}
-              className="flex items-center justify-center w-10 h-10 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:scale-105 transition-transform cursor-pointer overflow-hidden relative group disabled:opacity-70 disabled:cursor-not-allowed"
+              className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:scale-105 transition-transform cursor-pointer overflow-hidden relative group disabled:opacity-70 disabled:cursor-not-allowed"
               title={authenticated ? `${displayName} - Wallet & Profile` : "Connect Wallet"}
             >
               {isPending ? (
