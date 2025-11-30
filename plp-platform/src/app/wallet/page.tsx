@@ -25,42 +25,116 @@ import {
   Shield,
   ShoppingCart,
   Heart,
-  Rocket
+  Rocket,
+  TrendingUp,
+  Trophy,
+  XCircle
 } from 'lucide-react';
 import { Connection, PublicKey, LAMPORTS_PER_SOL, SystemProgram, VersionedTransaction, TransactionMessage } from '@solana/web3.js';
 import { RPC_ENDPOINT, SOLANA_NETWORK } from '@/config/solana';
 import { getSolanaConnection } from '@/lib/solana';
 import { ipfsUtils } from '@/lib/ipfs';
 import useSWR from 'swr';
+import { useUserSocket, useMarketSocket } from '@/lib/hooks/useSocket';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
-// Lightweight component to display a favorite market with minimal data fetching
+// Enhanced component to display a favorite market with better UI
 function FavoriteMarketCard({ marketId }: { marketId: string }) {
-  const { data: marketData } = useSWR(`/api/markets/${marketId}`, fetcher, {
+  const { data: marketData, mutate } = useSWR(`/api/markets/${marketId}`, fetcher, {
     revalidateOnFocus: false,
   });
 
-  const marketName = marketData?.success ? marketData.data.name : `Market #${marketId.slice(0, 8)}...`;
-  const marketStatus = marketData?.success ? marketData.data.resolution : 'Loading...';
+  // Get market address for real-time updates
+  const marketAddress = marketData?.data?.marketAddress;
+  const { marketData: realtimeData } = useMarketSocket(marketAddress || null);
+
+  // Merge real-time updates with SWR data
+  const market = realtimeData
+    ? { ...marketData?.data, ...realtimeData }
+    : marketData?.data;
+
+  if (!marketData?.success) {
+    return (
+      <Card className="bg-white/5 border-white/10">
+        <CardContent className="p-4">
+          <div className="animate-pulse">
+            <div className="h-4 bg-white/10 rounded w-3/4 mb-2"></div>
+            <div className="h-3 bg-white/10 rounded w-1/2"></div>
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
+  // Status badge styling
+  const getStatusBadge = () => {
+    switch (market.resolution) {
+      case 'YesWins':
+        return 'bg-green-500/20 text-green-400 border-green-400/30';
+      case 'NoWins':
+        return 'bg-red-500/20 text-red-400 border-red-400/30';
+      case 'Refund':
+        return 'bg-yellow-500/20 text-yellow-400 border-yellow-400/30';
+      default:
+        return 'bg-blue-500/20 text-blue-400 border-blue-400/30';
+    }
+  };
+
+  const getStatusText = () => {
+    if (market.resolution === 'YesWins') return 'Launched';
+    if (market.resolution === 'NoWins' || market.resolution === 'Refund') return 'Not Launched';
+    return 'Active';
+  };
 
   return (
     <Card className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
       <CardContent className="p-4">
-        <a href={`/market/${marketId}`} className="flex items-center justify-between group">
-          <div className="flex items-center space-x-3 flex-1 min-w-0">
-            <Heart className="w-4 h-4 text-red-400 fill-red-400 flex-shrink-0" />
-            <div className="flex-1 min-w-0">
-              <h4 className="text-white font-medium group-hover:text-cyan-400 transition-colors truncate">
-                {marketName}
-              </h4>
-              <p className="text-xs text-gray-400">{marketStatus}</p>
+        <a href={`/market/${marketId}`} className="block group">
+          <div className="flex items-start justify-between mb-3">
+            <div className="flex items-center space-x-3 flex-1 min-w-0">
+              {market.image ? (
+                <img
+                  src={market.image}
+                  alt={market.name}
+                  className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                />
+              ) : (
+                <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                  <Heart className="w-5 h-5 text-white fill-white" />
+                </div>
+              )}
+              <div className="flex-1 min-w-0">
+                <h4 className="text-white font-semibold group-hover:text-cyan-400 transition-colors truncate">
+                  {market.name}
+                </h4>
+                <p className="text-xs text-gray-400">{market.tokenSymbol}</p>
+              </div>
             </div>
+            <span className={`px-2 py-1 rounded text-xs border ${getStatusBadge()} whitespace-nowrap`}>
+              {getStatusText()}
+            </span>
           </div>
-          <div className="text-gray-400 group-hover:text-cyan-400 transition-colors flex-shrink-0">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-            </svg>
+
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="bg-white/5 rounded p-2 border border-white/10">
+              <div className="text-gray-400 text-xs">Pool Progress</div>
+              <div className="font-semibold text-white">
+                {(market.poolProgressPercentage || 0).toFixed(0)}%
+              </div>
+              <div className="text-xs text-gray-500">
+                {((market.poolBalance || 0) / 1e9).toFixed(2)} / {((market.targetPool || 0) / 1e9).toFixed(0)} SOL
+              </div>
+            </div>
+            <div className="bg-white/5 rounded p-2 border border-white/10">
+              <div className="text-gray-400 text-xs">YES Rate</div>
+              <div className="font-semibold text-green-400">
+                {(market.sharesYesPercentage || 0).toFixed(1)}%
+              </div>
+              <div className="text-xs text-gray-500">
+                {(market.yesVoteCount || 0) + (market.noVoteCount || 0)} votes
+              </div>
+            </div>
           </div>
         </a>
       </CardContent>
@@ -117,19 +191,19 @@ function MyProjectCard({ project }: { project: any }) {
             <div className="bg-white/5 rounded p-2 border border-white/10">
               <div className="text-gray-400 text-xs">Pool Progress</div>
               <div className="font-semibold text-white">
-                {project.poolProgressPercentage.toFixed(0)}%
+                {(project.poolProgressPercentage || 0).toFixed(0)}%
               </div>
               <div className="text-xs text-gray-500">
-                {project.poolBalance.toFixed(2)} / {project.targetPool.toFixed(0)} SOL
+                {(project.poolBalance || 0).toFixed(2)} / {(project.targetPool || 0).toFixed(0)} SOL
               </div>
             </div>
             <div className="bg-white/5 rounded p-2 border border-white/10">
               <div className="text-gray-400 text-xs">YES Rate</div>
               <div className="font-semibold text-green-400">
-                {project.sharesYesPercentage.toFixed(1)}%
+                {(project.sharesYesPercentage || 0).toFixed(1)}%
               </div>
               <div className="text-xs text-gray-500">
-                {project.yesVoteCount + project.noVoteCount} votes
+                {(project.yesVoteCount || 0) + (project.noVoteCount || 0)} votes
               </div>
             </div>
           </div>
@@ -447,12 +521,19 @@ export default function WalletPage() {
   const [solBalance, setSolBalance] = useState<number>(0);
   const [balanceLoading, setBalanceLoading] = useState(false);
   const [username, setUsername] = useState('');
+  const [bio, setBio] = useState('');
+  const [twitterHandle, setTwitterHandle] = useState('');
   const [profilePhotoUrl, setProfilePhotoUrl] = useState('');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
   const [showSendModal, setShowSendModal] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
+
+  // View more states for collapsible sections
+  const [showAllPositions, setShowAllPositions] = useState(false);
+  const [showAllProjects, setShowAllProjects] = useState(false);
+  const [showAllWatchlist, setShowAllWatchlist] = useState(false);
 
   // Fetch user profile
   const { data: profileData, mutate: mutateProfile } = useSWR(
@@ -462,17 +543,22 @@ export default function WalletPage() {
   );
 
   // Fetch user positions
-  const { data: positionsData, isLoading: positionsLoading } = useSWR(
+  const { data: positionsData, isLoading: positionsLoading, mutate: mutatePositions } = useSWR(
     primaryWallet?.address ? `/api/user/${primaryWallet.address}/positions` : null,
     fetcher,
     { refreshInterval: 30000 } // Refresh every 30 seconds
   );
 
   // Fetch user's created projects
-  const { data: projectsData, isLoading: projectsLoading } = useSWR(
+  const { data: projectsData, isLoading: projectsLoading, mutate: mutateProjects } = useSWR(
     primaryWallet?.address ? `/api/user/${primaryWallet.address}/projects` : null,
     fetcher,
     { refreshInterval: 30000 } // Refresh every 30 seconds
+  );
+
+  // Real-time Socket.IO updates
+  const { positions: realtimePositions, isConnected: socketConnected } = useUserSocket(
+    primaryWallet?.address || null
   );
 
   // Debug: Log positions data
@@ -485,6 +571,24 @@ export default function WalletPage() {
       console.log('[Wallet Page] Claimable:', positionsData.data?.claimable?.length || 0);
     }
   }, [positionsData]);
+
+  // Real-time position updates - revalidate SWR cache when Socket.IO updates arrive
+  useEffect(() => {
+    if (realtimePositions && realtimePositions.size > 0) {
+      console.log('🔄 Real-time position update received, revalidating...');
+      mutatePositions(); // Trigger SWR revalidation
+      mutateProjects(); // Also refresh projects (in case pool balance changed)
+    }
+  }, [realtimePositions, mutatePositions, mutateProjects]);
+
+  // Log Socket.IO connection status
+  useEffect(() => {
+    if (socketConnected) {
+      console.log('✅ Socket.IO connected - real-time updates enabled');
+    } else {
+      console.log('⚠️ Socket.IO disconnected - using polling fallback');
+    }
+  }, [socketConnected]);
 
   // Fetch SOL balance
   useEffect(() => {
@@ -521,6 +625,8 @@ export default function WalletPage() {
         ? contextUser.email
         : (contextUser?.email as any)?.address;
       setUsername(profileData.data.username || (emailString ? emailString.split('@')[0] : '') || '');
+      setBio(profileData.data.bio || '');
+      setTwitterHandle(profileData.data.twitter || '');
       setProfilePhotoUrl(profileData.data.profilePhotoUrl || '');
     } else if (contextUser?.email) {
       // Handle Privy email format (can be string or object with 'address' field)
@@ -552,6 +658,57 @@ export default function WalletPage() {
       }
     } catch (error) {
       console.error('Error saving username:', error);
+    }
+  };
+
+  const handleBioChange = async (newBio: string) => {
+    if (!primaryWallet) return;
+
+    try {
+      const response = await fetch('/api/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: primaryWallet.address,
+          bio: newBio.trim(),
+          email: contextUser?.email,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setBio(newBio.trim());
+        mutateProfile();
+      }
+    } catch (error) {
+      console.error('Error saving bio:', error);
+    }
+  };
+
+  const handleTwitterChange = async (newTwitter: string) => {
+    if (!primaryWallet) return;
+
+    // Remove @ if user includes it
+    const cleanHandle = newTwitter.trim().replace(/^@/, '');
+
+    try {
+      const response = await fetch('/api/profile/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          walletAddress: primaryWallet.address,
+          twitter: cleanHandle,
+          email: contextUser?.email,
+        }),
+      });
+
+      const result = await response.json();
+      if (result.success) {
+        setTwitterHandle(cleanHandle);
+        mutateProfile();
+      }
+    } catch (error) {
+      console.error('Error saving Twitter handle:', error);
     }
   };
 
@@ -757,11 +914,18 @@ export default function WalletPage() {
           {addressCopied && (
             <p className="text-xs text-green-400 mt-1">Copied!</p>
           )}
+          {/* Real-time Status Indicator */}
+          <div className="flex items-center gap-1 mt-1">
+            <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}></div>
+            <span className="text-xs text-gray-400">
+              {socketConnected ? 'Live updates' : 'Polling mode'}
+            </span>
+          </div>
         </div>
 
-        {/* Profile Photo + Username Input + Action Buttons */}
-        <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-2">
-          {/* Profile Photo + Username - Always together */}
+        {/* Profile Photo + Username Input + Bio + Twitter */}
+        <div className="flex flex-col items-center gap-3 max-w-2xl mx-auto w-full px-4">
+          {/* Profile Photo + Username Row */}
           <div className="flex items-center gap-2">
             {/* Profile Photo */}
             <div className="relative group">
@@ -792,8 +956,36 @@ export default function WalletPage() {
             />
           </div>
 
-          {/* Action Buttons - Wrap on mobile */}
-          <div className="flex flex-wrap items-center justify-center gap-2">
+          {/* Bio Input */}
+          <div className="w-full max-w-md">
+            <textarea
+              value={bio}
+              onChange={(e) => setBio(e.target.value)}
+              onBlur={() => handleBioChange(bio)}
+              className="w-full bg-white/5 border border-white/10 text-white text-sm rounded-md p-2 min-h-[60px] max-h-[100px] resize-none placeholder:text-gray-500 focus:outline-none focus:ring-1 focus:ring-cyan-400"
+              placeholder="Write a short bio..."
+              maxLength={150}
+            />
+            <p className="text-xs text-gray-500 mt-1 text-right">{bio.length}/150</p>
+          </div>
+
+          {/* Twitter Handle Input */}
+          <div className="w-full max-w-md">
+            <div className="relative">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">@</span>
+              <Input
+                value={twitterHandle}
+                onChange={(e) => setTwitterHandle(e.target.value)}
+                onBlur={() => handleTwitterChange(twitterHandle)}
+                className="bg-white/5 border-white/10 text-white text-sm pl-8"
+                placeholder="X handle"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center justify-center gap-2 mt-3">
             <Button
               onClick={handleRefresh}
               disabled={balanceLoading}
@@ -840,7 +1032,6 @@ export default function WalletPage() {
               <Settings className="w-4 h-4 sm:mr-2" />
               <span className="hidden sm:inline">Security</span>
             </Button>
-          </div>
         </div>
 
         {/* Follower/Following Stats */}
@@ -901,42 +1092,82 @@ export default function WalletPage() {
               {/* Active Positions */}
               {positionsData.data.active.length > 0 && (
                 <div className="space-y-3">
-                  <h4 className="text-sm font-medium text-gray-400">Active Positions</h4>
-                  {positionsData.data.active.map((position: any) => (
-                    <Card key={position.marketId} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
-                      <CardContent className="p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                          <div className="flex-1 min-w-0">
-                            <a href={`/market/${position.marketId}`} className="hover:text-cyan-400 transition-colors">
-                              <h4 className="text-white font-semibold mb-1 truncate">{position.marketName}</h4>
-                            </a>
-                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
-                              <span className={`px-2 py-0.5 rounded whitespace-nowrap ${
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-400">Active Positions</h4>
+                    {positionsData.data.active.length > 3 && (
+                      <button
+                        onClick={() => setShowAllPositions(!showAllPositions)}
+                        className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                      >
+                        {showAllPositions ? 'View Less' : `View All (${positionsData.data.active.length})`}
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {positionsData.data.active.slice(0, showAllPositions ? undefined : 3).map((position: any) => (
+                      <Card key={position.marketId} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
+                        <CardContent className="p-4">
+                          <a href={`/market/${position.marketId}`} className="block group">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                {position.marketImage ? (
+                                  <img
+                                    src={position.marketImage}
+                                    alt={position.marketName}
+                                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className={`w-10 h-10 bg-gradient-to-r ${
+                                    position.voteType === 'yes'
+                                      ? 'from-green-500 to-emerald-500'
+                                      : 'from-red-500 to-pink-500'
+                                  } rounded-lg flex items-center justify-center flex-shrink-0`}>
+                                    <TrendingUp className="w-5 h-5 text-white" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-white font-semibold group-hover:text-cyan-400 transition-colors truncate">
+                                    {position.marketName}
+                                  </h4>
+                                  <p className="text-xs text-gray-400">{position.tokenSymbol || 'TKN'}</p>
+                                </div>
+                              </div>
+                              <span className={`px-2 py-1 rounded text-xs border whitespace-nowrap ${
                                 position.voteType === 'yes'
-                                  ? 'bg-green-500/20 text-green-400'
-                                  : 'bg-red-500/20 text-red-400'
+                                  ? 'bg-green-500/20 text-green-400 border-green-400/30'
+                                  : 'bg-red-500/20 text-red-400 border-red-400/30'
                               }`}>
                                 {position.voteType.toUpperCase()}
                               </span>
-                              <span className="text-gray-400 whitespace-nowrap">
-                                {position.totalAmount.toFixed(4)} SOL
-                              </span>
-                              <span className="text-gray-500 hidden sm:inline">•</span>
-                              <span className="text-gray-400 whitespace-nowrap">
-                                {position.tradeCount} {position.tradeCount === 1 ? 'trade' : 'trades'}
-                              </span>
                             </div>
-                          </div>
-                          <div className="text-left sm:text-right flex-shrink-0">
-                            <p className="text-white font-semibold">
-                              {position.voteType === 'yes' ? position.currentYesPrice.toFixed(1) : position.currentNoPrice.toFixed(1)}%
-                            </p>
-                            <p className="text-xs text-gray-500">Current Price</p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Your Stake</div>
+                                <div className="font-semibold text-white">
+                                  {position.totalAmount.toFixed(2)} SOL
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {position.tradeCount} {position.tradeCount === 1 ? 'trade' : 'trades'}
+                                </div>
+                              </div>
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Current Price</div>
+                                <div className={`font-semibold ${
+                                  position.voteType === 'yes' ? 'text-green-400' : 'text-red-400'
+                                }`}>
+                                  {position.voteType === 'yes' ? position.currentYesPrice.toFixed(1) : position.currentNoPrice.toFixed(1)}%
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {position.voteType === 'yes' ? 'YES' : 'NO'} rate
+                                </div>
+                              </div>
+                            </div>
+                          </a>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -944,33 +1175,65 @@ export default function WalletPage() {
               {positionsData.data.claimable.length > 0 && (
                 <div className="space-y-3 mt-6">
                   <h4 className="text-sm font-medium text-gray-400">Claimable Rewards</h4>
-                  {positionsData.data.claimable.map((position: any) => (
-                    <Card key={position.marketId} className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20">
-                      <CardContent className="p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                          <div className="flex-1 min-w-0">
-                            <a href={`/market/${position.marketId}`} className="hover:text-cyan-400 transition-colors">
-                              <h4 className="text-white font-semibold mb-1 truncate">{position.marketName}</h4>
-                            </a>
-                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
-                              <span className="px-2 py-0.5 rounded bg-green-500/20 text-green-400 whitespace-nowrap">
-                                WON - {position.voteType.toUpperCase()}
-                              </span>
-                              <span className="text-gray-400 whitespace-nowrap">
-                                {position.totalAmount.toFixed(4)} SOL staked
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {positionsData.data.claimable.map((position: any) => (
+                      <Card key={position.marketId} className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20 hover:border-green-500/40 transition-colors">
+                        <CardContent className="p-4">
+                          <a href={`/market/${position.marketId}`} className="block group">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                {position.marketImage ? (
+                                  <img
+                                    src={position.marketImage}
+                                    alt={position.marketName}
+                                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <Trophy className="w-5 h-5 text-white" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-white font-semibold group-hover:text-cyan-400 transition-colors truncate">
+                                    {position.marketName}
+                                  </h4>
+                                  <p className="text-xs text-gray-400">{position.tokenSymbol || 'TKN'}</p>
+                                </div>
+                              </div>
+                              <span className="px-2 py-1 rounded text-xs border bg-green-500/20 text-green-400 border-green-400/30 whitespace-nowrap">
+                                WON
                               </span>
                             </div>
-                          </div>
-                          <a
-                            href={`/market/${position.marketId}`}
-                            className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-lg text-white font-semibold transition-all text-center sm:text-left flex-shrink-0"
-                          >
-                            Claim
+
+                            <div className="grid grid-cols-2 gap-3 text-sm mb-3">
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Your Stake</div>
+                                <div className="font-semibold text-white">
+                                  {position.totalAmount.toFixed(2)} SOL
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {position.voteType.toUpperCase()} vote
+                                </div>
+                              </div>
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Resolution</div>
+                                <div className="font-semibold text-green-400">
+                                  {position.resolution || 'YesWins'}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  You won!
+                                </div>
+                              </div>
+                            </div>
+
+                            <div className="px-4 py-2 bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600 rounded-lg text-white font-semibold transition-all text-center">
+                              Claim Rewards
+                            </div>
                           </a>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               )}
 
@@ -978,27 +1241,61 @@ export default function WalletPage() {
               {positionsData.data.resolved.filter((p: any) => !p.canClaim).length > 0 && (
                 <div className="space-y-3 mt-6">
                   <h4 className="text-sm font-medium text-gray-400">Resolved Positions</h4>
-                  {positionsData.data.resolved.filter((p: any) => !p.canClaim).map((position: any) => (
-                    <Card key={position.marketId} className="bg-white/5 border-white/10 opacity-60">
-                      <CardContent className="p-4">
-                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
-                          <div className="flex-1 min-w-0">
-                            <a href={`/market/${position.marketId}`} className="hover:text-cyan-400 transition-colors">
-                              <h4 className="text-white font-semibold mb-1 truncate">{position.marketName}</h4>
-                            </a>
-                            <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
-                              <span className="px-2 py-0.5 rounded bg-red-500/20 text-red-400 whitespace-nowrap">
-                                LOST - {position.voteType.toUpperCase()}
-                              </span>
-                              <span className="text-gray-400 whitespace-nowrap">
-                                {position.totalAmount.toFixed(4)} SOL
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {positionsData.data.resolved.filter((p: any) => !p.canClaim).map((position: any) => (
+                      <Card key={position.marketId} className="bg-white/5 border-white/10 opacity-70 hover:opacity-100 transition-opacity">
+                        <CardContent className="p-4">
+                          <a href={`/market/${position.marketId}`} className="block group">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                {position.marketImage ? (
+                                  <img
+                                    src={position.marketImage}
+                                    alt={position.marketName}
+                                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0 grayscale"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <XCircle className="w-5 h-5 text-white" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-white font-semibold group-hover:text-cyan-400 transition-colors truncate">
+                                    {position.marketName}
+                                  </h4>
+                                  <p className="text-xs text-gray-400">{position.tokenSymbol || 'TKN'}</p>
+                                </div>
+                              </div>
+                              <span className="px-2 py-1 rounded text-xs border bg-red-500/20 text-red-400 border-red-400/30 whitespace-nowrap">
+                                LOST
                               </span>
                             </div>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  ))}
+
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Your Stake</div>
+                                <div className="font-semibold text-white">
+                                  {position.totalAmount.toFixed(2)} SOL
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {position.voteType.toUpperCase()} vote
+                                </div>
+                              </div>
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Resolution</div>
+                                <div className="font-semibold text-red-400">
+                                  {position.resolution || 'NoWins'}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  No rewards
+                                </div>
+                              </div>
+                            </div>
+                          </a>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
                 </div>
               )}
             </>
@@ -1016,9 +1313,19 @@ export default function WalletPage() {
 
         {/* My Projects Section */}
         <div className="space-y-4 mt-8">
-          <div className="flex items-center space-x-2 px-2 sm:px-0">
-            <Rocket className="w-5 h-5 text-purple-400" />
-            <h3 className="text-lg sm:text-xl font-semibold text-white">My Projects</h3>
+          <div className="flex items-center justify-between px-2 sm:px-0">
+            <div className="flex items-center space-x-2">
+              <Rocket className="w-5 h-5 text-purple-400" />
+              <h3 className="text-lg sm:text-xl font-semibold text-white">My Projects</h3>
+            </div>
+            {projectsData?.success && projectsData.data?.projects?.length > 3 && (
+              <button
+                onClick={() => setShowAllProjects(!showAllProjects)}
+                className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                {showAllProjects ? 'View Less' : `View All (${projectsData.data.projects.length})`}
+              </button>
+            )}
           </div>
 
           {projectsLoading ? (
@@ -1032,7 +1339,7 @@ export default function WalletPage() {
             </Card>
           ) : projectsData?.success && projectsData.data?.projects?.length > 0 ? (
             <div className="grid gap-4 sm:grid-cols-2">
-              {projectsData.data.projects.map((project: any) => (
+              {projectsData.data.projects.slice(0, showAllProjects ? undefined : 3).map((project: any) => (
                 <MyProjectCard key={project.id} project={project} />
               ))}
             </div>
@@ -1057,14 +1364,24 @@ export default function WalletPage() {
 
         {/* Watchlist/Favorites Section */}
         <div className="space-y-4 mt-8">
-          <div className="flex items-center space-x-2 px-2 sm:px-0">
-            <Heart className="w-5 h-5 text-red-400 fill-red-400" />
-            <h3 className="text-lg sm:text-xl font-semibold text-white">Your Watchlist</h3>
+          <div className="flex items-center justify-between px-2 sm:px-0">
+            <div className="flex items-center space-x-2">
+              <Heart className="w-5 h-5 text-red-400 fill-red-400" />
+              <h3 className="text-lg sm:text-xl font-semibold text-white">Your Watchlist</h3>
+            </div>
+            {profileData?.success && profileData.data?.favoriteMarkets?.length > 3 && (
+              <button
+                onClick={() => setShowAllWatchlist(!showAllWatchlist)}
+                className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                {showAllWatchlist ? 'View Less' : `View All (${profileData.data.favoriteMarkets.length})`}
+              </button>
+            )}
           </div>
 
           {profileData?.success && profileData.data?.favoriteMarkets?.length > 0 ? (
             <div className="space-y-3">
-              {profileData.data.favoriteMarkets.map((marketId: string) => (
+              {profileData.data.favoriteMarkets.slice(0, showAllWatchlist ? undefined : 3).map((marketId: string) => (
                 <FavoriteMarketCard key={marketId} marketId={marketId} />
               ))}
             </div>

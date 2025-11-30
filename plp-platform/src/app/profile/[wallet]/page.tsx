@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { useWallet } from '@/hooks/useWallet';
 import { Card, CardContent } from '@/components/ui/card';
@@ -13,11 +13,15 @@ import {
   RefreshCw,
   UserPlus,
   UserMinus,
-  Users,
   ExternalLink,
+  Rocket,
+  TrendingUp,
+  Trophy,
+  XCircle,
 } from 'lucide-react';
 import useSWR from 'swr';
 import Link from 'next/link';
+import { useUserSocket } from '@/lib/hooks/useSocket';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -31,22 +35,29 @@ export default function PublicProfilePage() {
   const [isFollowing, setIsFollowing] = useState(false);
   const [isFollowLoading, setIsFollowLoading] = useState(false);
 
+  // View more states for collapsible sections
+  const [showAllPositions, setShowAllPositions] = useState(false);
+  const [showAllProjects, setShowAllProjects] = useState(false);
+
   // Fetch profile data
   const { data: profileData, error: profileError, isLoading: profileLoading, mutate: mutateProfile } = useSWR(
     profileWallet ? `/api/profile/${profileWallet}` : null,
-    fetcher
+    fetcher,
+    { refreshInterval: 30000 } // Refresh every 30 seconds to keep stats accurate
   );
 
   // Fetch positions
   const { data: positionsData, isLoading: positionsLoading, mutate: mutatePositions } = useSWR(
     profileWallet ? `/api/user/${profileWallet}/positions` : null,
-    fetcher
+    fetcher,
+    { refreshInterval: 30000 }
   );
 
   // Fetch projects
-  const { data: projectsData, isLoading: projectsLoading } = useSWR(
-    profileWallet ? `/api/projects?wallet=${profileWallet}` : null,
-    fetcher
+  const { data: projectsData, isLoading: projectsLoading, mutate: mutateProjects } = useSWR(
+    profileWallet ? `/api/user/${profileWallet}/projects` : null,
+    fetcher,
+    { refreshInterval: 30000 }
   );
 
   // Fetch follow status
@@ -61,6 +72,21 @@ export default function PublicProfilePage() {
       }
     }
   );
+
+  // Real-time Socket.IO updates
+  const { positions: realtimePositions, isConnected: socketConnected } = useUserSocket(
+    profileWallet || null
+  );
+
+  // Real-time position updates - revalidate SWR cache when Socket.IO updates arrive
+  useEffect(() => {
+    if (realtimePositions && realtimePositions.size > 0) {
+      console.log('🔄 Real-time position update received for profile, revalidating...');
+      mutatePositions();
+      mutateProjects();
+      mutateProfile(); // Also update profile stats (prediction count, etc.)
+    }
+  }, [realtimePositions, mutatePositions, mutateProjects, mutateProfile]);
 
   const profile = profileData?.data;
   const followerCount = profile?.followerCount || 0;
@@ -92,7 +118,7 @@ export default function PublicProfilePage() {
         const data = await response.json();
         if (data.success) {
           setIsFollowing(false);
-          mutateProfile(); // Refresh profile to update follower count
+          mutateProfile();
           mutateFollowStatus();
         } else {
           alert(data.error || 'Failed to unfollow');
@@ -108,7 +134,7 @@ export default function PublicProfilePage() {
         const data = await response.json();
         if (data.success) {
           setIsFollowing(true);
-          mutateProfile(); // Refresh profile to update follower count
+          mutateProfile();
           mutateFollowStatus();
         } else {
           alert(data.error || 'Failed to follow');
@@ -168,9 +194,24 @@ export default function PublicProfilePage() {
 
           {/* Bio */}
           {profile?.bio && (
-            <p className="text-gray-400 text-sm sm:text-base mb-3 max-w-2xl mx-auto">
+            <p className="text-gray-400 text-sm sm:text-base mb-2 max-w-2xl mx-auto">
               {profile.bio}
             </p>
+          )}
+
+          {/* Twitter Handle */}
+          {profile?.twitter && (
+            <a
+              href={`https://x.com/${profile.twitter}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1 text-cyan-400 hover:text-cyan-300 transition-colors text-sm mb-3"
+            >
+              <svg className="w-4 h-4" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/>
+              </svg>
+              @{profile.twitter}
+            </a>
           )}
 
           {/* Wallet Address */}
@@ -190,9 +231,17 @@ export default function PublicProfilePage() {
           {addressCopied && (
             <p className="text-xs text-green-400 mt-1">Copied!</p>
           )}
+
+          {/* Real-time Status Indicator */}
+          <div className="flex items-center justify-center gap-1 mt-1">
+            <div className={`w-2 h-2 rounded-full ${socketConnected ? 'bg-green-400 animate-pulse' : 'bg-gray-500'}`}></div>
+            <span className="text-xs text-gray-400">
+              {socketConnected ? 'Live updates' : 'Polling mode'}
+            </span>
+          </div>
         </div>
 
-        {/* Stats & Follow Button */}
+        {/* Stats & Follow/View Wallet Button */}
         <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
           {/* Stats */}
           <div className="flex items-center gap-4 sm:gap-6">
@@ -250,9 +299,9 @@ export default function PublicProfilePage() {
 
       {/* Content Sections */}
       <div className="max-w-4xl mx-auto space-y-6">
-        {/* Active Positions */}
+        {/* Your Predictions Section */}
         <div className="space-y-4">
-          <h3 className="text-lg sm:text-xl font-semibold text-white px-2 sm:px-0">Active Predictions</h3>
+          <h3 className="text-lg sm:text-xl font-semibold text-white px-2 sm:px-0">Predictions</h3>
 
           {positionsLoading ? (
             <Card className="bg-white/5 border-white/10">
@@ -263,33 +312,317 @@ export default function PublicProfilePage() {
                 </div>
               </CardContent>
             </Card>
-          ) : positionsData?.success && positionsData.data?.active?.length > 0 ? (
-            <div className="space-y-3">
-              {positionsData.data.active.map((position: any) => (
-                <Card key={position.marketId} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
+          ) : positionsData?.success && positionsData.data?.all?.length > 0 ? (
+            <>
+              {/* Active Positions */}
+              {positionsData.data.active.length > 0 && (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-400">Active Positions</h4>
+                    {positionsData.data.active.length > 3 && (
+                      <button
+                        onClick={() => setShowAllPositions(!showAllPositions)}
+                        className="text-xs text-cyan-400 hover:text-cyan-300 transition-colors"
+                      >
+                        {showAllPositions ? 'View Less' : `View All (${positionsData.data.active.length})`}
+                      </button>
+                    )}
+                  </div>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {positionsData.data.active.slice(0, showAllPositions ? undefined : 3).map((position: any) => (
+                      <Card key={position.marketId} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
+                        <CardContent className="p-4">
+                          <a href={`/market/${position.marketId}`} className="block group">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                {position.marketImage ? (
+                                  <img
+                                    src={position.marketImage}
+                                    alt={position.marketName}
+                                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className={`w-10 h-10 bg-gradient-to-r ${
+                                    position.voteType === 'yes'
+                                      ? 'from-green-500 to-emerald-500'
+                                      : 'from-red-500 to-pink-500'
+                                  } rounded-lg flex items-center justify-center flex-shrink-0`}>
+                                    <TrendingUp className="w-5 h-5 text-white" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-white font-semibold group-hover:text-cyan-400 transition-colors truncate">
+                                    {position.marketName}
+                                  </h4>
+                                  <p className="text-xs text-gray-400">{position.tokenSymbol || 'TKN'}</p>
+                                </div>
+                              </div>
+                              <span className={`px-2 py-1 rounded text-xs border whitespace-nowrap ${
+                                position.voteType === 'yes'
+                                  ? 'bg-green-500/20 text-green-400 border-green-400/30'
+                                  : 'bg-red-500/20 text-red-400 border-red-400/30'
+                              }`}>
+                                {position.voteType.toUpperCase()}
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Stake</div>
+                                <div className="font-semibold text-white">
+                                  {position.totalAmount.toFixed(2)} SOL
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {position.tradeCount} {position.tradeCount === 1 ? 'trade' : 'trades'}
+                                </div>
+                              </div>
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Current Price</div>
+                                <div className={`font-semibold ${
+                                  position.voteType === 'yes' ? 'text-green-400' : 'text-red-400'
+                                }`}>
+                                  {position.voteType === 'yes' ? position.currentYesPrice.toFixed(1) : position.currentNoPrice.toFixed(1)}%
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {position.voteType === 'yes' ? 'YES' : 'NO'} rate
+                                </div>
+                              </div>
+                            </div>
+                          </a>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Claimable Positions */}
+              {positionsData.data.claimable.length > 0 && (
+                <div className="space-y-3 mt-6">
+                  <h4 className="text-sm font-medium text-gray-400">Claimable Rewards</h4>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {positionsData.data.claimable.map((position: any) => (
+                      <Card key={position.marketId} className="bg-gradient-to-r from-green-500/10 to-emerald-500/10 border-green-500/20 hover:border-green-500/40 transition-colors">
+                        <CardContent className="p-4">
+                          <a href={`/market/${position.marketId}`} className="block group">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                {position.marketImage ? (
+                                  <img
+                                    src={position.marketImage}
+                                    alt={position.marketName}
+                                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 bg-gradient-to-r from-green-500 to-emerald-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <Trophy className="w-5 h-5 text-white" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-white font-semibold group-hover:text-cyan-400 transition-colors truncate">
+                                    {position.marketName}
+                                  </h4>
+                                  <p className="text-xs text-gray-400">{position.tokenSymbol || 'TKN'}</p>
+                                </div>
+                              </div>
+                              <span className="px-2 py-1 rounded text-xs border bg-green-500/20 text-green-400 border-green-400/30 whitespace-nowrap">
+                                WON
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Stake</div>
+                                <div className="font-semibold text-white">
+                                  {position.totalAmount.toFixed(2)} SOL
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {position.voteType.toUpperCase()} vote
+                                </div>
+                              </div>
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Resolution</div>
+                                <div className="font-semibold text-green-400">
+                                  {position.resolution || 'YesWins'}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  Won!
+                                </div>
+                              </div>
+                            </div>
+                          </a>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Resolved but not claimable positions */}
+              {positionsData.data.resolved.filter((p: any) => !p.canClaim).length > 0 && (
+                <div className="space-y-3 mt-6">
+                  <h4 className="text-sm font-medium text-gray-400">Resolved Positions</h4>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {positionsData.data.resolved.filter((p: any) => !p.canClaim).map((position: any) => (
+                      <Card key={position.marketId} className="bg-white/5 border-white/10 opacity-70 hover:opacity-100 transition-opacity">
+                        <CardContent className="p-4">
+                          <a href={`/market/${position.marketId}`} className="block group">
+                            <div className="flex items-start justify-between mb-3">
+                              <div className="flex items-center space-x-3 flex-1 min-w-0">
+                                {position.marketImage ? (
+                                  <img
+                                    src={position.marketImage}
+                                    alt={position.marketName}
+                                    className="w-10 h-10 rounded-lg object-cover flex-shrink-0 grayscale"
+                                  />
+                                ) : (
+                                  <div className="w-10 h-10 bg-gradient-to-r from-gray-500 to-gray-600 rounded-lg flex items-center justify-center flex-shrink-0">
+                                    <XCircle className="w-5 h-5 text-white" />
+                                  </div>
+                                )}
+                                <div className="flex-1 min-w-0">
+                                  <h4 className="text-white font-semibold group-hover:text-cyan-400 transition-colors truncate">
+                                    {position.marketName}
+                                  </h4>
+                                  <p className="text-xs text-gray-400">{position.tokenSymbol || 'TKN'}</p>
+                                </div>
+                              </div>
+                              <span className="px-2 py-1 rounded text-xs border bg-red-500/20 text-red-400 border-red-400/30 whitespace-nowrap">
+                                LOST
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Stake</div>
+                                <div className="font-semibold text-white">
+                                  {position.totalAmount.toFixed(2)} SOL
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  {position.voteType.toUpperCase()} vote
+                                </div>
+                              </div>
+                              <div className="bg-white/5 rounded p-2 border border-white/10">
+                                <div className="text-gray-400 text-xs">Resolution</div>
+                                <div className="font-semibold text-red-400">
+                                  {position.resolution || 'NoWins'}
+                                </div>
+                                <div className="text-xs text-gray-500">
+                                  No rewards
+                                </div>
+                              </div>
+                            </div>
+                          </a>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </>
+          ) : (
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="p-6">
+                <div className="text-center text-gray-400 py-8">
+                  <p className="text-sm">No predictions yet</p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+
+        {/* Projects Created Section */}
+        <div className="space-y-4 mt-8">
+          <div className="flex items-center justify-between px-2 sm:px-0">
+            <div className="flex items-center space-x-2">
+              <Rocket className="w-5 h-5 text-purple-400" />
+              <h3 className="text-lg sm:text-xl font-semibold text-white">Projects Created</h3>
+            </div>
+            {projectsData?.success && projectsData.data?.projects?.length > 3 && (
+              <button
+                onClick={() => setShowAllProjects(!showAllProjects)}
+                className="text-sm text-cyan-400 hover:text-cyan-300 transition-colors"
+              >
+                {showAllProjects ? 'View Less' : `View All (${projectsData.data.projects.length})`}
+              </button>
+            )}
+          </div>
+
+          {projectsLoading ? (
+            <Card className="bg-white/5 border-white/10">
+              <CardContent className="p-6">
+                <div className="text-center text-gray-400 py-8">
+                  <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
+                  <p className="text-sm">Loading projects...</p>
+                </div>
+              </CardContent>
+            </Card>
+          ) : projectsData?.success && projectsData.data?.projects?.length > 0 ? (
+            <div className="grid gap-4 sm:grid-cols-2">
+              {projectsData.data.projects.slice(0, showAllProjects ? undefined : 3).map((project: any) => (
+                <Card key={project.id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
                   <CardContent className="p-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                      <div className="flex-1 min-w-0">
-                        <Link href={`/market/${position.marketId}`} className="hover:text-cyan-400 transition-colors">
-                          <h4 className="text-white font-semibold mb-1 truncate">{position.marketName}</h4>
-                        </Link>
-                        <div className="flex flex-wrap items-center gap-2 sm:gap-3 text-sm">
-                          <Badge className={`${
-                            position.voteType === 'yes'
-                              ? 'bg-green-500/20 text-green-400 border-green-400/30'
-                              : 'bg-red-500/20 text-red-400 border-red-400/30'
-                          }`}>
-                            {position.voteType.toUpperCase()}
-                          </Badge>
-                          <span className="text-gray-400 whitespace-nowrap">
-                            {position.totalAmount.toFixed(4)} SOL
-                          </span>
-                          <span className="text-gray-400 whitespace-nowrap">
-                            {position.tradeCount} {position.tradeCount === 1 ? 'trade' : 'trades'}
-                          </span>
+                    <a href={`/market/${project.id}`} className="block group">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-3 flex-1 min-w-0">
+                          {project.projectImageUrl ? (
+                            <img
+                              src={project.projectImageUrl}
+                              alt={project.name}
+                              className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
+                            />
+                          ) : (
+                            <div className="w-10 h-10 bg-gradient-to-r from-purple-500 to-pink-500 rounded-lg flex items-center justify-center flex-shrink-0">
+                              <Rocket className="w-5 h-5 text-white" />
+                            </div>
+                          )}
+                          <div className="flex-1 min-w-0">
+                            <h4 className="text-white font-semibold group-hover:text-cyan-400 transition-colors truncate">
+                              {project.name}
+                            </h4>
+                            <p className="text-xs text-gray-400">{project.tokenSymbol}</p>
+                          </div>
+                        </div>
+                        <span className={`px-2 py-1 rounded text-xs border whitespace-nowrap ${
+                          project.status === 'Launched'
+                            ? 'bg-green-500/20 text-green-400 border-green-400/30'
+                            : project.status === 'Not Launched'
+                            ? 'bg-red-500/20 text-red-400 border-red-400/30'
+                            : project.status === 'Pending Resolution'
+                            ? 'bg-yellow-500/20 text-yellow-400 border-yellow-400/30'
+                            : 'bg-blue-500/20 text-blue-400 border-blue-400/30'
+                        }`}>
+                          {project.status}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3 text-sm">
+                        <div className="bg-white/5 rounded p-2 border border-white/10">
+                          <div className="text-gray-400 text-xs">Pool Progress</div>
+                          <div className="font-semibold text-white">
+                            {(project.poolProgressPercentage || 0).toFixed(0)}%
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {(project.poolBalance || 0).toFixed(2)} / {(project.targetPool || 0).toFixed(0)} SOL
+                          </div>
+                        </div>
+                        <div className="bg-white/5 rounded p-2 border border-white/10">
+                          <div className="text-gray-400 text-xs">YES Rate</div>
+                          <div className="font-semibold text-green-400">
+                            {(project.sharesYesPercentage || 0).toFixed(1)}%
+                          </div>
+                          <div className="text-xs text-gray-500">
+                            {(project.yesVoteCount || 0) + (project.noVoteCount || 0)} votes
+                          </div>
                         </div>
                       </div>
-                    </div>
+
+                      {project.status === 'Active' && !project.isExpired && (
+                        <div className="mt-3 text-xs text-gray-400">
+                          <span className="text-white font-medium">{project.timeLeft}</span> remaining
+                        </div>
+                      )}
+                    </a>
                   </CardContent>
                 </Card>
               ))}
@@ -298,61 +631,13 @@ export default function PublicProfilePage() {
             <Card className="bg-white/5 border-white/10">
               <CardContent className="p-6">
                 <div className="text-center text-gray-400 py-8">
-                  <Users className="w-12 h-12 mx-auto mb-2 text-gray-600" />
-                  <p className="text-sm">No active predictions</p>
+                  <Rocket className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                  <p className="text-sm">No projects created yet</p>
                 </div>
               </CardContent>
             </Card>
           )}
         </div>
-
-        {/* Projects Created */}
-        {projectsData?.success && projectsData.data?.length > 0 && (
-          <div className="space-y-4">
-            <h3 className="text-lg sm:text-xl font-semibold text-white px-2 sm:px-0">Projects Created</h3>
-
-            <div className="space-y-3">
-              {projectsData.data.map((project: any) => (
-                <Card key={project._id} className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
-                  <CardContent className="p-4">
-                    <div className="flex items-start gap-3">
-                      {project.projectImageUrl ? (
-                        <img
-                          src={project.projectImageUrl}
-                          alt={project.name}
-                          className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-                        />
-                      ) : (
-                        <div className="w-12 h-12 rounded-lg bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center flex-shrink-0">
-                          <User className="w-6 h-6 text-white" />
-                        </div>
-                      )}
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-white font-semibold mb-1 truncate">{project.name}</h4>
-                        <p className="text-gray-400 text-sm mb-2 line-clamp-2">{project.description}</p>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge className="bg-blue-500/20 text-blue-300 border-blue-400/30 text-xs">
-                            {project.category}
-                          </Badge>
-                          <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30 text-xs">
-                            {project.tokenSymbol}
-                          </Badge>
-                          <Badge className={`text-xs ${
-                            project.status === 'active'
-                              ? 'bg-green-500/20 text-green-300 border-green-400/30'
-                              : 'bg-gray-500/20 text-gray-300 border-gray-400/30'
-                          }`}>
-                            {project.status}
-                          </Badge>
-                        </div>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          </div>
-        )}
       </div>
     </div>
   );

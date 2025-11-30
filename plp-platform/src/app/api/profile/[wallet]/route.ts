@@ -54,9 +54,35 @@ export async function GET(
       profile = { ...newProfile, _id: result.insertedId };
     }
 
+    // Calculate real-time counts from actual data
+    const tradesCollection = db.collection(COLLECTIONS.TRADE_HISTORY);
+    const projectsCollection = db.collection(COLLECTIONS.PROJECTS);
+
+    // Count total unique markets the user has participated in (from trades)
+    const uniqueMarkets = await tradesCollection.distinct('marketId', {
+      traderWallet: wallet
+    });
+    const totalPredictions = uniqueMarkets.length;
+
+    // Count markets created by this user (not projects, but prediction markets)
+    const marketsCollection = db.collection(COLLECTIONS.PREDICTION_MARKETS);
+    const userProjects = await projectsCollection.find({ founderWallet: wallet }).toArray();
+    const projectIds = userProjects.map(p => p._id);
+
+    const projectsCreated = await marketsCollection.countDocuments({
+      projectId: { $in: projectIds }
+    });
+
+    // Merge calculated counts with profile data
+    const profileWithCounts = {
+      ...profile,
+      totalPredictions,
+      projectsCreated,
+    };
+
     return NextResponse.json({
       success: true,
-      data: profile,
+      data: profileWithCounts,
     });
   } catch (error: any) {
     console.error('Error fetching user profile:', error);

@@ -9,13 +9,17 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
 import { buildBuyYesTransaction, buildBuyNoTransaction } from '@/lib/anchor-program';
 import { createClientLogger } from '@/lib/logger';
+import { SOLANA_NETWORK } from '@/config/solana';
 
 const logger = createClientLogger();
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { marketAddress, voteType, amount, userWallet } = body;
+    const { marketAddress, voteType, amount, userWallet, network } = body;
+
+    // Use provided network or fall back to SOLANA_NETWORK constant
+    const targetNetwork = (network as 'devnet' | 'mainnet-beta') || SOLANA_NETWORK;
 
     // Validate inputs
     if (!marketAddress || !voteType || !amount || !userWallet) {
@@ -57,6 +61,7 @@ export async function POST(request: NextRequest) {
       amount,
       lamports,
       userWallet,
+      network: targetNetwork,
     });
 
     // Convert addresses to PublicKey
@@ -65,20 +70,22 @@ export async function POST(request: NextRequest) {
 
     // Debug: Check Treasury PDA derivation
     const { getTreasuryPDA } = await import('@/lib/anchor-program');
-    const [treasuryPda] = getTreasuryPDA();
-    logger.info('Treasury PDA being used:', treasuryPda.toBase58());
+    const [treasuryPda] = getTreasuryPDA(targetNetwork);
+    logger.info('Treasury PDA being used', { treasuryPda: treasuryPda.toBase58() });
 
-    // Build transaction based on vote type
+    // Build transaction based on vote type (pass network for dynamic program ID selection)
     const result = voteType === 'yes'
       ? await buildBuyYesTransaction({
           market: marketPubkey,
           user: userPubkey,
           solAmount: lamports,
+          network: targetNetwork,
         })
       : await buildBuyNoTransaction({
           market: marketPubkey,
           user: userPubkey,
           solAmount: lamports,
+          network: targetNetwork,
         });
 
     // Serialize transaction for client-side signing
@@ -105,7 +112,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Failed to prepare vote transaction:', error);
+    logger.error('Failed to prepare vote transaction', { error });
 
     return NextResponse.json(
       {

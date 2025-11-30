@@ -14,6 +14,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { getSolanaConnection } from '@/lib/solana';
 import { createClientLogger } from '@/lib/logger';
 import { useWallets, useSignAndSendTransaction, useStandardWallets } from '@privy-io/react-auth/solana';
+import { useNetwork } from './useNetwork';
 import bs58 from 'bs58';
 
 const logger = createClientLogger();
@@ -38,6 +39,7 @@ export function useVoting() {
   const { wallets } = useWallets(); // External wallets
   const { wallets: standardWallets } = useStandardWallets(); // Standard wallet interface (includes embedded)
   const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { network } = useNetwork();
   const [isVoting, setIsVoting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -70,6 +72,7 @@ export function useVoting() {
           voteType: params.voteType,
           amount: params.amount,
           userWallet: primaryWallet.address,
+          network: network, // Pass current network for dynamic program ID selection
         }),
       });
 
@@ -121,7 +124,7 @@ export function useVoting() {
         const result = await signAndSendTransaction({
           transaction: txBuffer,
           wallet: solanaWallet as any,
-          chain: 'solana:devnet', // or 'solana:mainnet' based on your network
+          chain: network === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
         });
 
         // Extract signature from result and convert to base58 (Solana standard format)

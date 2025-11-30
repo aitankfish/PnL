@@ -10,7 +10,7 @@ import { COLLECTIONS, UserProfile } from '@/lib/database/models';
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { walletAddress, username, profilePhotoUrl, bio, email } = body;
+    const { walletAddress, username, profilePhotoUrl, bio, twitter, email } = body;
 
     if (!walletAddress) {
       return NextResponse.json(
@@ -31,6 +31,7 @@ export async function POST(request: NextRequest) {
     if (username !== undefined) updateData.username = username;
     if (profilePhotoUrl !== undefined) updateData.profilePhotoUrl = profilePhotoUrl;
     if (bio !== undefined) updateData.bio = bio;
+    if (twitter !== undefined) updateData.twitter = twitter;
     if (email !== undefined) updateData.email = email;
 
     // Update or create profile
