@@ -36,6 +36,9 @@ import { getSolanaConnection } from '@/lib/solana';
 import { ipfsUtils } from '@/lib/ipfs';
 import useSWR from 'swr';
 import { useUserSocket, useMarketSocket } from '@/lib/hooks/useSocket';
+import { useTokenBalance } from '@/lib/hooks/useTokenBalance';
+import { getUsdcMint, TOKEN_DECIMALS } from '@/config/tokens';
+import { useNetwork } from '@/lib/hooks/useNetwork';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -505,6 +508,15 @@ export default function WalletPage() {
   const { wallets } = useWallets(); // External wallets
   const { wallets: standardWallets } = useStandardWallets(); // Standard wallet interface (includes embedded)
   const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { network } = useNetwork();
+
+  // USDC balance
+  const usdcMint = getUsdcMint(network);
+  const { balance: usdcBalance, formattedBalance: usdcFormatted, isLoading: isUsdcLoading } = useTokenBalance(
+    primaryWallet?.address,
+    usdcMint,
+    TOKEN_DECIMALS.USDC
+  );
 
   // Privy fiat onramp hook
   const { fundWallet } = useFundWallet({
@@ -880,6 +892,11 @@ export default function WalletPage() {
   }
 
   const usdValue = solPrice ? (solBalance * solPrice).toFixed(2) : '...';
+  const totalUsdValue = solPrice
+    ? (solBalance * solPrice + usdcBalance).toFixed(2)
+    : usdcBalance > 0
+      ? usdcBalance.toFixed(2)
+      : '...';
 
   return (
     <div className="min-h-screen p-4 sm:p-6">
@@ -888,16 +905,21 @@ export default function WalletPage() {
         {/* Balance Display */}
         <div className="text-center mb-6 px-4">
           <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold text-white mb-1">
-            ${isPriceLoading ? '...' : usdValue}
+            ${isPriceLoading ? '...' : totalUsdValue}
           </h2>
-          <p className="text-gray-400 text-base sm:text-lg">
-            {balanceLoading ? '...' : solBalance.toFixed(4)} SOL
-            {solPrice && !isPriceLoading && (
-              <span className="text-xs sm:text-sm text-gray-500 ml-2">
-                @ ${solPrice.toFixed(2)}
-              </span>
-            )}
-          </p>
+          <div className="space-y-1">
+            <p className="text-gray-400 text-base sm:text-lg">
+              {balanceLoading ? '...' : solBalance.toFixed(4)} SOL
+              {solPrice && !isPriceLoading && (
+                <span className="text-xs sm:text-sm text-gray-500 ml-2">
+                  @ ${solPrice.toFixed(2)}
+                </span>
+              )}
+            </p>
+            <p className="text-gray-400 text-sm sm:text-base">
+              {isUsdcLoading ? '...' : usdcFormatted} USDC
+            </p>
+          </div>
           <button
             onClick={copyAddress}
             className="text-xs text-gray-500 mt-2 hover:text-cyan-400 transition-colors cursor-pointer inline-flex items-center gap-1 break-all max-w-full px-2"
