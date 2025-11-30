@@ -1,5 +1,11 @@
 /**
  * Manual script to check claim status without Anchor
+ *
+ * Usage:
+ *   npx tsx check-claims-manual.ts
+ *
+ *   Optional: Set HELIUS_API_KEY for better RPC performance
+ *   HELIUS_API_KEY="your_api_key" npx tsx check-claims-manual.ts
  */
 
 import { PublicKey, Connection } from '@solana/web3.js';
@@ -16,7 +22,11 @@ const WALLETS = [
 async function checkClaims() {
   console.log('🔍 Checking claim status for all wallets...\n');
 
-  const connection = new Connection('https://devnet.helius-rpc.com/?api-key=8f773bda-b37a-42ec-989c-b2318c1772d7', 'confirmed');
+  const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
+  const RPC_ENDPOINT = HELIUS_API_KEY
+    ? `https://devnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+    : 'https://api.devnet.solana.com';
+  const connection = new Connection(RPC_ENDPOINT, 'confirmed');
   const marketPubkey = new PublicKey(MARKET_ADDRESS);
 
   // First, check market account balance

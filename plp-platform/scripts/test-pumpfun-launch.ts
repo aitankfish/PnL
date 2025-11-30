@@ -9,6 +9,9 @@
  *
  * Usage:
  *   WALLET_PRIVATE_KEY="your_base58_private_key" npx tsx test-pumpfun-launch.ts
+ *
+ *   Optional: Set HELIUS_API_KEY for better RPC performance
+ *   HELIUS_API_KEY="your_api_key" WALLET_PRIVATE_KEY="..." npx tsx test-pumpfun-launch.ts
  */
 
 import { Connection, Keypair, Transaction } from '@solana/web3.js';
@@ -21,9 +24,12 @@ import { generateVanityKeypair } from './src/lib/vanity';
 // ============================================================================
 
 const NETWORK = 'mainnet-beta'; // Change to 'mainnet-beta' when ready to test for real
+const HELIUS_API_KEY = process.env.HELIUS_API_KEY;
 const RPC_ENDPOINT = NETWORK === 'devnet'
   ? 'https://api.devnet.solana.com'
-  : 'https://mainnet.helius-rpc.com/?api-key=8f773bda-b37a-42ec-989c-b2318c1772d7';
+  : HELIUS_API_KEY
+    ? `https://mainnet.helius-rpc.com/?api-key=${HELIUS_API_KEY}`
+    : 'https://api.mainnet-beta.solana.com'; // Fallback to public RPC
 
 // Test token metadata
 const TEST_TOKEN = {

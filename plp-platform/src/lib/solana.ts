@@ -24,7 +24,6 @@ const RPC_ENDPOINTS: Record<string, string[]> = {
     // Fallback 1: Official Solana RPC
     'https://api.devnet.solana.com',
     // Fallback 2: Public RPC endpoints
-    'https://devnet.helius-rpc.com/?api-key=8f773bda-b37a-42ec-989c-b2318c1772d7',
     'https://rpc.ankr.com/solana_devnet',
     'https://solana-devnet.g.alchemy.com/v2/demo',
   ].filter(Boolean) as string[],

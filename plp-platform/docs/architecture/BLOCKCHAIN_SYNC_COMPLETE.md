@@ -265,7 +265,7 @@ Ensure these variables are in `.env`:
 
 ```env
 # Helius Configuration
-HELIUS_API_KEY=8f773bda-b37a-42ec-989c-b2318c1772d7
+HELIUS_API_KEY=your_helius_api_key
 HELIUS_WS_DEVNET=wss://devnet.helius-rpc.com/?api-key=xxx
 HELIUS_WS_MAINNET=wss://mainnet.helius-rpc.com/?api-key=xxx
 
