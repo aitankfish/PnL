@@ -91,3 +91,11 @@ jspm_packages/
 # Solana
 test-ledger/
 .anchor/
+
+# Wallet files (private keys - NEVER commit these!)
+*wallet*.json
+*keypair*.json
+*.json.key
+id.json
+!**/target/idl/*.json
+!**/target/types/*.json
