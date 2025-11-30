@@ -453,36 +453,27 @@ export default function MarketDetailsPage() {
 
     // Check if market is expired
     if (isMarketExpired()) {
-      setErrorDialog({
-        open: true,
-        title: 'Market Expired',
-        message: 'This market has already expired. You can no longer vote on this market.',
-        details: `Market expired on ${new Date(market.expiryTime).toLocaleString()}`,
-      });
+      setToastMessage('❌ Market expired - voting closed');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
       return;
     }
 
     // Check if user has opposite position
     if (positionData?.success && positionData.data.hasPosition) {
       if (positionData.data.side !== voteType) {
-        setErrorDialog({
-          open: true,
-          title: 'Already Has Position',
-          message: `You already voted ${positionData.data.side.toUpperCase()} on this market. Each wallet can only hold one position per market.`,
-          details: `Current position: ${positionData.data.totalAmount.toFixed(3)} SOL on ${positionData.data.side.toUpperCase()} (${positionData.data.tradeCount} ${positionData.data.tradeCount === 1 ? 'trade' : 'trades'})`,
-        });
+        setToastMessage(`❌ You already voted ${positionData.data.side.toUpperCase()} - can't switch sides`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 4000);
         return;
       }
     }
 
     const voteAmount = parseFloat(amount);
     if (isNaN(voteAmount) || voteAmount < QUICK_VOTE_AMOUNT) {
-      setErrorDialog({
-        open: true,
-        title: 'Invalid Amount',
-        message: `The minimum vote amount is ${QUICK_VOTE_AMOUNT} SOL.`,
-        details: `You entered: ${amount} SOL`,
-      });
+      setToastMessage(`❌ Minimum vote: ${QUICK_VOTE_AMOUNT} SOL`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
       return;
     }
 
@@ -498,35 +489,26 @@ export default function MarketDetailsPage() {
       setIsProcessingVote(false);
 
       if (result.success) {
-        // Show success notification immediately (no page reload)
-        setSuccessDialog({
-          open: true,
-          title: `${voteType.toUpperCase()} Vote Recorded`,
-          message: 'Your vote has been successfully recorded on the blockchain.',
-          signature: result.signature,
-          details: `You voted ${voteType.toUpperCase()} with ${voteAmount} SOL`,
-        });
+        // Show success toast notification
+        setToastMessage(`✅ ${voteType.toUpperCase()} vote recorded! ${voteAmount} SOL`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
 
-        // Don't refresh - data will update naturally when dialog is closed or page is navigated
-        // This prevents the page reload issue
+        // Refresh data in background
+        refetchPosition();
+        refetchOnchainData();
       } else {
-        // Parse error and show in dialog
+        // Parse error and show toast
         const parsedError = parseError(result.error);
-        setErrorDialog({
-          open: true,
-          title: parsedError.title,
-          message: parsedError.message,
-          details: parsedError.details,
-        });
+        setToastMessage(`❌ ${parsedError.title}: ${parsedError.message}`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 5000);
       }
     }).catch((error) => {
       setIsProcessingVote(false);
-      setErrorDialog({
-        open: true,
-        title: 'Transaction Failed',
-        message: 'An unexpected error occurred while processing your vote.',
-        details: error?.message || 'Unknown error',
-      });
+      setToastMessage(`❌ Transaction failed: ${error?.message || 'Unknown error'}`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     });
   };
 
@@ -540,31 +522,23 @@ export default function MarketDetailsPage() {
 
     if (result.success) {
       // Success! Refresh data
-      // Claim status is now tracked in database, refetch position data
       refetchPosition(); // Refresh position data to show updated claimed status
       fetchMarketDetails(params.id as string);
-      refetchPosition(); // Position will be closed after claim
       refetchOnchainData(); // Update pool balance
 
       // Format the claim amount for display
       const claimAmountSOL = result.claimAmount ? (result.claimAmount / 1e9).toFixed(4) : '0';
 
-      // Show success dialog with claim amount
-      setSuccessDialog({
-        open: true,
-        title: 'Rewards Claimed Successfully',
-        message: `You received ${claimAmountSOL} SOL! Your rewards have been transferred to your wallet.`,
-        signature: result.signature,
-      });
+      // Show success toast with claim amount
+      setToastMessage(`✅ Claimed ${claimAmountSOL} SOL successfully!`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     } else {
-      // Parse error and show in dialog
+      // Parse error and show toast
       const parsedError = parseError(result.error);
-      setErrorDialog({
-        open: true,
-        title: parsedError.title,
-        message: parsedError.message,
-        details: parsedError.details,
-      });
+      setToastMessage(`❌ ${parsedError.title}: ${parsedError.message}`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     }
   };
 
@@ -594,14 +568,10 @@ export default function MarketDetailsPage() {
       refetchHistory(); // Refresh trade history
       refetchHolders(); // Refresh holders
 
-      // Show success dialog
-      setSuccessDialog({
-        open: true,
-        title: 'Market Resolved Successfully',
-        message: 'The market has been resolved. Participants can now claim their rewards.',
-        signature: result.signature,
-        details: 'The UI will update in a few moments to show claim options.',
-      });
+      // Show success toast
+      setToastMessage('✅ Market resolved! Participants can now claim rewards');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     } else {
       // If error, check if market is already resolved on-chain
       console.log('⚠️ Resolution failed, checking on-chain status...');
@@ -623,12 +593,9 @@ export default function MarketDetailsPage() {
           refetchOnchainData();
           fetchMarketDetails(params.id as string);
 
-          setSuccessDialog({
-            open: true,
-            title: 'Market Already Resolved',
-            message: `The market was already resolved as ${statusResult.data.resolution}. You can now claim your rewards.`,
-            details: 'The database will sync automatically in the background.',
-          });
+          setToastMessage(`✅ Market already resolved as ${statusResult.data.resolution}`);
+          setShowToast(true);
+          setTimeout(() => setShowToast(false), 3000);
           return;
         }
       } catch (statusError) {
@@ -637,12 +604,9 @@ export default function MarketDetailsPage() {
 
       // Show original error if not resolved on-chain
       const parsedError = parseError(result.error);
-      setErrorDialog({
-        open: true,
-        title: parsedError.title,
-        message: parsedError.message,
-        details: parsedError.details,
-      });
+      setToastMessage(`❌ ${parsedError.title}: ${parsedError.message}`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     }
   };
 
@@ -657,12 +621,9 @@ export default function MarketDetailsPage() {
       await refetchOnchainData();
       await fetchMarketDetails(params.id as string);
 
-      setSuccessDialog({
-        open: true,
-        title: 'Already in Funding Phase',
-        message: 'This market is already in Funding Phase. The UI has been refreshed to show the current state.',
-        details: 'You can now launch the token or continue accepting contributions.',
-      });
+      setToastMessage('✅ Already in Funding Phase - UI refreshed');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
 
       return;
     }
@@ -688,14 +649,10 @@ export default function MarketDetailsPage() {
       refetchOnchainData(); // Immediate refresh
       retryOnchainDataFetch(); // Background retries
 
-      // Show success dialog
-      setSuccessDialog({
-        open: true,
-        title: 'Market Extended to Funding Phase',
-        message: 'The market has been extended. Additional funding can now be raised.',
-        signature: result.signature,
-        details: 'The UI will update to show Funding Phase shortly. The voting results are locked.',
-      });
+      // Show success toast
+      setToastMessage('✅ Market extended to Funding Phase!');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     } else {
       // Check if error indicates already extended
       const errorStr = result.error?.toString() || '';
@@ -706,21 +663,15 @@ export default function MarketDetailsPage() {
         await refetchOnchainData();
         await fetchMarketDetails(params.id as string);
 
-        setSuccessDialog({
-          open: true,
-          title: 'Market Already Extended',
-          message: 'This market was already extended to Funding Phase. The UI has been updated.',
-          details: 'You can now launch the token or continue accepting contributions.',
-        });
+        setToastMessage('✅ Market already extended - UI refreshed');
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 3000);
       } else {
-        // Parse error and show in dialog
+        // Parse error and show toast
         const parsedError = parseError(result.error);
-        setErrorDialog({
-          open: true,
-          title: parsedError.title,
-          message: parsedError.message,
-          details: parsedError.details,
-        });
+        setToastMessage(`❌ ${parsedError.title}: ${parsedError.message}`);
+        setShowToast(true);
+        setTimeout(() => setShowToast(false), 5000);
       }
     }
   };
@@ -741,21 +692,14 @@ export default function MarketDetailsPage() {
     if (result.success) {
       refetchOnchainData();
 
-      setSuccessDialog({
-        open: true,
-        title: 'Team Vesting Initialized',
-        message: 'The team vesting schedule has been initialized successfully.',
-        signature: result.signature,
-        details: 'The founder can now claim 5% immediately and 15% vested over 12 months.',
-      });
+      setToastMessage('✅ Team vesting initialized! Founder can claim tokens');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     } else {
       const parsedError = parseError(result.error);
-      setErrorDialog({
-        open: true,
-        title: parsedError.title,
-        message: parsedError.message,
-        details: parsedError.details,
-      });
+      setToastMessage(`❌ ${parsedError.title}: ${parsedError.message}`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     }
   };
 
@@ -770,21 +714,14 @@ export default function MarketDetailsPage() {
     if (result.success) {
       refetchOnchainData();
 
-      setSuccessDialog({
-        open: true,
-        title: 'Team Tokens Claimed',
-        message: 'Your team tokens have been successfully claimed.',
-        signature: result.signature,
-        details: 'The tokens have been transferred to your wallet.',
-      });
+      setToastMessage('✅ Team tokens claimed successfully!');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     } else {
       const parsedError = parseError(result.error);
-      setErrorDialog({
-        open: true,
-        title: parsedError.title,
-        message: parsedError.message,
-        details: parsedError.details,
-      });
+      setToastMessage(`❌ ${parsedError.title}: ${parsedError.message}`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     }
   };
 
@@ -799,21 +736,14 @@ export default function MarketDetailsPage() {
     if (result.success) {
       refetchOnchainData();
 
-      setSuccessDialog({
-        open: true,
-        title: 'Platform Tokens Claimed',
-        message: 'The 1% platform allocation has been successfully claimed.',
-        signature: result.signature,
-        details: 'The tokens have been transferred to the P&L platform wallet.',
-      });
+      setToastMessage('✅ Platform tokens (1%) claimed successfully!');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     } else {
       const parsedError = parseError(result.error);
-      setErrorDialog({
-        open: true,
-        title: parsedError.title,
-        message: parsedError.message,
-        details: parsedError.details,
-      });
+      setToastMessage(`❌ ${parsedError.title}: ${parsedError.message}`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     }
   };
 
@@ -828,21 +758,14 @@ export default function MarketDetailsPage() {
       refetchPosition(); // Position will be deleted
       refetchOnchainData();
 
-      setSuccessDialog({
-        open: true,
-        title: 'Position Closed',
-        message: 'Your position has been closed and rent has been recovered.',
-        signature: result.signature,
-        details: 'The account rent has been transferred back to your wallet.',
-      });
+      setToastMessage('✅ Position closed - rent recovered!');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
     } else {
       const parsedError = parseError(result.error);
-      setErrorDialog({
-        open: true,
-        title: parsedError.title,
-        message: parsedError.message,
-        details: parsedError.details,
-      });
+      setToastMessage(`❌ ${parsedError.title}: ${parsedError.message}`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     }
   };
 
@@ -854,13 +777,9 @@ export default function MarketDetailsPage() {
     });
 
     if (result.success) {
-      setSuccessDialog({
-        open: true,
-        title: 'Market Closed',
-        message: 'The market has been closed and rent has been recovered.',
-        signature: result.signature,
-        details: 'The market account has been deleted and rent transferred back to you. You will be redirected shortly.',
-      });
+      setToastMessage('✅ Market closed - redirecting to browse...');
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 3000);
 
       // Redirect to markets page after 3 seconds
       setTimeout(() => {
@@ -868,12 +787,9 @@ export default function MarketDetailsPage() {
       }, 3000);
     } else {
       const parsedError = parseError(result.error);
-      setErrorDialog({
-        open: true,
-        title: parsedError.title,
-        message: parsedError.message,
-        details: parsedError.details,
-      });
+      setToastMessage(`❌ ${parsedError.title}: ${parsedError.message}`);
+      setShowToast(true);
+      setTimeout(() => setShowToast(false), 5000);
     }
   };
 
@@ -1246,21 +1162,14 @@ export default function MarketDetailsPage() {
                                       refetchHistory();
                                       refetchHolders();
 
-                                      setSuccessDialog({
-                                        open: true,
-                                        title: 'Token Launched Successfully!',
-                                        message: `${market.tokenSymbol} token has been created and the market resolved.`,
-                                        signature: result.signature,
-                                        details: 'YES voters can now claim their token airdrop!',
-                                      });
+                                      setToastMessage(`✅ ${market.tokenSymbol} token launched! YES voters can claim`);
+                                      setShowToast(true);
+                                      setTimeout(() => setShowToast(false), 3000);
                                     } else {
                                       const parsedError = parseError(result.error);
-                                      setErrorDialog({
-                                        open: true,
-                                        title: parsedError.title,
-                                        message: parsedError.message,
-                                        details: parsedError.details,
-                                      });
+                                      setToastMessage(`❌ ${parsedError.title}: ${parsedError.message}`);
+                                      setShowToast(true);
+                                      setTimeout(() => setShowToast(false), 5000);
                                     }
                                   }}
                                   disabled={isResolving}
@@ -1424,21 +1333,14 @@ export default function MarketDetailsPage() {
                                         refetchHistory();
                                         refetchHolders();
 
-                                        setSuccessDialog({
-                                          open: true,
-                                          title: 'Token Launched Successfully!',
-                                          message: `${market.tokenSymbol} token has been created and the market resolved.`,
-                                          signature: result.signature,
-                                          details: 'YES voters can now claim their token airdrop!',
-                                        });
+                                        setToastMessage(`✅ ${market.tokenSymbol} token launched! YES voters can claim`);
+                                        setShowToast(true);
+                                        setTimeout(() => setShowToast(false), 3000);
                                       } else {
                                         const parsedError = parseError(result.error);
-                                        setErrorDialog({
-                                          open: true,
-                                          title: parsedError.title,
-                                          message: parsedError.message,
-                                          details: parsedError.details,
-                                        });
+                                        setToastMessage(`❌ ${parsedError.title}: ${parsedError.message}`);
+                                        setShowToast(true);
+                                        setTimeout(() => setShowToast(false), 5000);
                                       }
                                     }}
                                     disabled={isResolving}
@@ -2190,7 +2092,11 @@ export default function MarketDetailsPage() {
         {showToast && (
           <div className="fixed top-3 sm:top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 px-3 sm:px-0">
             <div className="bg-gray-900 border border-white/20 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg shadow-lg flex items-center space-x-2">
-              <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 flex-shrink-0" />
+              {toastMessage.startsWith('✅') ? (
+                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 flex-shrink-0" />
+              ) : (
+                <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 flex-shrink-0" />
+              )}
               <span className="text-sm sm:text-base">{toastMessage}</span>
             </div>
           </div>

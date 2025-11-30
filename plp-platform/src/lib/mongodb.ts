@@ -77,6 +77,8 @@ const ProjectSchema = new mongoose.Schema({
       'AI/ML', 'ai/ml', 'ai',
       'Infrastructure', 'infrastructure',
       'Social', 'social',
+      'Meme', 'meme',
+      'Creator', 'creator',
       // Broader market categories
       'Healthcare', 'healthcare',
       'Science', 'science',

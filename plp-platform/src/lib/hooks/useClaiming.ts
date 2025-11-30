@@ -10,6 +10,7 @@ import { useWallet } from '@/hooks/useWallet';
 import { getSolanaConnection } from '@/lib/solana';
 import { parseClaimAmount } from '@/lib/solana/transaction-parser';
 import { useWallets, useSignAndSendTransaction, useStandardWallets } from '@privy-io/react-auth/solana';
+import { useNetwork } from './useNetwork';
 import bs58 from 'bs58';
 
 export function useClaiming() {
@@ -18,6 +19,7 @@ export function useClaiming() {
   const { wallets } = useWallets();
   const { standardWallets } = useStandardWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
+  const { network } = useNetwork();
 
   const claim = async (params: {
     marketId: string;
@@ -89,7 +91,7 @@ export function useClaiming() {
         const result = await signAndSendTransaction({
           transaction: txBuffer,
           wallet: solanaWallet as any,
-          chain: 'solana:devnet', // or 'solana:mainnet' based on your network
+          chain: network === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
         });
 
         // Extract signature from result and convert to base58 (Solana standard format)

@@ -20,7 +20,7 @@ const logger = createClientLogger();
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { marketId, marketAddress, signature } = body;
+    const { marketId, marketAddress, signature, tokenMint } = body;
 
     // Validate inputs
     if (!marketId || !marketAddress || !signature) {
@@ -37,6 +37,7 @@ export async function POST(request: NextRequest) {
       marketId,
       marketAddress,
       signature,
+      tokenMint,
     });
 
     // Fetch the updated market state from blockchain
@@ -70,22 +71,33 @@ export async function POST(request: NextRequest) {
     await connectToDatabase();
     const db = await getDatabase();
 
+    // Prepare update data
+    const updateData: any = {
+      marketState: marketAccount.marketState,
+      winningOption: marketAccount.winningOption,
+      resolution: resolutionOutcome,
+      resolvedAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    // If tokenMint is provided (YES wins, token launched), save it immediately
+    if (tokenMint) {
+      updateData.pumpFunTokenAddress = tokenMint;
+      logger.info('Saving token mint address to database (immediate write)', {
+        tokenMint,
+        marketId,
+      });
+    }
+
     await db.collection(COLLECTIONS.PREDICTION_MARKETS).updateOne(
       { _id: new ObjectId(marketId) },
-      {
-        $set: {
-          marketState: marketAccount.marketState,
-          winningOption: marketAccount.winningOption,
-          resolution: resolutionOutcome,
-          resolvedAt: new Date(),
-          updatedAt: new Date(),
-        }
-      }
+      { $set: updateData }
     );
 
     logger.info('Database updated with resolution', {
       marketId,
       resolution: resolutionOutcome,
+      pumpFunTokenAddress: tokenMint || 'none',
     });
 
     // Create notifications for all participants

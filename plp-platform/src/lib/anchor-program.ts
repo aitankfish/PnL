@@ -14,6 +14,25 @@ import idlJson from './idl/errors.json';
 type PlpPredictionMarket = typeof idlJson;
 
 /**
+ * Get dynamic program ID based on network
+ *
+ * @param network - Network to use (defaults to devnet)
+ * @returns PublicKey of the program for the specified network
+ */
+export function getProgramIdForNetwork(network?: 'devnet' | 'mainnet-beta'): PublicKey {
+  const targetNetwork = network || 'devnet';
+  const PROGRAM_ID_DEVNET_STR = process.env.NEXT_PUBLIC_PLP_PROGRAM_ID_DEVNET || '2CjwEvY3gkErkEmM5wnLpRv9fq3msHjnPDVPQmaWhF3G';
+  const PROGRAM_ID_MAINNET_STR = process.env.NEXT_PUBLIC_PLP_PROGRAM_ID_MAINNET || '6kK2SVaj6yW7mAjTsw1rxMDNeby8A9ojv3UyhVPofmZL';
+  const programIdString = targetNetwork === 'mainnet-beta' ? PROGRAM_ID_MAINNET_STR : PROGRAM_ID_DEVNET_STR;
+
+  if (!programIdString) {
+    throw new Error(`Program ID not configured for ${targetNetwork}`);
+  }
+
+  return new PublicKey(programIdString);
+}
+
+/**
  * Get Anchor program instance
  *
  * @param wallet - Wallet adapter (optional for read-only)
@@ -51,12 +70,14 @@ export function getProgram(wallet?: any, network?: 'devnet' | 'mainnet-beta'): P
 /**
  * Derive Treasury PDA
  *
+ * @param network - Network to use (defaults to devnet)
  * @returns Treasury PDA and bump
  */
-export function getTreasuryPDA(): [PublicKey, number] {
+export function getTreasuryPDA(network?: 'devnet' | 'mainnet-beta'): [PublicKey, number] {
+  const programId = getProgramIdForNetwork(network);
   return PublicKey.findProgramAddressSync(
     [Buffer.from(PDA_SEEDS.TREASURY)],
-    PROGRAM_ID
+    programId
   );
 }
 
@@ -65,15 +86,17 @@ export function getTreasuryPDA(): [PublicKey, number] {
  *
  * @param founderPubkey - Founder's public key
  * @param ipfsCid - IPFS CID of the project metadata
+ * @param network - Network to use (defaults to devnet)
  * @returns Market PDA and bump
  */
-export function getMarketPDA(founderPubkey: PublicKey, ipfsCid: string): [PublicKey, number] {
+export function getMarketPDA(founderPubkey: PublicKey, ipfsCid: string, network?: 'devnet' | 'mainnet-beta'): [PublicKey, number] {
   // Match on-chain program seeds: [b"market", founder.key(), hash(ipfs_cid.as_bytes())]
   // IPFS CIDs can be up to 59 bytes, but Solana PDA seeds have a 32-byte limit per seed
   // So we hash the IPFS CID using Solana's hash function to match the on-chain program
   // On-chain uses: anchor_lang::solana_program::hash::hash(ipfs_cid.as_bytes())
   const crypto = require('crypto');
   const solanaHash = crypto.createHash('sha256').update(ipfsCid, 'utf8').digest();
+  const programId = getProgramIdForNetwork(network);
 
   return PublicKey.findProgramAddressSync(
     [
@@ -81,7 +104,7 @@ export function getMarketPDA(founderPubkey: PublicKey, ipfsCid: string): [Public
       founderPubkey.toBytes(),
       solanaHash
     ],
-    PROGRAM_ID
+    programId
   );
 }
 
@@ -90,19 +113,22 @@ export function getMarketPDA(founderPubkey: PublicKey, ipfsCid: string): [Public
  *
  * @param marketPda - Market public key
  * @param userPubkey - User's public key
+ * @param network - Network to use (defaults to devnet)
  * @returns Position PDA and bump
  */
 export function getPositionPDA(
   marketPda: PublicKey,
-  userPubkey: PublicKey
+  userPubkey: PublicKey,
+  network?: 'devnet' | 'mainnet-beta'
 ): [PublicKey, number] {
+  const programId = getProgramIdForNetwork(network);
   return PublicKey.findProgramAddressSync(
     [
       Buffer.from(PDA_SEEDS.POSITION),
       marketPda.toBytes(),
       userPubkey.toBytes()
     ],
-    PROGRAM_ID
+    programId
   );
 }
 
@@ -129,6 +155,17 @@ export async function buildCreateMarketTransaction(params: {
   const RPC_MAINNET = process.env.NEXT_PUBLIC_HELIUS_MAINNET_RPC || 'https://api.mainnet-beta.solana.com';
   const RPC_DEVNET = process.env.NEXT_PUBLIC_HELIUS_DEVNET_RPC || 'https://api.devnet.solana.com';
   const rpcEndpoint = network === 'mainnet-beta' ? RPC_MAINNET : RPC_DEVNET;
+
+  // Get program ID based on network parameter (not from static import)
+  const PROGRAM_ID_DEVNET_STR = process.env.NEXT_PUBLIC_PLP_PROGRAM_ID_DEVNET || '2CjwEvY3gkErkEmM5wnLpRv9fq3msHjnPDVPQmaWhF3G';
+  const PROGRAM_ID_MAINNET_STR = process.env.NEXT_PUBLIC_PLP_PROGRAM_ID_MAINNET || '6kK2SVaj6yW7mAjTsw1rxMDNeby8A9ojv3UyhVPofmZL';
+  const programIdString = network === 'mainnet-beta' ? PROGRAM_ID_MAINNET_STR : PROGRAM_ID_DEVNET_STR;
+
+  if (!programIdString) {
+    throw new Error(`Program ID not configured for ${network}`);
+  }
+
+  const programId = new PublicKey(programIdString);
 
   // Validate target pool
   if (!TARGET_POOL_OPTIONS.includes(params.targetPool)) {
@@ -201,7 +238,7 @@ export async function buildCreateMarketTransaction(params: {
       { pubkey: params.founder, isSigner: true, isWritable: true },  // founder
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
     ],
-    programId: PROGRAM_ID,
+    programId: programId,
     data,
   });
 
@@ -234,10 +271,13 @@ export async function buildBuyYesTransaction(params: {
   user: PublicKey;
   solAmount: number; // in lamports
   wallet?: any;
+  network?: 'devnet' | 'mainnet-beta';
 }) {
-  // Derive PDAs
-  const [treasuryPda] = getTreasuryPDA();
-  const [positionPda] = getPositionPDA(params.market, params.user);
+  const network = params.network || 'devnet';
+
+  // Derive PDAs with network-specific program ID
+  const [treasuryPda] = getTreasuryPDA(network);
+  const [positionPda] = getPositionPDA(params.market, params.user, network);
 
   // Calculate buyYes discriminator: sha256("global:buy_yes")[0..8]
   const crypto = require('crypto');
@@ -256,6 +296,12 @@ export async function buildBuyYesTransaction(params: {
   // Write sol_amount (u64 little-endian)
   data.writeBigUInt64LE(BigInt(params.solAmount), 8);
 
+  // Get dynamic program ID and RPC for the network
+  const programId = getProgramIdForNetwork(network);
+  const RPC_MAINNET = process.env.NEXT_PUBLIC_HELIUS_MAINNET_RPC || 'https://api.mainnet-beta.solana.com';
+  const RPC_DEVNET = process.env.NEXT_PUBLIC_HELIUS_DEVNET_RPC || 'https://api.devnet.solana.com';
+  const rpcEndpoint = network === 'mainnet-beta' ? RPC_MAINNET : RPC_DEVNET;
+
   // Create instruction
   const { TransactionInstruction } = await import('@solana/web3.js');
   const instruction = new TransactionInstruction({
@@ -266,12 +312,12 @@ export async function buildBuyYesTransaction(params: {
       { pubkey: params.user, isSigner: true, isWritable: true },         // user (MUST be 4th!)
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
     ],
-    programId: PROGRAM_ID,
+    programId: programId,
     data,
   });
 
   // Create transaction with compute budget
-  const connection = new Connection(RPC_ENDPOINT, 'confirmed');
+  const connection = new Connection(rpcEndpoint, 'confirmed');
   const { blockhash } = await connection.getLatestBlockhash();
 
   // Add compute budget instruction (1.4M CU for LMSR calculations)
@@ -303,10 +349,13 @@ export async function buildBuyNoTransaction(params: {
   user: PublicKey;
   solAmount: number; // in lamports
   wallet?: any;
+  network?: 'devnet' | 'mainnet-beta';
 }) {
-  // Derive PDAs
-  const [treasuryPda] = getTreasuryPDA();
-  const [positionPda] = getPositionPDA(params.market, params.user);
+  const network = params.network || 'devnet';
+
+  // Derive PDAs with network-specific program ID
+  const [treasuryPda] = getTreasuryPDA(network);
+  const [positionPda] = getPositionPDA(params.market, params.user, network);
 
   // Calculate buyNo discriminator: sha256("global:buy_no")[0..8]
   const crypto = require('crypto');
@@ -325,6 +374,12 @@ export async function buildBuyNoTransaction(params: {
   // Write sol_amount (u64 little-endian)
   data.writeBigUInt64LE(BigInt(params.solAmount), 8);
 
+  // Get dynamic program ID and RPC for the network
+  const programId = getProgramIdForNetwork(network);
+  const RPC_MAINNET = process.env.NEXT_PUBLIC_HELIUS_MAINNET_RPC || 'https://api.mainnet-beta.solana.com';
+  const RPC_DEVNET = process.env.NEXT_PUBLIC_HELIUS_DEVNET_RPC || 'https://api.devnet.solana.com';
+  const rpcEndpoint = network === 'mainnet-beta' ? RPC_MAINNET : RPC_DEVNET;
+
   // Create instruction
   const { TransactionInstruction } = await import('@solana/web3.js');
   const instruction = new TransactionInstruction({
@@ -335,12 +390,12 @@ export async function buildBuyNoTransaction(params: {
       { pubkey: params.user, isSigner: true, isWritable: true },         // user (MUST be 4th!)
       { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
     ],
-    programId: PROGRAM_ID,
+    programId: programId,
     data,
   });
 
   // Create transaction with compute budget
-  const connection = new Connection(RPC_ENDPOINT, 'confirmed');
+  const connection = new Connection(rpcEndpoint, 'confirmed');
   const { blockhash } = await connection.getLatestBlockhash();
 
   // Add compute budget instruction (1.4M CU for LMSR calculations)

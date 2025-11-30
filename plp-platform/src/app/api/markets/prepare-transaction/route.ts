@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
 import { buildCreateMarketTransaction, extractIPFSCid } from '@/lib/anchor-program';
 import { createClientLogger } from '@/lib/logger';
-import { TARGET_POOL_OPTIONS, FEES } from '@/config/solana';
+import { TARGET_POOL_OPTIONS, FEES, SOLANA_NETWORK } from '@/config/solana';
 
 const logger = createClientLogger();
 
@@ -17,8 +17,8 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
 
-    // Get network from request or default to devnet
-    const network = (body.network as 'devnet' | 'mainnet-beta') || 'devnet';
+    // Get network from request or use environment configuration
+    const network = (body.network as 'devnet' | 'mainnet-beta') || SOLANA_NETWORK;
 
     logger.info('Preparing create market transaction', {
       projectName: body.projectName,

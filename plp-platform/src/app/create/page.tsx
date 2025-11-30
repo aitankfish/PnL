@@ -16,6 +16,7 @@ import { getSolanaConnection } from '@/lib/solana';
 import bs58 from 'bs58';
 import { useToast } from '@/lib/hooks/useToast';
 import { isDevnet } from '@/lib/environment';
+import { SOLANA_NETWORK } from '@/config/solana';
 
 const logger = createClientLogger();
 
@@ -911,6 +912,7 @@ export default function CreatePage() {
                         metadataUri: projectResult.data.metadataUri,
                         targetPool: formData.targetPool,
                         marketDuration: parseInt(formData.marketDuration),
+                        network: SOLANA_NETWORK,
                       }),
                     });
                     

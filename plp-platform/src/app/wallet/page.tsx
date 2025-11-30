@@ -28,7 +28,8 @@ import {
   Rocket,
   TrendingUp,
   Trophy,
-  XCircle
+  XCircle,
+  ArrowLeftRight
 } from 'lucide-react';
 import { Connection, PublicKey, LAMPORTS_PER_SOL, SystemProgram, VersionedTransaction, TransactionMessage } from '@solana/web3.js';
 import { RPC_ENDPOINT, SOLANA_NETWORK } from '@/config/solana';
@@ -39,6 +40,7 @@ import { useUserSocket, useMarketSocket } from '@/lib/hooks/useSocket';
 import { useTokenBalance } from '@/lib/hooks/useTokenBalance';
 import { getUsdcMint, TOKEN_DECIMALS } from '@/config/tokens';
 import { useNetwork } from '@/lib/hooks/useNetwork';
+import { JupiterSwap } from '@/components/JupiterSwap';
 
 const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -274,10 +276,16 @@ function SendModal({ isOpen, onClose, onSend, balance }: SendModalProps) {
       <Card className="w-full max-w-md bg-gray-900 border-white/20 text-white">
         <CardContent className="p-6 space-y-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold">Withdraw SOL</h3>
+            <h3 className="text-xl font-semibold">Withdraw SOL / USDC</h3>
             <button onClick={onClose} className="text-gray-400 hover:text-white">
               <X className="w-5 h-5" />
             </button>
+          </div>
+
+          <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-lg text-cyan-400 text-sm">
+            <p className="text-xs">
+              💡 This form withdraws SOL only. To withdraw USDC, use the <span className="font-semibold">Swap</span> feature to convert USDC to SOL first, then withdraw SOL.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -357,7 +365,7 @@ function DepositModal({ isOpen, onClose, address }: { isOpen: boolean; onClose: 
       <Card className="w-full max-w-md bg-gray-900 border-white/20 text-white">
         <CardContent className="p-6 space-y-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-xl font-semibold">Deposit SOL</h3>
+            <h3 className="text-xl font-semibold">Deposit SOL / USDC</h3>
             <button onClick={onClose} className="text-gray-400 hover:text-white">
               <X className="w-5 h-5" />
             </button>
@@ -390,12 +398,21 @@ function DepositModal({ isOpen, onClose, address }: { isOpen: boolean; onClose: 
             </div>
           </div>
 
-          <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-400 text-sm">
-            <p className="font-semibold mb-1">Important:</p>
+          <div className="p-3 bg-cyan-500/10 border border-cyan-500/20 rounded-lg text-cyan-400 text-sm">
+            <p className="font-semibold mb-1 flex items-center gap-2">
+              <Wallet className="w-4 h-4" />
+              Supported Tokens:
+            </p>
             <ul className="list-disc list-inside space-y-1 text-xs">
-              <li>Only send SOL to this address</li>
-              <li>Network: {SOLANA_NETWORK === 'devnet' ? 'Devnet' : 'Mainnet'}</li>
+              <li>Send SOL to this address</li>
+              <li>Send USDC on Solana to this same address</li>
+              <li>Both tokens use the same Solana address</li>
             </ul>
+          </div>
+
+          <div className="p-3 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-yellow-400 text-sm">
+            <p className="font-semibold mb-1">Network:</p>
+            <p className="text-xs">{SOLANA_NETWORK === 'devnet' ? 'Devnet' : 'Mainnet-Beta'}</p>
           </div>
 
           <Button
@@ -540,6 +557,7 @@ export default function WalletPage() {
   const [showSendModal, setShowSendModal] = useState(false);
   const [showDepositModal, setShowDepositModal] = useState(false);
   const [showSettingsModal, setShowSettingsModal] = useState(false);
+  const [showSwapModal, setShowSwapModal] = useState(false);
   const [addressCopied, setAddressCopied] = useState(false);
 
   // View more states for collapsible sections
@@ -1028,6 +1046,15 @@ export default function WalletPage() {
               <span className="hidden sm:inline">Buy SOL</span>
             </Button>
             <Button
+              onClick={() => setShowSwapModal(true)}
+              variant="outline"
+              size="sm"
+              className="border-cyan-500/50 text-cyan-400 hover:bg-cyan-500/10"
+            >
+              <ArrowLeftRight className="w-4 h-4 sm:mr-2" />
+              <span className="hidden sm:inline">Swap</span>
+            </Button>
+            <Button
               onClick={() => setShowDepositModal(true)}
               variant="outline"
               size="sm"
@@ -1438,6 +1465,10 @@ export default function WalletPage() {
         onClose={() => setShowSettingsModal(false)}
         wallet={(primaryWallet as any)._privyWallet}
         onLogout={logout}
+      />
+      <JupiterSwap
+        isOpen={showSwapModal}
+        onClose={() => setShowSwapModal(false)}
       />
     </div>
   );

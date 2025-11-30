@@ -120,8 +120,8 @@ export async function GET(
         projectImageUrl: convertToGatewayUrl(project?.projectImageUrl),
 
         // Market stats
-        targetPool: market.targetPool / 1e9,
-        poolBalance: market.poolBalance / 1e9,
+        targetPool: (market.targetPool || 0) / 1e9,
+        poolBalance: parseFloat(market.poolBalance || '0') / 1e9,
         poolProgressPercentage: market.poolProgressPercentage || 0,
 
         // Vote stats
@@ -138,7 +138,7 @@ export async function GET(
         isExpired,
 
         // Token info (if launched)
-        tokenAddress: (market as any).tokenAddress || null,
+        tokenAddress: market.pumpFunTokenAddress || null,
       };
     });
 

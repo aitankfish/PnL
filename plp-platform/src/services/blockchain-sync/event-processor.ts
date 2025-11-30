@@ -147,8 +147,9 @@ export class EventProcessor {
       totalNoStake: derived.totalNoStake,
       availableActions: derived.availableActions,
 
-      // Token fields
-      tokenMint: marketData.tokenMint,
+      // Token fields (save to pumpFunTokenAddress for consistency with schema)
+      pumpFunTokenAddress: marketData.tokenMint,
+      tokenMint: marketData.tokenMint, // Keep both for backwards compatibility
       platformTokensAllocated: marketData.platformTokensAllocated,
       platformTokensClaimed: marketData.platformTokensClaimed,
       yesVoterTokensAllocated: marketData.yesVoterTokensAllocated,
@@ -188,7 +189,8 @@ export class EventProcessor {
       availableActions: derived.availableActions,
       resolution: this.getResolutionString(marketData.resolution),
       phase: marketData.phase,
-      tokenMint: marketData.tokenMint,
+      pumpFunTokenAddress: marketData.tokenMint,
+      tokenMint: marketData.tokenMint, // Keep for backwards compatibility
       lastSyncedAt: new Date(),
     });
 

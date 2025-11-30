@@ -19,7 +19,7 @@ import {
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
 } from '@solana/spl-token';
-import { getTreasuryPDA } from '@/lib/anchor-program';
+import { getTreasuryPDA, getProgramIdForNetwork } from '@/lib/anchor-program';
 import { derivePumpPDAs, PUMP_PROGRAM_ID } from '@/lib/pumpfun';
 import { createClientLogger } from '@/lib/logger';
 import { getSolanaConnection } from '@/lib/solana';
@@ -54,8 +54,12 @@ export async function POST(request: NextRequest) {
     const tokenMintPubkey = new PublicKey(tokenMint);
     const callerPubkey = new PublicKey(callerWallet);
 
-    // Derive Treasury PDA
-    const [treasuryPda] = getTreasuryPDA();
+    // Get network-specific program ID
+    const targetNetwork = (network as 'devnet' | 'mainnet-beta') || 'devnet';
+    const programId = getProgramIdForNetwork(targetNetwork);
+
+    // Derive Treasury PDA with network-specific program ID
+    const [treasuryPda] = getTreasuryPDA(targetNetwork);
 
     // Derive pump.fun PDAs
     const pumpPDAs = derivePumpPDAs(tokenMintPubkey);
@@ -98,9 +102,6 @@ export async function POST(request: NextRequest) {
     const data = Buffer.alloc(8);
     discriminator.copy(data, 0);
 
-    // Get program ID
-    const { PROGRAM_ID } = await import('@/config/solana');
-
     // Create instruction with all accounts (4 original + 13 pump.fun = 17 total)
     const { TransactionInstruction } = await import('@solana/web3.js');
     const resolveIx = new TransactionInstruction({
@@ -126,7 +127,7 @@ export async function POST(request: NextRequest) {
         { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // associated_token_program
         { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }, // rent
       ],
-      programId: PROGRAM_ID,
+      programId: programId,
       data,
     });
 

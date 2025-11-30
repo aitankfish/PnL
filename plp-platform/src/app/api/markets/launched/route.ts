@@ -38,17 +38,34 @@ export async function GET(_request: NextRequest) {
     // Connect to MongoDB
     await connectToDatabase();
 
-    // Fetch all resolved markets with YES outcome and pump.fun token address
+    // Fetch all resolved markets with YES outcome
+    // Include both markets with token address AND recently resolved markets
+    // (to catch edge cases where sync hasn't completed yet)
     const markets = await PredictionMarket.find({
       marketState: 1, // 1 = Resolved
       resolution: 'YesWins', // YES won the prediction
-      pumpFunTokenAddress: { $exists: true, $ne: null, $ne: '' } // Has token address
+      $or: [
+        { pumpFunTokenAddress: { $exists: true, $ne: null, $ne: '' } }, // Has token address
+        { resolvedAt: { $gte: new Date(Date.now() - 60000) } }, // Resolved in last 60 seconds
+      ]
     })
       .populate('projectId') // Populate project data
       .sort({ resolvedAt: -1 }) // Most recent launches first
       .lean();
 
-    if (markets.length === 0) {
+    // Log warning for markets missing token address (shouldn't happen with immediate write)
+    const missingToken = markets.filter(m => !m.pumpFunTokenAddress);
+    if (missingToken.length > 0) {
+      logger.warn('Found YesWins markets without token address', {
+        count: missingToken.length,
+        marketAddresses: missingToken.map(m => m.marketAddress),
+      });
+    }
+
+    // Filter out markets without token address for final response
+    const validMarkets = markets.filter(m => m.pumpFunTokenAddress);
+
+    if (validMarkets.length === 0) {
       return NextResponse.json(
         {
           success: true,
@@ -65,12 +82,12 @@ export async function GET(_request: NextRequest) {
       );
     }
 
-    // Calculate vote counts from MongoDB for all markets
-    const marketIds = markets.map(m => m._id);
+    // Calculate vote counts from MongoDB for all valid markets
+    const marketIds = validMarkets.map(m => m._id);
     const voteCountsMap = await calculateVoteCountsForMarkets(marketIds);
 
     // Transform data for frontend
-    const launchedTokens = markets.map((market) => {
+    const launchedTokens = validMarkets.map((market) => {
       const project = market.projectId as any; // populated project
 
       // Get calculated vote counts (fallback to MongoDB fields if calculation failed)
