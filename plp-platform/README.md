@@ -85,12 +85,18 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 - **Mobile-First Design**: Optimized for mobile devices with responsive design
 - **Dark Theme**: Modern, professional appearance with glassmorphic UI
 - **Privy Wallet Integration**: Seamless embedded wallet or external wallet connection
-- **Project Creation**: Comprehensive form with IPFS document storage
+- **Project Creation**: Comprehensive form with IPFS document and image storage
 - **Prediction Markets**: Community validation through on-chain prediction markets
 - **Real-Time Updates**: WebSocket integration for live market data synchronization
 - **Document Viewing**: IPFS-based project documentation with prominent display
 - **User Profiles**: Track investments, favorites, and project portfolios
-- **Social Features**: Share markets, follow projects, and engage with the community
+- **Social Features**: Share markets, favorite projects, follow users, and engage with the community
+- **Notifications System**: Real-time notifications for market events, voting results, and rewards
+- **Global Search**: Search for users and markets across the platform
+- **Wallet Management**: View SOL balance, transaction history, and manage your portfolio
+- **Claim Rewards**: Claim SOL rewards for NO voters or token airdrops for YES voters
+- **My Projects**: Project creators can view and manage their launched markets
+- **Multiple Categories**: Support for DeFi, NFT, Gaming, DAO, AI/ML, Meme, Creator, and more
 
 ## 🏗️ Tech Stack
 
@@ -125,16 +131,31 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 src/
 ├── app/                 # Next.js app router
 │   ├── api/            # API routes
-│   ├── browse/         # Market browsing page
-│   ├── create/         # Project creation form
-│   ├── market/[id]/    # Individual market details
-│   └── launchpad/      # Launched projects page
+│   │   ├── markets/    # Market creation, listing, and management
+│   │   ├── notifications/ # Notification system
+│   │   ├── projects/   # Project creation and management
+│   │   ├── search/     # Global search for users and markets
+│   │   └── users/      # User profiles and management
+│   ├── browse/         # Browse and filter active markets
+│   ├── create/         # Project creation form with IPFS upload
+│   ├── market/[id]/    # Individual market details and trading
+│   ├── launchpad/      # Platform landing page
+│   ├── launched/       # Successfully launched projects
+│   ├── notifications/  # User notifications page
+│   ├── wallet/         # Wallet management and portfolio
+│   └── profile/[address]/ # User profile pages
 ├── components/          # Reusable UI components
-│   └── ui/             # shadcn/ui components
+│   ├── ui/             # shadcn/ui components
+│   ├── Sidebar.tsx     # Main navigation bar
+│   ├── UserInfo.tsx    # User wallet info display
+│   ├── GlobalSearch.tsx # Global search component
+│   └── ...             # Other reusable components
 ├── lib/                # Utility functions and configs
-│   ├── hooks/          # Custom React hooks
+│   ├── hooks/          # Custom React hooks (useWallet, useNotifications, etc.)
 │   ├── services/       # Blockchain sync services
-│   └── database/       # MongoDB utilities
+│   ├── database/       # MongoDB utilities
+│   ├── ipfs.ts         # IPFS/Pinata integration
+│   └── solana.ts       # Solana connection and utilities
 ├── types/              # TypeScript type definitions
 └── config/             # Configuration files
 ```
@@ -161,10 +182,23 @@ The platform supports both development and production environments:
 
 ## 📱 Mobile Optimization
 
-- Touch-friendly buttons (44px minimum)
-- Responsive breakpoints (sm, md, lg, xl)
-- Proper viewport configuration
-- Mobile-first CSS approach
+All pages are fully optimized for mobile devices with a mobile-first approach:
+
+- **Touch-friendly UI**: Buttons sized appropriately for touch interaction (36px+ on mobile)
+- **Responsive Breakpoints**: `sm:` (640px), `md:` (768px), `lg:` (1024px), `xl:` (1280px)
+- **Optimized Typography**: Smaller text on mobile, larger on desktop
+- **Compact Spacing**: Reduced padding and margins on mobile devices
+- **Icon-only Actions**: Social links and secondary actions show icons only on mobile
+- **Stacked Layouts**: Cards and grids stack vertically on mobile
+- **Mobile-first CSS**: Base styles target mobile, enhanced for larger screens
+- **Proper Viewport**: Configured for optimal mobile rendering
+
+**Recent Mobile Optimizations:**
+- Navbar: Compact navigation with all buttons visible on mobile
+- Browse Page: Optimized market cards with reduced sizes and spacing
+- Market Details: Fully responsive trading interface and market information
+- Notifications: Icon-only actions with touch-friendly buttons
+- Create Page: Image upload confirmation and responsive form layout
 
 ## 🚀 Deployment
 
