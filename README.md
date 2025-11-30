@@ -1,169 +1,216 @@
-# PLP - Prediction Market Platform
+# PNL - Predict & Launch
 
-A decentralized prediction market platform built on Solana, featuring a custom smart contract and modern web interface.
+Community-driven token launch platform powered by prediction markets on Solana.
 
-## 🚀 Features
+## 🚀 Quick Start
 
-- **Custom Solana Program**: Built with Anchor framework for prediction markets
-- **Dynamic Labs Integration**: Seamless wallet connection and transaction signing
-- **RPC Fallback System**: Robust connection management with automatic failover
-- **Modern UI**: Built with Next.js, TypeScript, and Tailwind CSS
-- **IPFS Integration**: Decentralized metadata storage
-- **MongoDB**: Project data persistence
+### 1. Install Dependencies
+```bash
+npm install
+```
+
+### 2. Environment Setup
+Create a `.env` file in the root directory with the following variables:
+
+```env
+# Privy Configuration
+# Get your App ID from https://dashboard.privy.io/
+NEXT_PUBLIC_PRIVY_APP_ID=your_privy_app_id
+
+# MongoDB Configuration
+MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0
+MONGODB_DEV_DATABASE=plp-platform
+MONGODB_PROD_DATABASE=plp_platform_prod
+
+# Solana Network Configuration
+NEXT_PUBLIC_SOLANA_NETWORK=devnet
+
+# PLP Program IDs
+NEXT_PUBLIC_PLP_PROGRAM_ID_DEVNET=your_devnet_program_id
+NEXT_PUBLIC_PLP_PROGRAM_ID_MAINNET=your_mainnet_program_id
+
+# Helius RPC Configuration (Required for WebSocket support)
+HELIUS_API_KEY=your_helius_api_key
+NEXT_PUBLIC_HELIUS_MAINNET_RPC=https://mainnet.helius-rpc.com/?api-key=your_api_key
+NEXT_PUBLIC_HELIUS_DEVNET_RPC=https://devnet.helius-rpc.com/?api-key=your_api_key
+HELIUS_WS_DEVNET=wss://devnet.helius-rpc.com/?api-key=your_api_key
+HELIUS_WS_MAINNET=wss://mainnet.helius-rpc.com/?api-key=your_api_key
+
+# Redis Configuration (Upstash)
+REDIS_URL=redis://default:password@your-redis.upstash.io:6379
+
+# Socket.IO Configuration
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_SOCKET_PORT=3000
+SOCKET_PORT=3000
+AUTO_START_SYNC=false
+
+# API Configuration
+NEXT_PUBLIC_API_URL=http://localhost:3000/api
+
+# Development Settings
+NODE_ENV=development
+
+# IPFS Storage (Pinata) - Client-side accessible
+NEXT_PUBLIC_PINATA_API_KEY=your_pinata_api_key
+NEXT_PUBLIC_PINATA_SECRET_KEY=your_pinata_secret_key
+NEXT_PUBLIC_PINATA_GATEWAY_URL=https://your-gateway.mypinata.cloud
+NEXT_PUBLIC_PINATA_JWT=your_pinata_jwt
+
+# Server-side IPFS Gateway (used by API routes)
+PINATA_GATEWAY_URL=your-gateway.mypinata.cloud
+
+# Platform Configuration
+PLATFORM_FEE_PERCENTAGE=3
+CREATOR_FEE_PERCENTAGE=2
+TARGET_POOL_SOL=5
+YES_VOTE_COST_SOL=0.05
+PLATFORM_FEE_SOL=0.5
+```
+
+### 3. Run Development Server
+```bash
+npm run dev:unified
+```
+
+This will start:
+- Next.js development server on port 3000
+- Socket.IO server for real-time updates
+- Blockchain sync manager for monitoring on-chain events
+
+Open [http://localhost:3000](http://localhost:3000) to view the application.
+
+## 📱 Features
+
+- **Mobile-First Design**: Optimized for mobile devices with responsive design
+- **Dark Theme**: Modern, professional appearance with glassmorphic UI
+- **Privy Wallet Integration**: Seamless embedded wallet or external wallet connection
+- **Project Creation**: Comprehensive form with IPFS document and image storage
+- **Prediction Markets**: Community validation through on-chain prediction markets
+- **Real-Time Updates**: WebSocket integration for live market data synchronization
+- **Document Viewing**: IPFS-based project documentation with prominent display
+- **User Profiles**: Track investments, favorites, and project portfolios
+- **Social Features**: Share markets, favorite projects, follow users, and engage with the community
+- **Notifications System**: Real-time notifications for market events, voting results, and rewards
+- **Global Search**: Search for users and markets across the platform
+- **Wallet Management**: View SOL balance, transaction history, and manage your portfolio
+- **Claim Rewards**: Claim SOL rewards for NO voters or token airdrops for YES voters
+- **My Projects**: Project creators can view and manage their launched markets
+- **Multiple Categories**: Support for DeFi, NFT, Gaming, DAO, AI/ML, Meme, Creator, and more
+
+## 🏗️ Tech Stack
+
+- **Frontend**: Next.js 14 (App Router), TypeScript, Tailwind CSS, shadcn/ui
+- **Blockchain**: Solana (Anchor Framework), Helius RPC & WebSocket
+- **Database**: MongoDB Cloud (network-aware devnet/mainnet switching)
+- **Storage**: IPFS via Pinata (metadata, images, documents)
+- **Authentication**: Privy (embedded + external wallets)
+- **Real-Time**: Socket.IO for live blockchain event streaming
+- **Caching**: Redis (Upstash) for performance optimization
+
+## 📋 Development Rules
+
+- **Mobile-First**: Always design for mobile, then enhance for desktop
+- **Dark Theme**: Use dark theme by default
+- **Logging**: Use Winston logger, never console.log in production
+- **Environment**: Support both Mainnet and Devnet with environment switching
+- **Validation**: Client and server-side validation required
+- **Security**: Never give SOL directly to founders, use secure escrow
+
+## 🎯 Economic Model
+
+- **Total Pool**: 5 SOL per prediction market
+- **YES Vote Cost**: 0.05 SOL per vote
+- **NO Vote Cost**: Dynamic pricing based on remaining pool
+- **Platform Fee**: 0.50 SOL per market (10% of total pool)
+- **Rewards**: Token airdrops for YES voters, SOL rewards for NO voters
 
 ## 📁 Project Structure
 
 ```
-PLP/
-├── plp-platform/           # Next.js frontend application
-│   ├── src/
-│   │   ├── app/            # Next.js app router pages
-│   │   ├── components/     # React components
-│   │   ├── lib/            # Utility libraries
-│   │   └── hooks/          # Custom React hooks
-│   └── plp_program/        # Solana program (Anchor)
-│       ├── programs/
-│       │   └── errors/     # Main prediction market program
-│       └── tests/          # Program tests
-├── PLP_Design_Document.md  # Technical design specifications
-└── PLP_Rules_Document.md   # Business rules and requirements
+src/
+├── app/                 # Next.js app router
+│   ├── api/            # API routes
+│   │   ├── markets/    # Market creation, listing, and management
+│   │   ├── notifications/ # Notification system
+│   │   ├── projects/   # Project creation and management
+│   │   ├── search/     # Global search for users and markets
+│   │   └── users/      # User profiles and management
+│   ├── browse/         # Browse and filter active markets
+│   ├── create/         # Project creation form with IPFS upload
+│   ├── market/[id]/    # Individual market details and trading
+│   ├── launchpad/      # Platform landing page
+│   ├── launched/       # Successfully launched projects
+│   ├── notifications/  # User notifications page
+│   ├── wallet/         # Wallet management and portfolio
+│   └── profile/[address]/ # User profile pages
+├── components/          # Reusable UI components
+│   ├── ui/             # shadcn/ui components
+│   ├── Sidebar.tsx     # Main navigation bar
+│   ├── UserInfo.tsx    # User wallet info display
+│   ├── GlobalSearch.tsx # Global search component
+│   └── ...             # Other reusable components
+├── lib/                # Utility functions and configs
+│   ├── hooks/          # Custom React hooks (useWallet, useNotifications, etc.)
+│   ├── services/       # Blockchain sync services
+│   ├── database/       # MongoDB utilities
+│   ├── ipfs.ts         # IPFS/Pinata integration
+│   └── solana.ts       # Solana connection and utilities
+├── types/              # TypeScript type definitions
+└── config/             # Configuration files
 ```
 
-## 🛠️ Tech Stack
+## 🔄 Real-Time Architecture
 
-### Frontend
-- **Next.js 14** - React framework
-- **TypeScript** - Type safety
-- **Tailwind CSS** - Styling
-- **Dynamic Labs** - Wallet integration
-- **IPFS** - Decentralized storage
+The platform uses a sophisticated real-time update system:
 
-### Backend
-- **Solana** - Blockchain platform
-- **Anchor** - Solana program framework
-- **MongoDB** - Database
-- **Rust** - Smart contract language
+- **Helius WebSocket**: Monitors on-chain program accounts for state changes
+- **Event Queue**: Processes blockchain events with retry logic
+- **Socket.IO**: Broadcasts updates to connected clients in real-time
+- **MongoDB Sync**: Automatically syncs on-chain data to database
+- **Redis Cache**: Reduces database load and improves response times
 
-## 🚀 Getting Started
-
-### Prerequisites
-- Node.js 18+
-- Rust 1.70+
-- Solana CLI
-- Anchor CLI
-- MongoDB
-
-### Installation
-
-1. **Clone the repository**
-   ```bash
-   git clone <repository-url>
-   cd PLP
-   ```
-
-2. **Install frontend dependencies**
-   ```bash
-   cd plp-platform
-   npm install
-   ```
-
-3. **Install program dependencies**
-   ```bash
-   cd plp_program
-   npm install
-   ```
-
-4. **Set up environment variables**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your configuration
-   ```
-
-5. **Build the Solana program**
-   ```bash
-   cd plp_program
-   anchor build
-   ```
-
-6. **Start the development server**
-   ```bash
-   cd plp-platform
-   npm run dev
-   ```
-
-## 📋 Program Instructions
-
-The PLP prediction market program supports the following instructions:
-
-- `init_treasury` - Initialize the platform treasury
-- `create_market` - Create a new prediction market
-- `buy_yes` - Buy YES shares
-- `buy_no` - Buy NO shares
-- `finalize_yes` - Finalize market with YES outcome
-- `finalize_no` - Finalize market with NO outcome
-- `claim_yes` - Claim winnings for YES shares
-- `claim_no` - Claim winnings for NO shares
-- `refund` - Refund shares if market expires without resolution
+This ensures users see market updates, votes, and pool changes instantly without refreshing.
 
 ## 🔧 Configuration
 
-### Environment Variables
+The platform supports both development and production environments:
 
-Create a `.env` file in the `plp-platform` directory:
+- **Development**: Uses Solana devnet for testing
+- **Production**: Uses Solana mainnet for live trading
+- **Network Switching**: Automatic based on NODE_ENV
 
-```env
-# Solana Configuration
-SOLANA_RPC_URL=https://api.devnet.solana.com
-SOLANA_WS_URL=wss://api.devnet.solana.com
+## 📱 Mobile Optimization
 
-# Dynamic Labs
-DYNAMIC_ENVIRONMENT_ID=your_environment_id
+All pages are fully optimized for mobile devices with a mobile-first approach:
 
-# MongoDB
-MONGODB_URI=your_mongodb_connection_string
+- **Touch-friendly UI**: Buttons sized appropriately for touch interaction (36px+ on mobile)
+- **Responsive Breakpoints**: `sm:` (640px), `md:` (768px), `lg:` (1024px), `xl:` (1280px)
+- **Optimized Typography**: Smaller text on mobile, larger on desktop
+- **Compact Spacing**: Reduced padding and margins on mobile devices
+- **Icon-only Actions**: Social links and secondary actions show icons only on mobile
+- **Stacked Layouts**: Cards and grids stack vertically on mobile
+- **Mobile-first CSS**: Base styles target mobile, enhanced for larger screens
+- **Proper Viewport**: Configured for optimal mobile rendering
 
-# IPFS
-IPFS_GATEWAY_URL=https://ipfs.io/ipfs/
-```
+**Recent Mobile Optimizations:**
+- Navbar: Compact navigation with all buttons visible on mobile
+- Browse Page: Optimized market cards with reduced sizes and spacing
+- Market Details: Fully responsive trading interface and market information
+- Notifications: Icon-only actions with touch-friendly buttons
+- Create Page: Image upload confirmation and responsive form layout
 
-## 🧪 Testing
+## 🚀 Deployment
 
-### Program Tests
-```bash
-cd plp_program
-anchor test
-```
-
-### Frontend Tests
-```bash
-cd plp-platform
-npm test
-```
-
-## 📚 Documentation
-
-- [Design Document](./PLP_Design_Document.md) - Technical architecture and design decisions
-- [Rules Document](./PLP_Rules_Document.md) - Business rules and requirements
-
-## 🤝 Contributing
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add some amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
+1. Set up MongoDB Cloud database with separate collections for devnet/mainnet
+2. Configure Helius RPC endpoints for production
+3. Set up Pinata IPFS storage account
+4. Configure Redis (Upstash) for caching
+5. Update Privy App ID for production environment
+6. Set up environment variables on your hosting platform
+7. Deploy to Vercel, Railway, or your preferred Node.js hosting platform
+8. Ensure WebSocket support is enabled for real-time updates
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 🔗 Links
-
-- [Solana Documentation](https://docs.solana.com/)
-- [Anchor Framework](https://www.anchor-lang.com/)
-- [Dynamic Labs](https://www.dynamic.xyz/)
-- [Next.js Documentation](https://nextjs.org/docs)
-
-## 📞 Support
-
-For support and questions, please open an issue in this repository.
+MIT License - see LICENSE file for details.
