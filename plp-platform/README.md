@@ -119,11 +119,29 @@ Open [http://localhost:3000](http://localhost:3000) to view the application.
 
 ## 🎯 Economic Model
 
-- **Total Pool**: 5 SOL per prediction market
-- **YES Vote Cost**: 0.05 SOL per vote
-- **NO Vote Cost**: Dynamic pricing based on remaining pool
-- **Platform Fee**: 0.50 SOL per market (10% of total pool)
-- **Rewards**: Token airdrops for YES voters, SOL rewards for NO voters
+### Market Creation & Trading
+- **Market Creation Fee**: 0.015 SOL (paid to platform treasury)
+- **Target Pool Options**: 5 SOL, 10 SOL, or 15 SOL per market
+- **Minimum Investment**: 0.01 SOL per trade
+- **Trade Fee**: 1.5% on every YES/NO purchase (paid to platform treasury)
+- **Pricing Mechanism**: Constant Product AMM (x * y = k) - prices always sum to 1.0
+
+### Market Resolution & Fees
+- **Completion Fee**: 5% of pool when market resolves YES or NO (paid to platform treasury)
+- **Refund Scenario**: 0% fee if market fails to reach target or ends in tie
+
+### Token Distribution (YES Wins)
+When a market resolves with YES winning, tokens purchased on pump.fun are distributed:
+- **YES Voters**: 79% (proportional to shares held, claimable immediately)
+- **Project Team**: 20% total
+  - 5% immediate claim
+  - 15% vested linearly over 12 months
+- **Platform**: 1% (immediate claim to P&L wallet)
+
+### Rewards
+- **YES Wins**: Proportional token airdrop based on YES shares held
+- **NO Wins**: Proportional SOL distribution from 95% of pool (after 5% completion fee)
+- **Refund**: Full invested amount returned (no fees deducted)
 
 ## 📁 Project Structure
 
