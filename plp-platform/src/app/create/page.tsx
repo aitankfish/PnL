@@ -461,6 +461,8 @@ export default function CreatePage() {
                         <option value="ai" className="bg-slate-800">AI/ML</option>
                         <option value="infrastructure" className="bg-slate-800">Infrastructure</option>
                         <option value="social" className="bg-slate-800">Social</option>
+                        <option value="meme" className="bg-slate-800">Meme</option>
+                        <option value="creator" className="bg-slate-800">Creator</option>
                       </optgroup>
                       <optgroup label="Traditional Markets" className="bg-slate-800">
                         <option value="healthcare" className="bg-slate-800">Healthcare</option>

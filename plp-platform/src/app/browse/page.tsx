@@ -203,7 +203,7 @@ export default function BrowsePage() {
   const categories = [
     'All',
     // Web3 & Crypto
-    'DeFi', 'Gaming', 'NFT', 'AI/ML', 'Social', 'Infrastructure', 'DAO',
+    'DeFi', 'Gaming', 'NFT', 'AI/ML', 'Social', 'Infrastructure', 'DAO', 'Meme', 'Creator',
     // Traditional Markets
     'Healthcare', 'Science', 'Education', 'Finance', 'Commerce', 'Real Estate', 'Energy', 'Media', 'Manufacturing', 'Mobility',
     'Other'
