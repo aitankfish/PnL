@@ -1040,6 +1040,12 @@ export default function CreatePage() {
                     } catch (signerError: unknown) {
                         const errorMessage = signerError instanceof Error ? signerError.message : 'Unknown error';
                         console.log('❌ Transaction failed:', errorMessage);
+                        console.error('Full error object:', signerError);
+
+                        // Try to extract more details from the error
+                        if (signerError && typeof signerError === 'object') {
+                          console.error('Error details:', JSON.stringify(signerError, null, 2));
+                        }
 
                         // Show error to user
                         alert(`Failed to sign/send transaction: ${errorMessage}`);

@@ -9,10 +9,10 @@ anchor_version = "0.30.1"
 errors = "3jGpj7HYo3jctBApnjwZGW54hJCpNHooFfu5533WvXr4"
 
 [programs.devnet]
-errors = "2CjwEvY3gkErkEmM5wnLpRv9fq3msHjnPDVPQmaWhF3G"
+errors = "C5mVE2BwSehWJNkNvhpsoepyKwZkvSLZx29bi4MzVj86"
 
 [programs.mainnet]
-errors = "Cpbf34RPMu991hxhADqs7dW2AkhWTjeAJCEwWVSSgoEG"
+errors = "C5mVE2BwSehWJNkNvhpsoepyKwZkvSLZx29bi4MzVj86"
 
 [registry]
 url = "https://api.apr.dev"

@@ -6,7 +6,8 @@ import { useNetwork } from '@/lib/hooks/useNetwork';
 import { getSolanaConnection } from '@/lib/solana';
 import { PublicKey, SystemProgram, Transaction, TransactionInstruction } from '@solana/web3.js';
 import { getTreasuryPDA } from '@/lib/anchor-program';
-import { useSignAndSendTransaction, useWallets, useStandardWallets } from '@privy-io/react-auth/solana';
+import { useWallets, useSignAndSendTransaction } from '@privy-io/react-auth/solana';
+import { VersionedTransaction } from '@solana/web3.js';
 import bs58 from 'bs58';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -25,7 +26,6 @@ export default function TreasuryAdminPage() {
   const { primaryWallet } = useWallet();
   const { network } = useNetwork();
   const { wallets } = useWallets();
-  const { wallets: standardWallets } = useStandardWallets();
   const { signAndSendTransaction } = useSignAndSendTransaction();
 
   const [treasury, setTreasury] = useState<TreasuryState | null>(null);
@@ -81,17 +81,6 @@ export default function TreasuryAdminPage() {
     }
   }, [primaryWallet, network]);
 
-  // Get Solana wallet for signing
-  const getSolanaWallet = () => {
-    if (wallets && wallets.length > 0) {
-      return wallets[0];
-    } else if (standardWallets && standardWallets.length > 0) {
-      const privyWallet = standardWallets.find((w: any) => w.isPrivyWallet || w.name === 'Privy');
-      if (privyWallet) return privyWallet;
-    }
-    throw new Error('No Solana wallet found');
-  };
-
   // Initialize treasury (deployer only, one-time)
   const handleInitializeTreasury = async () => {
     try {
@@ -111,17 +100,33 @@ export default function TreasuryAdminPage() {
         throw new Error(result.error);
       }
 
-      const solanaWallet = getSolanaWallet();
+      // Get the first Solana wallet
+      const solanaWallet = wallets[0];
+      if (!solanaWallet) {
+        throw new Error('No Solana wallet found. Please connect your wallet.');
+      }
+
+      console.log('Wallet found:', solanaWallet.address);
+
+      // Get transaction buffer
       const txBuffer = Buffer.from(result.data.serializedTransaction, 'base64');
 
-      const signResult = await signAndSendTransaction({
+      console.log('Signing and sending transaction with Privy...');
+
+      // Use signAndSendTransaction - works for both external and embedded wallets
+      const txResult = await signAndSendTransaction({
         transaction: txBuffer,
         wallet: solanaWallet as any,
         chain: network === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
       });
 
-      const signature = bs58.encode(signResult.signature);
-      console.log('Treasury initialized:', signature);
+      // Extract signature and convert to base58
+      const signature = bs58.encode(txResult.signature);
+      console.log('Treasury initialized!', signature);
+
+      // Wait for confirmation
+      const connection = await getSolanaConnection(network);
+      await connection.confirmTransaction(signature, 'confirmed');
 
       await fetchTreasury();
       alert('Treasury initialized successfully!');
@@ -158,17 +163,25 @@ export default function TreasuryAdminPage() {
         throw new Error(result.error);
       }
 
-      const solanaWallet = getSolanaWallet();
+      // Get wallet
+      const solanaWallet = wallets[0];
+      if (!solanaWallet) throw new Error('No Solana wallet found');
+
       const txBuffer = Buffer.from(result.data.serializedTransaction, 'base64');
 
-      const signResult = await signAndSendTransaction({
+      // Sign and send transaction
+      const txResult = await signAndSendTransaction({
         transaction: txBuffer,
         wallet: solanaWallet as any,
         chain: network === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
       });
 
-      const signature = bs58.encode(signResult.signature);
+      const signature = bs58.encode(txResult.signature);
       console.log('Admin changed:', signature);
+
+      // Wait for confirmation
+      const connection = await getSolanaConnection(network);
+      await connection.confirmTransaction(signature, 'confirmed');
 
       await fetchTreasury();
       setNewAdminAddress('');
@@ -209,17 +222,25 @@ export default function TreasuryAdminPage() {
         throw new Error(result.error);
       }
 
-      const solanaWallet = getSolanaWallet();
+      // Get wallet
+      const solanaWallet = wallets[0];
+      if (!solanaWallet) throw new Error('No Solana wallet found');
+
       const txBuffer = Buffer.from(result.data.serializedTransaction, 'base64');
 
-      const signResult = await signAndSendTransaction({
+      // Sign and send transaction
+      const txResult = await signAndSendTransaction({
         transaction: txBuffer,
         wallet: solanaWallet as any,
         chain: network === 'devnet' ? 'solana:devnet' : 'solana:mainnet',
       });
 
-      const signature = bs58.encode(signResult.signature);
+      const signature = bs58.encode(txResult.signature);
       console.log('Fees withdrawn:', signature);
+
+      // Wait for confirmation
+      const connection = await getSolanaConnection(network);
+      await connection.confirmTransaction(signature, 'confirmed');
 
       await fetchTreasury();
       setWithdrawAmount('');

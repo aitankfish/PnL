@@ -41,9 +41,10 @@ export async function POST(request: NextRequest) {
     const callerPubkey = new PublicKey(callerWallet);
 
     // Derive Treasury PDA
-    const [treasuryPda, treasuryBump] = getTreasuryPDA();
+    const [treasuryPda, treasuryBump] = getTreasuryPDA(network as 'devnet' | 'mainnet-beta');
 
     logger.info('Treasury PDA derived', {
+      network,
       treasuryPda: treasuryPda.toBase58(),
       treasuryBump,
     });
@@ -63,8 +64,14 @@ export async function POST(request: NextRequest) {
     const data = Buffer.alloc(8);
     discriminator.copy(data, 0);
 
-    // Get program ID
-    const { PROGRAM_ID } = await import('@/config/solana');
+    // Get program ID for the specified network
+    const { getProgramIdForNetwork } = await import('@/lib/anchor-program');
+    const programId = getProgramIdForNetwork(network as 'devnet' | 'mainnet-beta');
+
+    logger.info('Using program ID', {
+      network,
+      programId: programId.toBase58(),
+    });
 
     // Create instruction
     const { TransactionInstruction } = await import('@solana/web3.js');
@@ -74,7 +81,7 @@ export async function POST(request: NextRequest) {
         { pubkey: callerPubkey, isSigner: true, isWritable: true },  // payer
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
       ],
-      programId: PROGRAM_ID,
+      programId: programId,
       data,
     });
 
@@ -110,7 +117,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Failed to prepare treasury initialization:', error);
+    logger.error('Failed to prepare treasury initialization:', { error: error instanceof Error ? error.message : String(error) });
 
     console.error('=== FULL ERROR DETAILS ===');
     console.error('Error:', error);

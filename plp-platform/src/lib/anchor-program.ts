@@ -7,7 +7,7 @@
 
 import { AnchorProvider, Program, web3, Idl } from '@coral-xyz/anchor';
 import { PublicKey, Connection, Transaction, SystemProgram, ComputeBudgetProgram } from '@solana/web3.js';
-import { PROGRAM_ID, PDA_SEEDS, FEES, TARGET_POOL_OPTIONS, RPC_ENDPOINT } from '@/config/solana';
+import { PROGRAM_ID, PDA_SEEDS, FEES, MIN_POOL_LAMPORTS, RPC_ENDPOINT } from '@/config/solana';
 import idlJson from './idl/errors.json';
 
 // Type for the IDL
@@ -167,10 +167,10 @@ export async function buildCreateMarketTransaction(params: {
 
   const programId = new PublicKey(programIdString);
 
-  // Validate target pool
-  if (!TARGET_POOL_OPTIONS.includes(params.targetPool)) {
+  // Validate target pool (program now accepts any amount >= 0.5 SOL)
+  if (params.targetPool < MIN_POOL_LAMPORTS) {
     throw new Error(
-      `Invalid target pool. Must be one of: ${TARGET_POOL_OPTIONS.map(v => v / 1e9)} SOL`
+      `Invalid target pool. Must be at least ${MIN_POOL_LAMPORTS / 1e9} SOL`
     );
   }
 

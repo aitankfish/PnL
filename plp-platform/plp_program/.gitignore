@@ -10,3 +10,5 @@ test-ledger
 *wallet*.json
 *.json.key
 id.json
+*keypair*.json
+KEYPAIR_BACKUP.txt

@@ -1,22 +1,23 @@
 /**
- * Initialize Treasury Script
- *
- * This script initializes the treasury PDA on devnet.
- * This is a ONE-TIME operation that must be done before any markets can be created.
- *
- * Usage:
- *   npx ts-node scripts/init-treasury.ts
+ * Simple Treasury Initialization Script
+ * Initializes the treasury PDA for the new program
  */
 
-import { Connection, PublicKey, Keypair, Transaction, SystemProgram } from '@solana/web3.js';
-import { AnchorProvider, Program, Wallet, Idl } from '@coral-xyz/anchor';
+import {
+  Connection,
+  PublicKey,
+  Keypair,
+  TransactionInstruction,
+  Transaction,
+  SystemProgram,
+  sendAndConfirmTransaction,
+} from '@solana/web3.js';
 import fs from 'fs';
 import path from 'path';
+import dotenv from 'dotenv';
 
-// Load IDL
-const IDL_PATH = path.join(__dirname, '../src/lib/idl/errors.json');
-const idlJson = JSON.parse(fs.readFileSync(IDL_PATH, 'utf-8'));
-const idl = idlJson as Idl;
+// Load environment variables
+dotenv.config();
 
 // Configuration
 const PROGRAM_ID = new PublicKey('D1UuFTcsRSNHMEgF9UT4ae6BuVVrUj1VqQvZKjHs4CKS');
@@ -47,13 +48,6 @@ async function initTreasury() {
     }
     console.log('');
 
-    // Create provider and program
-    const wallet = new Wallet(keypair);
-    const provider = new AnchorProvider(connection, wallet, {
-      commitment: 'confirmed',
-    });
-    const program = new Program(idl, provider);
-
     // Derive treasury PDA
     const [treasuryPda, treasuryBump] = PublicKey.findProgramAddressSync(
       [Buffer.from('treasury')],
@@ -65,51 +59,48 @@ async function initTreasury() {
 
     // Check if treasury already exists
     console.log('🔍 Checking if treasury already exists...');
-    try {
-      const treasuryAccount = await connection.getAccountInfo(treasuryPda);
-      if (treasuryAccount) {
-        console.log('⚠️  Treasury already initialized!');
-        console.log(`✅ Treasury PDA: ${treasuryPda.toBase58()}`);
-        console.log(`💰 Balance: ${treasuryAccount.lamports / 1e9} SOL`);
-        console.log(`📊 Owner: ${treasuryAccount.owner.toBase58()}`);
-        return;
-      }
-    } catch (error) {
-      // Account doesn't exist, continue with initialization
-      console.log('✅ Treasury not yet initialized, proceeding...\n');
+    const treasuryAccountInfo = await connection.getAccountInfo(treasuryPda);
+    if (treasuryAccountInfo) {
+      console.log('⚠️  Treasury already initialized!');
+      console.log(`✅ Treasury PDA: ${treasuryPda.toBase58()}`);
+      console.log(`💰 Balance: ${treasuryAccountInfo.lamports / 1e9} SOL`);
+      console.log(`📊 Owner: ${treasuryAccountInfo.owner.toBase58()}`);
+      return;
     }
+    console.log('✅ Treasury not yet initialized, proceeding...\n');
 
-    // Build init_treasury transaction
-    console.log('🔨 Building init_treasury transaction...');
-    const tx = await program.methods
-      .initTreasury()
-      .accounts({
-        treasury: treasuryPda,
-        admin: keypair.publicKey,
-        systemProgram: SystemProgram.programId,
-      })
-      .transaction();
+    // Build init_treasury instruction
+    console.log('🔨 Building init_treasury instruction...');
 
-    console.log('✅ Transaction built\n');
+    // Instruction discriminator for init_treasury (first 8 bytes of SHA256 hash of "global:init_treasury")
+    const discriminator = Buffer.from([0xab, 0x1d, 0x5f, 0x5e, 0x6b, 0x3a, 0x3c, 0x3d]);
+
+    const instruction = new TransactionInstruction({
+      keys: [
+        { pubkey: treasuryPda, isSigner: false, isWritable: true },
+        { pubkey: keypair.publicKey, isSigner: true, isWritable: true },
+        { pubkey: SystemProgram.programId, isSigner: false, isWritable: false },
+      ],
+      programId: PROGRAM_ID,
+      data: discriminator,
+    });
+
+    const transaction = new Transaction().add(instruction);
+    console.log('✅ Instruction built\n');
 
     // Send transaction
     console.log('📤 Sending transaction...');
-    const signature = await connection.sendTransaction(tx, [keypair], {
-      skipPreflight: false,
-      preflightCommitment: 'confirmed',
-    });
+    const signature = await sendAndConfirmTransaction(
+      connection,
+      transaction,
+      [keypair],
+      {
+        commitment: 'confirmed',
+        skipPreflight: false,
+      }
+    );
 
-    console.log(`✅ Transaction sent: ${signature}\n`);
-
-    // Wait for confirmation
-    console.log('⏳ Waiting for confirmation...');
-    const confirmation = await connection.confirmTransaction(signature, 'confirmed');
-
-    if (confirmation.value.err) {
-      throw new Error(`Transaction failed: ${JSON.stringify(confirmation.value.err)}`);
-    }
-
-    console.log('✅ Transaction confirmed!\n');
+    console.log(`✅ Transaction confirmed: ${signature}\n`);
 
     // Verify treasury account
     console.log('🔍 Verifying treasury account...');
@@ -143,7 +134,7 @@ async function initTreasury() {
 
       if (error.message.includes('Attempt to debit an account but found no record of a prior credit')) {
         console.error('\n💡 Hint: Your wallet might need more SOL. Try running:');
-        console.error('   solana airdrop 2');
+        console.error('   solana airdrop 2 --url devnet');
       }
     }
 
