@@ -147,10 +147,10 @@ export default function GlobalSearch() {
 
       {/* Search Results Dropdown */}
       {showResults && isExpanded && totalResults > 0 && (
-        <div className="absolute top-full mt-2 right-0 w-[calc(100vw-2rem)] sm:w-[400px] max-h-[500px] overflow-y-auto bg-gray-900/95 backdrop-blur-xl rounded-xl border border-white/20 shadow-2xl z-[100]">
+        <div className="fixed sm:absolute top-[60px] sm:top-full left-4 right-4 sm:left-auto sm:right-0 mt-0 sm:mt-2 w-auto sm:w-[400px] max-h-[50vh] sm:max-h-[500px] overflow-y-auto bg-gray-900/95 backdrop-blur-xl rounded-xl border border-white/20 shadow-2xl z-[100]">
           {/* Users Section */}
           {results.users.length > 0 && (
-            <div className="p-3">
+            <div className="p-2 sm:p-3">
               <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wide mb-2 flex items-center">
                 <User className="w-3 h-3 mr-1" />
                 Users ({results.users.length})
@@ -160,9 +160,9 @@ export default function GlobalSearch() {
                   <button
                     key={user.walletAddress}
                     onClick={() => handleResultClick(user)}
-                    className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors text-left"
+                    className="w-full flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-left"
                   >
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full bg-gradient-to-r from-purple-500 to-pink-500 flex items-center justify-center overflow-hidden flex-shrink-0">
                       {user.profilePhotoUrl ? (
                         <img src={user.profilePhotoUrl} alt={user.username || 'User'} className="w-full h-full object-cover" />
                       ) : (
@@ -191,7 +191,7 @@ export default function GlobalSearch() {
 
           {/* Markets Section */}
           {results.markets.length > 0 && (
-            <div className="p-3 border-t border-white/10">
+            <div className="p-2 sm:p-3 border-t border-white/10">
               <h3 className="text-xs font-semibold text-white/50 uppercase tracking-wide mb-2 flex items-center">
                 <Target className="w-3 h-3 mr-1" />
                 Markets ({results.markets.length})
@@ -201,9 +201,9 @@ export default function GlobalSearch() {
                   <button
                     key={market.id}
                     onClick={() => handleResultClick(market)}
-                    className="w-full flex items-center gap-3 p-2 rounded-lg hover:bg-white/10 transition-colors text-left"
+                    className="w-full flex items-center gap-2 sm:gap-3 p-1.5 sm:p-2 rounded-lg hover:bg-white/10 transition-colors text-left"
                   >
-                    <div className="w-10 h-10 rounded-lg bg-gradient-to-r from-green-500 to-cyan-500 flex items-center justify-center overflow-hidden flex-shrink-0">
+                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-lg bg-gradient-to-r from-green-500 to-cyan-500 flex items-center justify-center overflow-hidden flex-shrink-0">
                       {market.projectImageUrl ? (
                         <img src={market.projectImageUrl} alt={market.projectName} className="w-full h-full object-cover" />
                       ) : (
@@ -235,8 +235,8 @@ export default function GlobalSearch() {
 
       {/* No Results */}
       {showResults && isExpanded && totalResults === 0 && query.trim() && !isSearching && (
-        <div className="absolute top-full mt-2 right-0 w-[calc(100vw-2rem)] sm:w-[300px] bg-gray-900/95 backdrop-blur-xl rounded-xl border border-white/20 shadow-2xl p-4 text-center z-[100]">
-          <Search className="w-8 h-8 text-gray-600 mx-auto mb-2" />
+        <div className="fixed sm:absolute top-[60px] sm:top-full left-4 right-4 sm:left-auto sm:right-0 mt-0 sm:mt-2 w-auto sm:w-[300px] bg-gray-900/95 backdrop-blur-xl rounded-xl border border-white/20 shadow-2xl p-3 sm:p-4 text-center z-[100]">
+          <Search className="w-6 h-6 sm:w-8 sm:h-8 text-gray-600 mx-auto mb-2" />
           <p className="text-gray-400 text-sm">No results found for &quot;{query}&quot;</p>
         </div>
       )}
