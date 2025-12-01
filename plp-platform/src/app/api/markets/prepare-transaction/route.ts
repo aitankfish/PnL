@@ -9,7 +9,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { PublicKey } from '@solana/web3.js';
 import { buildCreateMarketTransaction, extractIPFSCid } from '@/lib/anchor-program';
 import { createClientLogger } from '@/lib/logger';
-import { TARGET_POOL_OPTIONS, FEES, SOLANA_NETWORK } from '@/config/solana';
+import { TARGET_POOL_OPTIONS, MIN_POOL_LAMPORTS, FEES, SOLANA_NETWORK } from '@/config/solana';
 
 const logger = createClientLogger();
 
@@ -37,13 +37,13 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate target pool
+    // Validate target pool (program now accepts any amount >= 0.5 SOL)
     const targetPoolLamports = parseInt(body.targetPool);
-    if (!TARGET_POOL_OPTIONS.includes(targetPoolLamports)) {
+    if (targetPoolLamports < MIN_POOL_LAMPORTS) {
       return NextResponse.json(
         {
           success: false,
-          error: `Invalid target pool. Must be one of: ${TARGET_POOL_OPTIONS.map(v => v / 1e9)} SOL`
+          error: `Invalid target pool. Must be at least ${MIN_POOL_LAMPORTS / 1e9} SOL`
         },
         { status: 400 }
       );
