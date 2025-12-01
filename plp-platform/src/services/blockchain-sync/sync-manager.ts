@@ -365,8 +365,16 @@ let syncManagerInstance: SyncManager | null = null;
  */
 export function getSyncManager(network?: 'devnet' | 'mainnet', programId?: string): SyncManager {
   if (!syncManagerInstance) {
-    const net = network || (process.env.NEXT_PUBLIC_SOLANA_NETWORK as 'devnet' | 'mainnet') || 'devnet';
-    const pid = programId || process.env.NEXT_PUBLIC_PLP_PROGRAM_ID_DEVNET || '';
+    // Get network and normalize 'mainnet-beta' to 'mainnet'
+    const networkEnv = network || process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
+    const net = (networkEnv === 'mainnet-beta' ? 'mainnet' : networkEnv) as 'devnet' | 'mainnet';
+
+    // Select correct program ID based on network
+    const pid = programId || (
+      net === 'mainnet'
+        ? process.env.NEXT_PUBLIC_PLP_PROGRAM_ID_MAINNET
+        : process.env.NEXT_PUBLIC_PLP_PROGRAM_ID_DEVNET
+    ) || '';
 
     if (!pid) {
       throw new Error('Program ID not found in environment');
