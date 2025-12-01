@@ -54,10 +54,11 @@ pub fn handler(
     // 1) Validate inputs
     // -------------------------
 
-    // Enforce allowed target pools (5 / 10 / 15 SOL)
-    let allowed_pools = [5_000_000_000u64, 10_000_000_000u64, 15_000_000_000u64];
+    // Enforce minimum target pool (0.5 SOL minimum)
+    // Frontend can restrict to specific values (5/10/15 SOL for production)
+    const MIN_POOL_LAMPORTS: u64 = 500_000_000; // 0.5 SOL
     require!(
-        allowed_pools.contains(&target_pool),
+        target_pool >= MIN_POOL_LAMPORTS,
         ErrorCode::InvalidTargetPool
     );
 

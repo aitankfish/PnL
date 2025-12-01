@@ -12,7 +12,7 @@ errors = "3jGpj7HYo3jctBApnjwZGW54hJCpNHooFfu5533WvXr4"
 errors = "2CjwEvY3gkErkEmM5wnLpRv9fq3msHjnPDVPQmaWhF3G"
 
 [programs.mainnet]
-errors = "6kK2SVaj6yW7mAjTsw1rxMDNeby8A9ojv3UyhVPofmZL"
+errors = "Cpbf34RPMu991hxhADqs7dW2AkhWTjeAJCEwWVSSgoEG"
 
 [registry]
 url = "https://api.apr.dev"
