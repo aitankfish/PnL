@@ -75,6 +75,7 @@ export default function CreatePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMounted, setIsMounted] = useState(false);
   const [isTokenSectionExpanded, setIsTokenSectionExpanded] = useState(true);
+  const [isCustomPoolAmount, setIsCustomPoolAmount] = useState(false);
 
   // Get connected wallet and user from Privy
   const { primaryWallet, user, authenticated } = useWallet();
@@ -679,15 +680,55 @@ export default function CreatePage() {
                     </Label>
                     <select
                       id="targetPool"
-                      value={formData.targetPool}
-                      onChange={(e) => handleInputChange('targetPool', e.target.value)}
+                      value={isCustomPoolAmount ? 'custom' : formData.targetPool}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        if (value === 'custom') {
+                          setIsCustomPoolAmount(true);
+                          handleInputChange('targetPool', '');
+                        } else {
+                          setIsCustomPoolAmount(false);
+                          handleInputChange('targetPool', value);
+                        }
+                      }}
                       className={`w-full bg-white/10 border border-white/20 text-white rounded-md px-3 py-2 ${errors.targetPool ? 'border-red-500' : ''}`}
                     >
                       <option value="" className="bg-slate-800">Choose target pool size...</option>
                       <option value="5000000000" className="bg-slate-800">5 SOL (Small Project)</option>
                       <option value="10000000000" className="bg-slate-800">10 SOL (Medium Project)</option>
                       <option value="15000000000" className="bg-slate-800">15 SOL (Large Project)</option>
+                      {process.env.NODE_ENV === 'development' && (
+                        <option value="custom" className="bg-slate-800">Custom Amount (Dev Only)</option>
+                      )}
                     </select>
+
+                    {/* Custom amount input (dev only) */}
+                    {process.env.NODE_ENV === 'development' && isCustomPoolAmount && (
+                      <div className="mt-2">
+                        <input
+                          type="number"
+                          step="0.1"
+                          min="0.5"
+                          placeholder="Enter SOL amount (min 0.5)"
+                          onChange={(e) => {
+                            const sol = parseFloat(e.target.value);
+                            if (!isNaN(sol) && sol >= 0.5) {
+                              handleInputChange('targetPool', String(Math.floor(sol * 1e9)));
+                            } else if (e.target.value === '') {
+                              handleInputChange('targetPool', '');
+                            }
+                          }}
+                          className="w-full bg-white/5 border border-yellow-500/50 text-white rounded-md px-3 py-2 placeholder-white/30"
+                        />
+                        {formData.targetPool && formData.targetPool !== '' && !isNaN(parseInt(formData.targetPool)) && (
+                          <p className="text-xs text-green-400 mt-1">
+                            ✓ Set to {(parseInt(formData.targetPool) / 1e9).toFixed(2)} SOL ({formData.targetPool} lamports)
+                          </p>
+                        )}
+                        <p className="text-xs text-yellow-400 mt-1">⚠️ Dev Mode: Custom pool amount</p>
+                      </div>
+                    )}
+
                     {errors.targetPool && <p className="text-sm text-red-400">{errors.targetPool}</p>}
                     <p className="text-xs text-white/60">
                       More liquidity but needs more YES votes
