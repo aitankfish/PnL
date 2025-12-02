@@ -221,7 +221,7 @@ export class EventProcessor {
     }
 
     // 3. Update or create participant record
-    const updateResult = await this.db.collection('prediction_participants').updateOne(
+    const updateResult = await this.db.collection('predictionparticipants').updateOne(
       {
         marketId: market._id,
         participantWallet: positionData.user,

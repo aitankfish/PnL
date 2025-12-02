@@ -62,10 +62,48 @@ function Sidebar({ currentPage }: SidebarProps) {
   const [isVisible, setIsVisible] = useState(true);
   const [lastScrollY, setLastScrollY] = useState(0);
   const [isPending, startTransition] = useTransition();
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [shouldGlowWallet, setShouldGlowWallet] = useState(false);
   const router = useRouter();
   const { ready, authenticated, login, primaryWallet } = useWallet();
   const { displayName, profilePhotoUrl } = useUserProfile();
   const { unreadCount } = useNotifications();
+
+  // Fetch wallet balance to determine if glow is needed
+  useEffect(() => {
+    const checkBalance = async () => {
+      if (!primaryWallet?.address || !authenticated) {
+        setShouldGlowWallet(false);
+        return;
+      }
+
+      try {
+        const { Connection, PublicKey, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
+        const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
+        const rpcEndpoint = network === 'mainnet-beta'
+          ? process.env.NEXT_PUBLIC_HELIUS_MAINNET_RPC
+          : process.env.NEXT_PUBLIC_HELIUS_DEVNET_RPC;
+
+        const connection = new Connection(rpcEndpoint!, 'confirmed');
+        const publicKey = new PublicKey(primaryWallet.address);
+        const balance = await connection.getBalance(publicKey);
+        const balanceInSOL = balance / LAMPORTS_PER_SOL;
+
+        setWalletBalance(balanceInSOL);
+
+        // Glow if balance is below 0.02 SOL (minimum needed for market creation: 0.015 SOL fee + tx fees)
+        setShouldGlowWallet(balanceInSOL < 0.02);
+      } catch (error) {
+        console.error('Error fetching balance for glow effect:', error);
+        setShouldGlowWallet(false);
+      }
+    };
+
+    checkBalance();
+    // Recheck every 30 seconds
+    const interval = setInterval(checkBalance, 30000);
+    return () => clearInterval(interval);
+  }, [primaryWallet, authenticated]);
 
   useEffect(() => {
     let ticking = false;
@@ -193,8 +231,16 @@ function Sidebar({ currentPage }: SidebarProps) {
             <button
               onClick={handleWalletClick}
               disabled={isPending}
-              className="flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:scale-105 transition-transform cursor-pointer overflow-hidden relative group disabled:opacity-70 disabled:cursor-not-allowed"
-              title={authenticated ? `${displayName} - Wallet & Profile` : "Connect Wallet"}
+              className={`flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-gradient-to-r from-blue-500 to-purple-500 hover:scale-105 transition-all cursor-pointer overflow-hidden relative group disabled:opacity-70 disabled:cursor-not-allowed ${
+                shouldGlowWallet ? 'animate-pulse ring-2 ring-yellow-400 ring-opacity-75 shadow-lg shadow-yellow-400/50' : ''
+              }`}
+              title={
+                shouldGlowWallet
+                  ? `Low Balance: ${walletBalance?.toFixed(4)} SOL - Click to deposit`
+                  : authenticated
+                  ? `${displayName} - Wallet & Profile`
+                  : "Connect Wallet"
+              }
             >
               {isPending ? (
                 <Loader2 className="w-4 h-4 sm:w-5 sm:h-5 text-white animate-spin" />

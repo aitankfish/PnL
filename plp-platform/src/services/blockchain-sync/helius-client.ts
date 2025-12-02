@@ -430,8 +430,9 @@ export class HeliusClient {
 
       // Try parsing as position (simpler structure)
       try {
-        // Position has exact size: 8 (discriminator) + 32 (user) + 32 (market) + 8 (yes_shares) + 8 (no_shares) + 8 (total_invested) + 1 (claimed) + 1 (bump) = 98 bytes
-        if (buffer.length === 98) {
+        // Position has size: 8 (discriminator) + 128 (account data with padding) = 136 bytes
+        // This matches Position::SPACE in the Rust program
+        if (buffer.length === 136) {
           return 'position';
         }
       } catch (e) {

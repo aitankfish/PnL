@@ -76,6 +76,8 @@ export default function CreatePage() {
   const [isMounted, setIsMounted] = useState(false);
   const [isTokenSectionExpanded, setIsTokenSectionExpanded] = useState(true);
   const [isCustomPoolAmount, setIsCustomPoolAmount] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number | null>(null);
+  const [isCheckingBalance, setIsCheckingBalance] = useState(false);
 
   // Get connected wallet and user from Privy
   const { primaryWallet, user, authenticated } = useWallet();
@@ -87,6 +89,39 @@ export default function CreatePage() {
   useEffect(() => {
     setIsMounted(true);
   }, []);
+
+  // Check wallet balance when wallet connects
+  useEffect(() => {
+    const checkBalance = async () => {
+      if (!primaryWallet?.address || !authenticated) {
+        setWalletBalance(null);
+        return;
+      }
+
+      setIsCheckingBalance(true);
+      try {
+        const { Connection, PublicKey, LAMPORTS_PER_SOL } = await import('@solana/web3.js');
+        const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'devnet';
+        const rpcEndpoint = network === 'mainnet-beta'
+          ? process.env.NEXT_PUBLIC_HELIUS_MAINNET_RPC
+          : process.env.NEXT_PUBLIC_HELIUS_DEVNET_RPC;
+
+        const connection = new Connection(rpcEndpoint!, 'confirmed');
+        const publicKey = new PublicKey(primaryWallet.address);
+        const balance = await connection.getBalance(publicKey);
+        const balanceInSOL = balance / LAMPORTS_PER_SOL;
+
+        setWalletBalance(balanceInSOL);
+      } catch (error) {
+        console.error('Error fetching balance:', error);
+        setWalletBalance(null);
+      } finally {
+        setIsCheckingBalance(false);
+      }
+    };
+
+    checkBalance();
+  }, [primaryWallet, authenticated]);
 
   // Calculate form completion percentage
   const requiredFields = ['name', 'description', 'category', 'projectType', 'projectStage', 'teamSize', 'tokenSymbol', 'targetPool', 'marketDuration', 'projectImage'];
@@ -142,31 +177,22 @@ export default function CreatePage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    console.log('🚀 Form submitted! Button clicked!');
-    console.log('Form data:', formData);
-    console.log('Primary wallet:', primaryWallet);
-    
+
     // Check if wallet is connected
     if (!primaryWallet) {
-      console.log('❌ No wallet connected');
-      alert('Please connect your wallet to create a project. You need SOL to pay for transaction fees.');
+      showToast({
+        title: 'Wallet Required',
+        message: 'Please connect your wallet to create a project.',
+        type: 'error'
+      });
       return;
     }
-    
-    console.log('✅ Wallet connected, proceeding with validation...');
-    
+
     if (!validateForm()) {
-      logger.error('Form validation failed', errors);
       return;
     }
 
     setIsSubmitting(true);
-    logger.info('Submitting project form', {
-      formData,
-      walletAddress: primaryWallet.address,
-      walletConnector: primaryWallet.connector?.name
-    });
 
     try {
       // Step 1: Upload project image to IPFS if provided
@@ -278,8 +304,9 @@ export default function CreatePage() {
       setFormData(initialFormData);
       
     } catch (error) {
-      logger.error('Failed to create project', error);
-      alert(`Failed to create project: ${error instanceof Error ? error.message : 'Unknown error'}\n\nPlease try again or contact support if the issue persists.`);
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('Failed to create project', { error: errorMessage });
+      alert(`Failed to create project: ${errorMessage}\n\nPlease try again or contact support if the issue persists.`);
     } finally {
       setIsSubmitting(false);
     }
@@ -883,16 +910,33 @@ export default function CreatePage() {
                   }
                   
                   console.log('🚀 DIRECT BUTTON CLICKED!');
-                  
+
                   // Check if wallet is connected
                   if (!primaryWallet) {
                     alert('Please connect your wallet to create a project. You need SOL to pay for transaction fees.');
                     return;
                   }
-                  
+
+                  // Check if user has enough SOL BEFORE proceeding
+                  const requiredSOL = 0.02; // 0.015 SOL creation fee + buffer for tx fees
+                  if (walletBalance !== null && walletBalance < requiredSOL) {
+                    showToast({
+                      type: 'error',
+                      title: '⚠️ Insufficient SOL Balance',
+                      message: `You need at least ${requiredSOL} SOL to create a market.`,
+                      details: [
+                        `💰 Required: ${requiredSOL} SOL (0.015 SOL creation fee + transaction fees)`,
+                        `💳 Current Balance: ${walletBalance.toFixed(4)} SOL`,
+                        `📥 Click your wallet button to deposit SOL`,
+                      ],
+                      duration: 8000,
+                    });
+                    return;
+                  }
+
                   console.log('Form data:', formData);
                   console.log('Primary wallet:', primaryWallet);
-                  
+
                   setIsSubmitting(true);
                   
                   try {

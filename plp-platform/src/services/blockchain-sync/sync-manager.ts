@@ -9,6 +9,8 @@ import { createClientLogger } from '@/lib/logger';
 import { getQueueStats } from '@/lib/redis/queue';
 import { MongoClient } from 'mongodb';
 import { socketClient } from '../socket/socket-client';
+import { getDatabaseConfig } from '@/lib/environment';
+import { PublicKey } from '@solana/web3.js';
 
 const logger = createClientLogger();
 
@@ -54,7 +56,10 @@ export class SyncManager {
       // 2b. Subscribe to individual markets as fallback (programSubscribe may not work reliably)
       await this.subscribeToExistingMarkets();
 
-      // 2c. Perform initial state sync (fetch current on-chain state for all markets)
+      // 2c. Subscribe to existing Position accounts (programSubscribe may not catch Position updates reliably)
+      await this.subscribeToExistingPositions();
+
+      // 2d. Perform initial state sync (fetch current on-chain state for all markets)
       logger.info('🔄 Performing initial state sync...');
       await this.performInitialSync();
 
@@ -118,7 +123,8 @@ export class SyncManager {
 
       const client = new MongoClient(mongoUri);
       await client.connect();
-      const db = client.db('plp-platform');
+      const dbConfig = getDatabaseConfig();
+      const db = client.db(dbConfig.name);
 
       const markets = await db.collection('predictionmarkets')
         .find({}, { projection: { marketAddress: 1 } })
@@ -144,6 +150,54 @@ export class SyncManager {
   }
 
   /**
+   * Subscribe to all existing Position accounts in database
+   */
+  private async subscribeToExistingPositions(): Promise<void> {
+    try {
+      const mongoUri = process.env.MONGODB_URI;
+      if (!mongoUri) {
+        logger.warn('MongoDB URI not configured, skipping individual position subscriptions');
+        return;
+      }
+
+      const client = new MongoClient(mongoUri);
+      await client.connect();
+      const dbConfig = getDatabaseConfig();
+      const db = client.db(dbConfig.name);
+
+      // Get all participants with their Position PDAs
+      const participants = await db.collection('predictionparticipants')
+        .find(
+          { positionPdaAddress: { $exists: true, $ne: null } },
+          { projection: { positionPdaAddress: 1 } }
+        )
+        .toArray();
+
+      await client.close();
+
+      logger.info(`📡 Subscribing to ${participants.length} individual Position accounts...`);
+
+      for (const participant of participants) {
+        if (participant.positionPdaAddress && this.heliusClient) {
+          try {
+            await this.heliusClient.subscribeToAccount(participant.positionPdaAddress);
+          } catch (error) {
+            // Continue even if one subscription fails
+            logger.warn(`Failed to subscribe to position ${participant.positionPdaAddress.slice(0, 8)}...`);
+          }
+        }
+      }
+
+      logger.info(`✅ Subscribed to ${participants.length} Position accounts`);
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      logger.error('Failed to subscribe to existing positions:', { error: errorMessage });
+      // Don't throw - this is a fallback, not critical
+    }
+  }
+
+  /**
    * Perform initial sync of all existing markets' current on-chain state
    * This ensures MongoDB has up-to-date data even for markets that were resolved while sync was offline
    */
@@ -159,7 +213,8 @@ export class SyncManager {
 
       const client = new MongoClient(mongoUri);
       await client.connect();
-      const db = client.db('plp-platform');
+      const dbConfig = getDatabaseConfig();
+      const db = client.db(dbConfig.name);
 
       const markets = await db.collection('predictionmarkets')
         .find({}, { projection: { marketAddress: 1 } })

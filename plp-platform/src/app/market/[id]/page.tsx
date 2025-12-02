@@ -1071,7 +1071,7 @@ export default function MarketDetailsPage() {
                 {onchainData?.success && (
                   <div className="text-xs sm:text-sm text-gray-400">
                     <span className="text-cyan-400 font-semibold">
-                      {(Number(onchainData.data.poolBalance) / 1e9).toFixed(2)} / {(Number(onchainData.data.targetPool) / 1e9).toFixed(0)} SOL
+                      {(Number(onchainData.data.poolBalance) / 1e9).toFixed(2)} / {market.targetPool}
                     </span>
                     <span className="mx-1 sm:mx-2">•</span>
                     <span className="text-purple-400 font-semibold">{onchainData.data.poolProgressPercentage}% funded</span>
@@ -2092,11 +2092,7 @@ export default function MarketDetailsPage() {
         {showToast && (
           <div className="fixed top-3 sm:top-4 left-1/2 transform -translate-x-1/2 z-50 animate-in fade-in slide-in-from-top-2 px-3 sm:px-0">
             <div className="bg-gray-900 border border-white/20 text-white px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg shadow-lg flex items-center space-x-2">
-              {toastMessage.startsWith('✅') ? (
-                <CheckCircle className="w-4 h-4 sm:w-5 sm:h-5 text-green-400 flex-shrink-0" />
-              ) : (
-                <XCircle className="w-4 h-4 sm:w-5 sm:h-5 text-red-400 flex-shrink-0" />
-              )}
+              <Globe className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 flex-shrink-0" />
               <span className="text-sm sm:text-base">{toastMessage}</span>
             </div>
           </div>
