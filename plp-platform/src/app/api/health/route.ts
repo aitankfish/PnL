@@ -5,15 +5,17 @@
 
 import { NextResponse } from 'next/server';
 import { getSyncManager } from '@/services/blockchain-sync/sync-manager';
+import { getDatabaseConfig } from '@/lib/environment';
 
 export const dynamic = 'force-dynamic';
 
 export async function GET() {
   try {
     const timestamp = new Date().toISOString();
+    const dbConfig = getDatabaseConfig();
 
     // Basic health check
-    const health = {
+    const health: any = {
       status: 'healthy',
       timestamp,
       service: 'pnl-platform',
@@ -21,6 +23,17 @@ export async function GET() {
       uptime: process.uptime(),
       environment: process.env.NODE_ENV || 'development',
       network: process.env.NEXT_PUBLIC_SOLANA_NETWORK || 'mainnet-beta',
+      database: {
+        name: dbConfig.name,
+        hasUri: !!dbConfig.uri,
+        uriLength: dbConfig.uri?.length || 0,
+      },
+      envVars: {
+        hasMongoUri: !!process.env.MONGODB_URI,
+        hasSolanaNetwork: !!process.env.NEXT_PUBLIC_SOLANA_NETWORK,
+        hasHeliusDevnet: !!process.env.NEXT_PUBLIC_HELIUS_DEVNET_RPC,
+        hasHeliusMainnet: !!process.env.NEXT_PUBLIC_HELIUS_MAINNET_RPC,
+      },
     };
 
     // Check blockchain sync status (if enabled)

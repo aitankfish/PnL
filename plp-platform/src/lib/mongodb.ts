@@ -35,7 +35,10 @@ export const connectToDatabase = async () => {
       connectionUri = `${baseUri}/${dbConfig.name}`;
     }
 
-    await mongoose.connect(connectionUri);
+    await mongoose.connect(connectionUri, {
+      serverSelectionTimeoutMS: 10000, // 10 second timeout
+      socketTimeoutMS: 45000, // 45 second socket timeout
+    });
     isConnected = true;
     logger.info('Connected to MongoDB successfully', {
       database: dbConfig.name,
@@ -43,7 +46,13 @@ export const connectToDatabase = async () => {
       environment: process.env.NODE_ENV || 'development'
     });
   } catch (error) {
-    logger.error('Failed to connect to MongoDB', { error: error instanceof Error ? error.message : String(error) });
+    logger.error('Failed to connect to MongoDB', {
+      error: error instanceof Error ? error.message : String(error),
+      errorName: error instanceof Error ? error.name : 'Unknown',
+      stack: error instanceof Error ? error.stack : undefined,
+      environment: process.env.NODE_ENV || 'development',
+      hasMongoUri: !!dbConfig.uri
+    });
     throw error;
   }
 };

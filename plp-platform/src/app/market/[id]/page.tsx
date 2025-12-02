@@ -246,6 +246,34 @@ export default function MarketDetailsPage() {
   const [showToast, setShowToast] = useState(false);
   const [toastMessage, setToastMessage] = useState('');
 
+  // Swipe gesture state for mobile navigation
+  const [touchStart, setTouchStart] = useState<number | null>(null);
+  const [touchEnd, setTouchEnd] = useState<number | null>(null);
+
+  // Minimum swipe distance (in px) to trigger navigation
+  const minSwipeDistance = 50;
+
+  const onTouchStart = (e: React.TouchEvent) => {
+    setTouchEnd(null); // Reset end position
+    setTouchStart(e.targetTouches[0].clientX);
+  };
+
+  const onTouchMove = (e: React.TouchEvent) => {
+    setTouchEnd(e.targetTouches[0].clientX);
+  };
+
+  const onTouchEnd = () => {
+    if (!touchStart || !touchEnd) return;
+
+    const distance = touchEnd - touchStart;
+    const isRightSwipe = distance > minSwipeDistance;
+
+    // Navigate back to browse page on right swipe
+    if (isRightSwipe) {
+      router.push('/browse');
+    }
+  };
+
   // Define fetcher before using it
   const fetcher = (url: string) => fetch(url).then((res) => res.json());
 
@@ -807,7 +835,7 @@ export default function MarketDetailsPage() {
       <div className="p-6 max-w-4xl mx-auto">
         <div className="text-center py-12">
           <p className="text-red-400 text-xl mb-4">{error || 'Market not found'}</p>
-          <Button onClick={() => router.push('/browse')} className="bg-gradient-to-r from-purple-500 to-pink-500">
+          <Button onClick={() => router.push('/browse')} className="bg-gradient-to-r from-purple-500 to-pink-500 hidden sm:inline-flex">
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Markets
           </Button>
@@ -833,12 +861,17 @@ export default function MarketDetailsPage() {
   const marketStatus = getDetailedMarketStatus(market, onchainData);
 
   return (
-    <div className="p-3 sm:p-4 max-w-6xl mx-auto space-y-3 sm:space-y-4">
-        {/* Back Button */}
+    <div
+      className="pt-0.5 px-3 pb-3 sm:p-4 max-w-6xl mx-auto space-y-3 sm:space-y-4"
+      onTouchStart={onTouchStart}
+      onTouchMove={onTouchMove}
+      onTouchEnd={onTouchEnd}
+    >
+        {/* Back Button - Hidden on mobile */}
         <Button
           variant="ghost"
           onClick={() => router.push('/browse')}
-          className="text-white hover:bg-white/10 text-sm sm:text-base"
+          className="hidden sm:flex text-white hover:bg-white/10 text-sm sm:text-base"
         >
           <ArrowLeft className="w-3 h-3 sm:w-4 sm:h-4 mr-1 sm:mr-2" />
           Back to Markets

@@ -23,9 +23,20 @@ export function useSocket(config?: SocketConfig) {
   const socketRef = useRef<Socket | null>(null);
 
   useEffect(() => {
-    // Socket.IO runs on port 3001 (separate from Next.js on 3000)
-    const socketPort = process.env.NEXT_PUBLIC_SOCKET_PORT || '3001';
-    const defaultUrl = `${window.location.protocol}//${window.location.hostname}:${socketPort}`;
+    // Determine the correct socket URL based on environment
+    let defaultUrl: string;
+
+    // In production (Vercel/deployment), use the same origin without custom port
+    // In development, use the custom socket port (3001)
+    if (process.env.NODE_ENV === 'production' || window.location.hostname !== 'localhost') {
+      // Production: use same domain/protocol (reverse proxy or unified server handles routing)
+      defaultUrl = window.location.origin;
+    } else {
+      // Development: use separate socket server on port 3001
+      const socketPort = process.env.NEXT_PUBLIC_SOCKET_PORT || '3001';
+      defaultUrl = `${window.location.protocol}//${window.location.hostname}:${socketPort}`;
+    }
+
     const url = config?.url || defaultUrl;
     const path = config?.path || '/api/socket/io';
 
