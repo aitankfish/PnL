@@ -311,6 +311,7 @@ export default function MarketDetailsPage() {
       refreshInterval: 20000, // Poll every 20 seconds (reduced from 10s)
       revalidateOnFocus: true,
       dedupingInterval: 10000, // Dedupe requests within 10s
+      keepPreviousData: true, // Prevent flicker during refetch - keeps old data visible
     }
   );
 
@@ -846,8 +847,9 @@ export default function MarketDetailsPage() {
         {/* Combined Header & Voting Stats Section */}
         <Card className="bg-white/5 backdrop-blur-xl border-white/10">
           <CardHeader className="pb-3 sm:pb-4">
-            <div className="flex flex-col gap-3 sm:gap-0 sm:flex-row sm:items-start sm:justify-between">
-              <div className="flex items-start gap-2 sm:gap-4 flex-1">
+            <div className="flex flex-col gap-3">
+              {/* Top Section: Image, Title, Badges, Actions */}
+              <div className="flex items-start gap-2 sm:gap-4">
                 {/* Project Image */}
                 {market.projectImageUrl ? (
                   <img
@@ -864,7 +866,7 @@ export default function MarketDetailsPage() {
                 {/* Project Info */}
                 <div className="flex-1 min-w-0">
                   <div className="flex flex-wrap items-start gap-1 sm:gap-2 mb-2">
-                    <CardTitle className="text-lg sm:text-2xl text-white break-words">{market.name}</CardTitle>
+                    <CardTitle className="text-lg sm:text-2xl text-white line-clamp-2">{market.name}</CardTitle>
 
                     {/* Share and Favorite Icons */}
                     <div className="flex items-center gap-1 ml-auto sm:ml-0">
@@ -895,7 +897,7 @@ export default function MarketDetailsPage() {
                   </div>
 
                   {/* Badges Row */}
-                  <div className="flex flex-wrap items-center gap-1 sm:gap-2 mb-2">
+                  <div className="flex flex-wrap items-center gap-1 sm:gap-2">
                     <Badge className={`${marketStatus.badgeClass} text-xs`}>{marketStatus.status}</Badge>
                     {/* Phase Badge */}
                     {onchainData?.success && (
@@ -908,13 +910,16 @@ export default function MarketDetailsPage() {
                       </Badge>
                     )}
                   </div>
+                </div>
+              </div>
 
-                  <CardDescription className="text-gray-300 mb-2 text-sm sm:text-base">
-                    {market.description}
-                  </CardDescription>
+              {/* Description - Full Width */}
+              <CardDescription className="text-gray-300 text-sm sm:text-base leading-relaxed text-justify">
+                {market.description}
+              </CardDescription>
 
-                  {/* Token, Category, Stage & Social Links - All on same line */}
-                  <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
+              {/* Token, Category, Stage & Social Links - Full Width */}
+              <div className="flex items-center flex-wrap gap-1.5 sm:gap-2">
                     <div className="flex items-center gap-1 px-2 sm:px-3 py-1 sm:py-1.5 bg-white/5 rounded-lg border border-white/10">
                       <Target className="w-3 h-3 sm:w-4 sm:h-4 text-gray-400" />
                       <span className="text-xs sm:text-sm font-semibold text-white">${market.tokenSymbol}</span>
@@ -1018,15 +1023,13 @@ export default function MarketDetailsPage() {
                         )}
                       </>
                     )}
-                  </div>
-                </div>
               </div>
             </div>
           </CardHeader>
         </Card>
 
         {/* Market Status and Trading Section - Side by Side */}
-        <div className="grid gap-4 lg:grid-cols-2">
+        <div className="grid gap-4 md:grid-cols-2">
           {/* Combined Market Status Card */}
           <Card className="bg-gradient-to-br from-purple-500/10 via-pink-500/10 to-cyan-500/10 backdrop-blur-xl border-purple-400/30">
           <CardHeader className="pb-2 sm:pb-3">
@@ -1971,7 +1974,7 @@ export default function MarketDetailsPage() {
         </div>
 
         {/* Market Holders and Live Activity Feed - Side by Side */}
-        <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
+        <div className="grid gap-3 sm:gap-4 md:grid-cols-2">
           <LiveActivityFeed
             trades={historyData?.data?.recentTrades || []}
             className="w-full"
@@ -2000,12 +2003,12 @@ export default function MarketDetailsPage() {
                   <h3 className="text-cyan-400 text-sm sm:text-base mb-1.5 sm:mb-2 font-bold flex items-center gap-1.5 sm:gap-2">
                     <span className="text-base sm:text-xl">✨</span> What This Project Offers
                   </h3>
-                  <p className="text-white text-sm sm:text-base leading-relaxed whitespace-pre-wrap">{market.metadata.additionalNotes}</p>
+                  <p className="text-white text-sm sm:text-base leading-relaxed whitespace-pre-wrap text-justify">{market.metadata.additionalNotes}</p>
                 </div>
               )}
 
               {/* Project Info Grid */}
-              <div className="grid gap-2.5 sm:gap-4 md:grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-2.5 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {market.metadata.projectType && (
                   <div className="flex items-start space-x-2 sm:space-x-3 p-2.5 sm:p-4 bg-white/5 rounded-lg">
                     <Briefcase className="w-4 h-4 sm:w-5 sm:h-5 text-cyan-400 mt-0.5 sm:mt-1 flex-shrink-0" />

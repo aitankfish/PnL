@@ -7,7 +7,6 @@ import { Badge } from '@/components/ui/badge';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { CheckCircle, XCircle, Loader2, Filter } from 'lucide-react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { useVoting } from '@/lib/hooks/useVoting';
 import { FEES } from '@/config/solana';
 import CountdownTimer from '@/components/CountdownTimer';
@@ -178,13 +177,12 @@ function getTradingDisabledReason(market: Market): string {
 }
 
 export default function BrowsePage() {
-  const router = useRouter();
   const [markets, setMarkets] = useState<Market[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [votingState, setVotingState] = useState<{ marketId: string; voteType: 'yes' | 'no' } | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const { vote, isVoting } = useVoting();
+  const { vote } = useVoting();
 
   // Error dialog state
   const [errorDialog, setErrorDialog] = useState<{
@@ -323,7 +321,7 @@ export default function BrowsePage() {
               <div className="h-px flex-1 bg-gradient-to-r from-transparent via-orange-500 to-transparent"></div>
             </div>
 
-            <div className="grid gap-4 sm:gap-6 md:grid-cols-2">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
               {hotProjects.map((hotProject, index) => {
                 // First card: Orange/Red theme, Second card: Purple/Blue theme
                 const isFirstCard = index === 0;
@@ -394,16 +392,16 @@ export default function BrowsePage() {
                       {/* Project Info */}
                       <div className="flex-1 min-w-0">
                         <div className="flex flex-col sm:flex-row sm:items-center sm:space-x-3 mb-1.5 sm:mb-2 gap-1 sm:gap-0">
-                          <CardTitle className={`text-base sm:text-2xl text-white ${cardColors.titleHover} transition-colors truncate`}>{hotProject.name}</CardTitle>
+                          <CardTitle className={`text-base sm:text-2xl text-white ${cardColors.titleHover} transition-colors line-clamp-2`}>{hotProject.name}</CardTitle>
                           <Badge className={`${getMarketStatus(hotProject).badgeClass} flex-shrink-0 text-xs sm:text-sm w-fit`}>{getMarketStatus(hotProject).status}</Badge>
                         </div>
-                        <CardDescription className="text-gray-300 group-hover:text-white transition-colors line-clamp-2 text-xs sm:text-sm">{hotProject.description}</CardDescription>
+                        <CardDescription className="text-gray-300 group-hover:text-white transition-colors line-clamp-3 text-xs sm:text-sm">{hotProject.description}</CardDescription>
                       </div>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 sm:space-y-4">
-                  <div className="grid grid-cols-2 gap-2 sm:gap-4">
+                  <div className="flex flex-col sm:grid sm:grid-cols-2 gap-2 sm:gap-4">
                     <div className="flex items-center justify-between text-xs sm:text-sm">
                       <span className="text-gray-400">Category:</span>
                       <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30 text-xs">{formatLabel(hotProject.category)}</Badge>
@@ -533,7 +531,7 @@ export default function BrowsePage() {
 
           {/* Loading State with Skeletons */}
           {loading && (
-            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
               {[...Array(6)].map((_, i) => (
                 <Card key={i} className="bg-white/5 backdrop-blur-xl border-white/10">
                   <CardHeader>
@@ -597,13 +595,13 @@ export default function BrowsePage() {
 
           {/* Markets Grid */}
           {!loading && !error && regularMarkets.length > 0 && (
-            <div className="grid gap-4 sm:gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 xl:grid-cols-3">
               {regularMarkets.map((project) => {
                 const marketStatus = getMarketStatus(project);
 
                 return (
               <Link href={`/market/${project.id}`} key={project.id} prefetch={true} className="block">
-              <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-102 group cursor-pointer">
+              <Card className="bg-white/5 backdrop-blur-xl border-white/10 text-white hover:bg-white/10 transition-all duration-300 hover:scale-[1.02] group cursor-pointer h-full flex flex-col">
                 <CardHeader className="pb-3 sm:pb-6">
                   <div className="flex items-start justify-between mb-2 sm:mb-3">
                     <div className="flex items-start space-x-2 sm:space-x-3 flex-1">
@@ -634,8 +632,8 @@ export default function BrowsePage() {
 
                       {/* Project Info */}
                       <div className="flex-1 min-w-0">
-                        <CardTitle className="text-base sm:text-xl text-white group-hover:text-cyan-300 transition-colors truncate">{project.name}</CardTitle>
-                        <CardDescription className="mt-0.5 sm:mt-1 text-gray-300 group-hover:text-white transition-colors line-clamp-2 text-xs sm:text-sm">{project.description}</CardDescription>
+                        <CardTitle className="text-base sm:text-xl text-white group-hover:text-cyan-300 transition-colors line-clamp-2">{project.name}</CardTitle>
+                        <CardDescription className="mt-0.5 sm:mt-1 text-gray-300 group-hover:text-white transition-colors line-clamp-3 text-xs sm:text-sm">{project.description}</CardDescription>
                       </div>
                     </div>
 
@@ -644,21 +642,23 @@ export default function BrowsePage() {
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-3 sm:space-y-4">
-                  <div className="flex items-center justify-between text-xs sm:text-sm">
-                    <span className="text-gray-400">Category:</span>
-                    <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30 text-xs">{formatLabel(project.category)}</Badge>
-                  </div>
-                  <div className="flex items-center justify-between text-xs sm:text-sm">
-                    <span className="text-gray-400">Stage:</span>
-                    <span className="text-white text-xs sm:text-sm">{formatLabel(project.stage)}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs sm:text-sm">
-                    <span className="text-gray-400">Token:</span>
-                    <span className="font-mono font-bold text-white text-xs sm:text-sm">${project.tokenSymbol}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-xs sm:text-sm">
-                    <span className="text-gray-400">Pool:</span>
-                    <span className="font-bold text-white text-xs sm:text-sm">{project.targetPool}</span>
+                  <div className="flex flex-col sm:grid sm:grid-cols-2 gap-2 sm:gap-3">
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="text-gray-400">Category:</span>
+                      <Badge className="bg-purple-500/20 text-purple-300 border-purple-400/30 text-xs">{formatLabel(project.category)}</Badge>
+                    </div>
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="text-gray-400">Stage:</span>
+                      <span className="text-white text-xs sm:text-sm">{formatLabel(project.stage)}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="text-gray-400">Token:</span>
+                      <span className="font-mono font-bold text-white text-xs sm:text-sm">${project.tokenSymbol}</span>
+                    </div>
+                    <div className="flex items-center justify-between text-xs sm:text-sm">
+                      <span className="text-gray-400">Pool:</span>
+                      <span className="font-bold text-white text-xs sm:text-sm">{project.targetPool}</span>
+                    </div>
                   </div>
 
                   {/* Voting Stats */}
@@ -700,15 +700,15 @@ export default function BrowsePage() {
                         handleQuickVote(project, 'yes');
                       }}
                       disabled={votingState !== null || isTradingDisabled(project)}
-                      className="flex-1 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm px-2 sm:px-4"
                       size="sm"
                     >
                       {isTradingDisabled(project) ? (
-                        getTradingDisabledReason(project)
+                        <span className="truncate">{getTradingDisabledReason(project)}</span>
                       ) : votingState?.marketId === project.id && votingState?.voteType === 'yes' ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        'Vote YES'
+                        <><span className="hidden sm:inline">Vote </span><span>YES</span></>
                       )}
                     </Button>
                     <Button
@@ -719,15 +719,15 @@ export default function BrowsePage() {
                       }}
                       disabled={votingState !== null || isTradingDisabled(project)}
                       variant="outline"
-                      className="flex-1 border-white/20 text-white hover:bg-white/10 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="flex-1 border-white/20 text-white hover:bg-white/10 hover:border-white/30 disabled:opacity-50 disabled:cursor-not-allowed text-xs sm:text-sm px-2 sm:px-4"
                       size="sm"
                     >
                       {isTradingDisabled(project) ? (
-                        getTradingDisabledReason(project)
+                        <span className="truncate">{getTradingDisabledReason(project)}</span>
                       ) : votingState?.marketId === project.id && votingState?.voteType === 'no' ? (
                         <Loader2 className="w-4 h-4 animate-spin" />
                       ) : (
-                        'Vote NO'
+                        <><span className="hidden sm:inline">Vote </span><span>NO</span></>
                       )}
                     </Button>
                   </div>
