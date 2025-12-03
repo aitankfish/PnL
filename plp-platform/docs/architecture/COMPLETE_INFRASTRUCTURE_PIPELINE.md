@@ -4,7 +4,12 @@
 
 This document describes the **complete end-to-end infrastructure pipeline** for the PLP platform, from market creation through voting to real-time updates. It covers how all infrastructure components work together on both devnet and mainnet.
 
-**Last Updated**: November 30, 2025
+**Last Updated**: December 3, 2025
+
+**Recent Updates**:
+- Fixed Helius Enhanced API integration (removed invalid parameters)
+- Switched to MongoDB-first architecture for trade history and market holders
+- Fixed production Socket.IO server configuration (unified server on port 3000)
 
 ---
 
@@ -241,8 +246,8 @@ This document describes the **complete end-to-end infrastructure pipeline** for 
 ### 3. Solana Blockchain
 
 **Networks**:
-- **Devnet**: For testing (program: `2CjwEvY3gkErkEmM5wnLpRv9fq3msHjnPDVPQmaWhF3G`)
-- **Mainnet-Beta**: For production (program: `6kK2SVaj6yW7mAjTsw1rxMDNeby8A9ojv3UyhVPofmZL`)
+- **Devnet**: For testing (program: `C5mVE2BwSehWJNkNvhpsoepyKwZkvSLZx29bi4MzVj86`)
+- **Mainnet-Beta**: For production (program: `C5mVE2BwSehWJNkNvhpsoepyKwZkvSLZx29bi4MzVj86`)
 
 **Account Types**:
 1. **Market PDA**: Stores market state (pools, votes, resolution)
@@ -269,7 +274,7 @@ wss://mainnet.helius-rpc.com/?api-key=YOUR_KEY
   "id": 1,
   "method": "programSubscribe",
   "params": [
-    "6kK2SVaj6yW7mAjTsw1rxMDNeby8A9ojv3UyhVPofmZL", // Program ID
+    "C5mVE2BwSehWJNkNvhpsoepyKwZkvSLZx29bi4MzVj86", // Program ID
     {
       "encoding": "base64",
       "commitment": "confirmed"
@@ -288,6 +293,8 @@ wss://mainnet.helius-rpc.com/?api-key=YOUR_KEY
 - **Reliable**: Auto-reconnect with exponential backoff
 - **Efficient**: Single WebSocket for all accounts
 - **No polling**: Push-based, not pull-based
+
+**Important**: We use Helius WebSocket for real-time monitoring only. Historical data (trade history, holders) is queried from MongoDB, NOT from Helius Enhanced Transactions API. This prevents rate limiting and improves performance.
 
 ---
 
@@ -411,7 +418,7 @@ const { marketData, isConnected } = useMarketSocket(marketAddress);
 **Environment Variables**:
 ```env
 NEXT_PUBLIC_SOLANA_NETWORK=mainnet-beta
-NEXT_PUBLIC_PLP_PROGRAM_ID_MAINNET=6kK2SVaj6yW7mAjTsw1rxMDNeby8A9ojv3UyhVPofmZL
+NEXT_PUBLIC_PLP_PROGRAM_ID_MAINNET=C5mVE2BwSehWJNkNvhpsoepyKwZkvSLZx29bi4MzVj86
 MONGODB_PROD_DATABASE=plp_platform_prod
 NEXT_PUBLIC_HELIUS_MAINNET_RPC=https://mainnet.helius-rpc.com/?api-key=...
 HELIUS_WS_MAINNET=wss://mainnet.helius-rpc.com/?api-key=...
@@ -749,14 +756,16 @@ npm run dev:unified
 
 ```bash
 # Single command starts all services
-npm run dev:unified
+npm run start:unified
 
 # Services started:
-# 1. Next.js app (port 3000)
-# 2. Socket.IO server (port 3000)
+# 1. Next.js app (port 3000, hostname: 0.0.0.0)
+# 2. Socket.IO server (port 3000, same port as HTTP)
 # 3. Helius WebSocket client
 # 4. Event processor (background)
 ```
+
+**Important**: Production uses `start:unified` (NOT `start:prod`) to ensure Socket.IO server is initialized properly.
 
 ---
 
