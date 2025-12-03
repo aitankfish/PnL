@@ -42,15 +42,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    logger.info('Completing vote transaction', {
+    logger.info('📥 [API] Received vote completion request', {
       marketId,
       voteType,
       amount,
       signature,
+      traderWallet: traderWallet.slice(0, 8) + '...',
     });
 
     // Connect to MongoDB (Mongoose for market models)
     await connectMongoose();
+    logger.info('✅ [API] Connected to MongoDB');
 
     // Convert SOL to lamports for stake tracking
     const lamports = Math.floor(amount * 1_000_000_000);
@@ -120,8 +122,8 @@ export async function POST(request: NextRequest) {
         participant.totalInvested = (currentTotalInvested + BigInt(lamports)).toString();
         await participant.save();
 
-        logger.info('Updated participant record', {
-          participantWallet: traderWallet,
+        logger.info('✅ [MONGODB] Updated participant record', {
+          participantWallet: traderWallet.slice(0, 8) + '...',
           marketId: market._id.toString(),
           yesShares: participant.yesShares,
           noShares: participant.noShares,
@@ -184,7 +186,7 @@ export async function POST(request: NextRequest) {
     // (blockchain sync via WebSocket is primary, this is backup)
     try {
       const voteCounts = await updateMarketVoteCounts(marketId);
-      logger.info('Vote counts updated from MongoDB', {
+      logger.info('✅ [MONGODB] Vote counts updated', {
         marketId,
         yesVoteCount: voteCounts.yesVoteCount,
         noVoteCount: voteCounts.noVoteCount,
@@ -204,6 +206,16 @@ export async function POST(request: NextRequest) {
       const yesPercentage = totalStake > 0 ? (updatedMarket.totalYesStake / totalStake) * 100 : 50;
       const noPercentage = totalStake > 0 ? (updatedMarket.totalNoStake / totalStake) * 100 : 50;
 
+      logger.info('📡 [SOCKET] Broadcasting market update', {
+        marketAddress: market.marketAddress.slice(0, 8) + '...',
+        yesVotes: voteCounts.yesVoteCount,
+        noVotes: voteCounts.noVoteCount,
+        totalYesStake: updatedMarket.totalYesStake,
+        totalNoStake: updatedMarket.totalNoStake,
+        yesPercentage: yesPercentage.toFixed(2),
+        noPercentage: noPercentage.toFixed(2),
+      });
+
       broadcastMarketUpdate(market.marketAddress, {
         yesVotes: voteCounts.yesVoteCount,
         noVotes: voteCounts.noVoteCount,
@@ -212,9 +224,8 @@ export async function POST(request: NextRequest) {
         yesPercentage,
         noPercentage,
       });
-      logger.info('Broadcasted market update via Socket.IO', {
-        marketAddress: market.marketAddress,
-      });
+
+      logger.info('✅ [SOCKET] Market update broadcasted successfully');
     } catch (error) {
       logger.error('Failed to update vote counts (non-fatal)', {
         error: error instanceof Error ? error.message : String(error)

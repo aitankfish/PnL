@@ -392,23 +392,50 @@ export default function MarketDetailsPage() {
   useEffect(() => {
     if (!socketMarketData || !market) return;
 
+    console.log('📡 [SOCKET] Received market update', {
+      yesVotes: socketMarketData.yesVotes,
+      noVotes: socketMarketData.noVotes,
+      totalYesStake: socketMarketData.totalYesStake,
+      totalNoStake: socketMarketData.totalNoStake,
+      yesPercentage: socketMarketData.yesPercentage,
+      noPercentage: socketMarketData.noPercentage,
+    });
+
     // Update market with real-time data from Socket.IO
     setMarket((prevMarket) => {
       if (!prevMarket) return prevMarket;
 
-      return {
+      const updated = {
         ...prevMarket,
         yesVotes: socketMarketData.yesVotes ?? prevMarket.yesVotes,
         noVotes: socketMarketData.noVotes ?? prevMarket.noVotes,
         totalYesStake: socketMarketData.totalYesStake ?? prevMarket.totalYesStake,
         totalNoStake: socketMarketData.totalNoStake ?? prevMarket.totalNoStake,
       };
+
+      console.log('✅ [SOCKET] Market state updated', {
+        previousYesVotes: prevMarket.yesVotes,
+        newYesVotes: updated.yesVotes,
+        previousNoVotes: prevMarket.noVotes,
+        newNoVotes: updated.noVotes,
+      });
+
+      return updated;
     });
 
-    // Trigger SWR revalidation for history and holders to get fresh data
-    refetchHistory();
-    refetchHolders();
-  }, [socketMarketData, market, refetchHistory, refetchHolders]);
+    // Debounced refetch: only refetch history/holders after 1 second of no updates
+    // This prevents excessive refetches during rapid socket updates
+    const timeoutId = setTimeout(() => {
+      try {
+        refetchHistory();
+        refetchHolders();
+      } catch (error) {
+        console.warn('Failed to refetch history/holders:', error);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timeoutId);
+  }, [socketMarketData, refetchHistory, refetchHolders]);
 
   const fetchMarketDetails = async (id: string) => {
     try {
@@ -508,6 +535,7 @@ export default function MarketDetailsPage() {
 
     // Set processing state and fire transaction
     setIsProcessingVote(true);
+    console.log('🗳️  [VOTE] Starting vote transaction', { voteType, amount: voteAmount, marketAddress: market.marketAddress });
 
     vote({
       marketId: params.id as string,
@@ -518,6 +546,12 @@ export default function MarketDetailsPage() {
       setIsProcessingVote(false);
 
       if (result.success) {
+        console.log('✅ [VOTE] Transaction confirmed on-chain', {
+          signature: result.signature,
+          voteType,
+          amount: voteAmount
+        });
+
         // Show success toast notification
         setToastMessage(`✅ ${voteType.toUpperCase()} vote recorded! ${voteAmount} SOL`);
         setShowToast(true);
@@ -527,6 +561,7 @@ export default function MarketDetailsPage() {
         // This prevents race conditions with backend processing
         setTimeout(() => {
           try {
+            console.log('🔄 [VOTE] Refreshing frontend data...');
             refetchPosition();
             refetchOnchainData();
           } catch (error) {
@@ -558,11 +593,6 @@ export default function MarketDetailsPage() {
     });
 
     if (result.success) {
-      // Success! Refresh data
-      refetchPosition(); // Refresh position data to show updated claimed status
-      fetchMarketDetails(params.id as string);
-      refetchOnchainData(); // Update pool balance
-
       // Format the claim amount for display
       const claimAmountSOL = result.claimAmount ? (result.claimAmount / 1e9).toFixed(4) : '0';
 
@@ -570,6 +600,19 @@ export default function MarketDetailsPage() {
       setToastMessage(`✅ Claimed ${claimAmountSOL} SOL successfully!`);
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
+
+      // Refresh data in background after a short delay
+      // This prevents race conditions with backend processing
+      setTimeout(() => {
+        try {
+          refetchPosition(); // Refresh position data to show updated claimed status
+          fetchMarketDetails(params.id as string);
+          refetchOnchainData(); // Update pool balance
+        } catch (error) {
+          // Silently ignore refetch errors - Socket.IO will update anyway
+          console.warn('Failed to refetch data after claim:', error);
+        }
+      }, 500); // Wait 500ms for backend to finish processing
     } else {
       // Parse error and show toast
       const parsedError = parseError(result.error);
@@ -588,27 +631,35 @@ export default function MarketDetailsPage() {
     });
 
     if (result.success) {
-      // Success! Refresh all data
-      fetchMarketDetails(params.id as string);
-
-      // Retry on-chain data fetch to combat RPC caching (Solana RPCs can be slow to update)
-      const retryOnchainDataFetch = async (retries = 3, delayMs = 2000) => {
-        for (let i = 0; i < retries; i++) {
-          await new Promise(resolve => setTimeout(resolve, delayMs));
-          await refetchOnchainData();
-          console.log(`🔄 Retry ${i + 1}/${retries}: Refreshing on-chain data after resolution...`);
-        }
-      };
-
-      refetchOnchainData(); // Immediate refresh
-      retryOnchainDataFetch(); // Background retries to ensure RPC catches up
-      refetchHistory(); // Refresh trade history
-      refetchHolders(); // Refresh holders
-
       // Show success toast
       setToastMessage('✅ Market resolved! Participants can now claim rewards');
       setShowToast(true);
       setTimeout(() => setShowToast(false), 3000);
+
+      // Refresh all data with error handling
+      try {
+        fetchMarketDetails(params.id as string);
+        refetchOnchainData(); // Immediate refresh
+        refetchHistory(); // Refresh trade history
+        refetchHolders(); // Refresh holders
+
+        // Retry on-chain data fetch to combat RPC caching (Solana RPCs can be slow to update)
+        const retryOnchainDataFetch = async (retries = 3, delayMs = 2000) => {
+          for (let i = 0; i < retries; i++) {
+            await new Promise(resolve => setTimeout(resolve, delayMs));
+            try {
+              await refetchOnchainData();
+              console.log(`🔄 Retry ${i + 1}/${retries}: Refreshing on-chain data after resolution...`);
+            } catch (error) {
+              console.warn(`Failed retry ${i + 1}/${retries}:`, error);
+            }
+          }
+        };
+
+        retryOnchainDataFetch(); // Background retries to ensure RPC catches up
+      } catch (error) {
+        console.warn('Failed to refetch data after resolution:', error);
+      }
     } else {
       // If error, check if market is already resolved on-chain
       console.log('⚠️ Resolution failed, checking on-chain status...');
@@ -626,13 +677,19 @@ export default function MarketDetailsPage() {
           // Market is resolved on-chain! Just update UI
           console.log('✅ Market already resolved on-chain:', statusResult.data.resolution);
 
-          // Refresh data to show claim button
-          refetchOnchainData();
-          fetchMarketDetails(params.id as string);
-
           setToastMessage(`✅ Market already resolved as ${statusResult.data.resolution}`);
           setShowToast(true);
           setTimeout(() => setShowToast(false), 3000);
+
+          // Refresh data to show claim button with delay and error handling
+          setTimeout(() => {
+            try {
+              refetchOnchainData();
+              fetchMarketDetails(params.id as string);
+            } catch (error) {
+              console.warn('Failed to refetch data after resolution check:', error);
+            }
+          }, 500);
           return;
         }
       } catch (statusError) {
