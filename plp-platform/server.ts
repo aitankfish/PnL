@@ -16,7 +16,9 @@ import { initializeSocketServer } from './src/services/socket/socket-server';
 import { startBlockchainSync } from './src/services/blockchain-sync/sync-manager';
 
 const dev = process.env.NODE_ENV !== 'production';
-const hostname = 'localhost';
+// In production, bind to 0.0.0.0 to allow external connections
+// In development, use localhost
+const hostname = dev ? 'localhost' : '0.0.0.0';
 const port = parseInt(process.env.PORT || '3000', 10);
 
 // Create Next.js app
@@ -49,8 +51,11 @@ app.prepare().then(() => {
   }, 2000); // Wait 2 seconds for Socket.IO to fully initialize
 
   // Start server
-  httpServer.listen(port, () => {
-    console.log(`> Ready on http://${hostname}:${port}`);
+  httpServer.listen(port, hostname, () => {
+    const displayHost = hostname === '0.0.0.0' ? 'localhost' : hostname;
+    console.log(`> Ready on http://${displayHost}:${port}`);
+    console.log(`> Environment: ${dev ? 'development' : 'production'}`);
+    console.log(`> Socket.IO: ${dev ? 'http://localhost:3001' : 'enabled on same port'}`);
   });
 
   // Graceful shutdown

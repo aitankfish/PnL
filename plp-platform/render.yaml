@@ -10,7 +10,7 @@ services:
     plan: starter # Change to 'standard' or higher for production traffic
     branch: main # Deploy from main branch
     buildCommand: npm install --legacy-peer-deps && npm run build
-    startCommand: npm run start:prod
+    startCommand: npm run start:unified
 
     # Health check
     healthCheckPath: /api/health
