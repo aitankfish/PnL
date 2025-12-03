@@ -7,7 +7,7 @@ import { popEvent, markProcessed, retryEvent, BlockchainEvent } from '@/lib/redi
 import { parseMarketAccount, parsePositionAccount, calculateDerivedFields } from './account-parser';
 import { createClientLogger } from '@/lib/logger';
 import { MongoClient, Db, ObjectId } from 'mongodb';
-import { socketClient } from '../socket/socket-client';
+import { broadcastMarketUpdate, broadcastPositionUpdate } from '../socket/socket-server';
 import { getDatabaseConfig } from '@/lib/environment';
 
 const logger = createClientLogger();
@@ -179,7 +179,7 @@ export class EventProcessor {
     await this.recordTimeSeries(market._id, marketData, derived);
 
     // 6. Broadcast update to connected clients
-    socketClient.broadcastMarketUpdate(event.address, {
+    broadcastMarketUpdate(event.address, {
       marketAddress: event.address,
       poolProgressPercentage: derived.poolProgressPercentage,
       yesPercentage: derived.yesPercentage,
@@ -262,7 +262,7 @@ export class EventProcessor {
       }) || market;
 
       // Broadcast market update with new vote counts
-      socketClient.broadcastMarketUpdate(positionData.market, {
+      broadcastMarketUpdate(positionData.market, {
         marketAddress: positionData.market,
         yesVoteCount: updatedMarket.yesVoteCount,
         noVoteCount: updatedMarket.noVoteCount,
@@ -271,7 +271,7 @@ export class EventProcessor {
     }
 
     // 5. Broadcast position update to user
-    socketClient.broadcastPositionUpdate(positionData.user, positionData.market, {
+    broadcastPositionUpdate(positionData.user, positionData.market, {
       yesShares: positionData.yesShares,
       noShares: positionData.noShares,
       totalInvested: positionData.totalInvested,

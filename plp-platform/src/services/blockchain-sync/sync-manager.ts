@@ -8,7 +8,6 @@ import { getEventProcessor } from './event-processor';
 import { createClientLogger } from '@/lib/logger';
 import { getQueueStats } from '@/lib/redis/queue';
 import { MongoClient } from 'mongodb';
-import { socketClient } from '../socket/socket-client';
 import { getDatabaseConfig } from '@/lib/environment';
 import { PublicKey } from '@solana/web3.js';
 
@@ -40,10 +39,6 @@ export class SyncManager {
     this.isRunning = true;
 
     try {
-      // 0. Connect to Socket.IO server for broadcasting updates
-      logger.info('🔌 Connecting to Socket.IO server...');
-      socketClient.connect();
-
       // 1. Initialize Helius WebSocket client
       logger.info('📡 Initializing Helius WebSocket...');
       this.heliusClient = new HeliusClient(this.network, this.programId);
