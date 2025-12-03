@@ -523,9 +523,17 @@ export default function MarketDetailsPage() {
         setShowToast(true);
         setTimeout(() => setShowToast(false), 3000);
 
-        // Refresh data in background
-        refetchPosition();
-        refetchOnchainData();
+        // Refresh data in background after a short delay
+        // This prevents race conditions with backend processing
+        setTimeout(() => {
+          try {
+            refetchPosition();
+            refetchOnchainData();
+          } catch (error) {
+            // Silently ignore refetch errors - Socket.IO will update anyway
+            console.warn('Failed to refetch data:', error);
+          }
+        }, 500); // Wait 500ms for backend to finish processing
       } else {
         // Parse error and show toast
         const parsedError = parseError(result.error);
