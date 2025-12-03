@@ -190,21 +190,25 @@ export async function POST(request: NextRequest) {
         noVoteCount: voteCounts.noVoteCount,
       });
 
+      // Refetch market to get updated stakes from MongoDB
+      const updatedMarket = await PredictionMarket.findById(marketId);
+      if (!updatedMarket) {
+        throw new Error('Market not found after update');
+      }
+
       // Broadcast real-time update to all connected clients
       // This ensures vote counts and stakes update without page refresh
-      const updatedYesStake = market.totalYesStake + (voteType === 'yes' ? lamports : 0);
-      const updatedNoStake = market.totalNoStake + (voteType === 'no' ? lamports : 0);
-      const totalStake = updatedYesStake + updatedNoStake;
+      const totalStake = updatedMarket.totalYesStake + updatedMarket.totalNoStake;
 
       // Calculate percentages
-      const yesPercentage = totalStake > 0 ? (updatedYesStake / totalStake) * 100 : 50;
-      const noPercentage = totalStake > 0 ? (updatedNoStake / totalStake) * 100 : 50;
+      const yesPercentage = totalStake > 0 ? (updatedMarket.totalYesStake / totalStake) * 100 : 50;
+      const noPercentage = totalStake > 0 ? (updatedMarket.totalNoStake / totalStake) * 100 : 50;
 
       broadcastMarketUpdate(market.marketAddress, {
         yesVotes: voteCounts.yesVoteCount,
         noVotes: voteCounts.noVoteCount,
-        totalYesStake: updatedYesStake,
-        totalNoStake: updatedNoStake,
+        totalYesStake: updatedMarket.totalYesStake,
+        totalNoStake: updatedMarket.totalNoStake,
         yesPercentage,
         noPercentage,
       });
