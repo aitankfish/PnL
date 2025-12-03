@@ -405,12 +405,18 @@ export default function MarketDetailsPage() {
     setMarket((prevMarket) => {
       if (!prevMarket) return prevMarket;
 
+      // Convert stakes to numbers if they come as strings
+      const parseStake = (value: any, fallback: number): number => {
+        if (value == null) return fallback;
+        return typeof value === 'string' ? parseInt(value) : value;
+      };
+
       const updated = {
         ...prevMarket,
         yesVotes: socketMarketData.yesVotes ?? prevMarket.yesVotes,
         noVotes: socketMarketData.noVotes ?? prevMarket.noVotes,
-        totalYesStake: socketMarketData.totalYesStake ?? prevMarket.totalYesStake,
-        totalNoStake: socketMarketData.totalNoStake ?? prevMarket.totalNoStake,
+        totalYesStake: parseStake(socketMarketData.totalYesStake, prevMarket.totalYesStake),
+        totalNoStake: parseStake(socketMarketData.totalNoStake, prevMarket.totalNoStake),
       };
 
       console.log('✅ [SOCKET] Market state updated', {
@@ -418,6 +424,10 @@ export default function MarketDetailsPage() {
         newYesVotes: updated.yesVotes,
         previousNoVotes: prevMarket.noVotes,
         newNoVotes: updated.noVotes,
+        previousYesStake: prevMarket.totalYesStake,
+        newYesStake: updated.totalYesStake,
+        previousNoStake: prevMarket.totalNoStake,
+        newNoStake: updated.totalNoStake,
       });
 
       return updated;
