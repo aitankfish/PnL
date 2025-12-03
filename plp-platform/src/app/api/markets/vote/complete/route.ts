@@ -192,11 +192,21 @@ export async function POST(request: NextRequest) {
 
       // Broadcast real-time update to all connected clients
       // This ensures vote counts and stakes update without page refresh
+      const updatedYesStake = market.totalYesStake + (voteType === 'yes' ? lamports : 0);
+      const updatedNoStake = market.totalNoStake + (voteType === 'no' ? lamports : 0);
+      const totalStake = updatedYesStake + updatedNoStake;
+
+      // Calculate percentages
+      const yesPercentage = totalStake > 0 ? (updatedYesStake / totalStake) * 100 : 50;
+      const noPercentage = totalStake > 0 ? (updatedNoStake / totalStake) * 100 : 50;
+
       broadcastMarketUpdate(market.marketAddress, {
         yesVotes: voteCounts.yesVoteCount,
         noVotes: voteCounts.noVoteCount,
-        totalYesStake: market.totalYesStake + (voteType === 'yes' ? lamports : 0),
-        totalNoStake: market.totalNoStake + (voteType === 'no' ? lamports : 0),
+        totalYesStake: updatedYesStake,
+        totalNoStake: updatedNoStake,
+        yesPercentage,
+        noPercentage,
       });
       logger.info('Broadcasted market update via Socket.IO', {
         marketAddress: market.marketAddress,
