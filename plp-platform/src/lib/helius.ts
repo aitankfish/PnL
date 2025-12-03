@@ -67,13 +67,18 @@ export async function getMarketTransactions(
     });
 
     // Use Enhanced Transactions API for single-call parsed data
-    const transactions = await helius.enhanced.getTransactionsByAddress({
+    // Build params object, only include defined values
+    const params: any = {
       address: options.address,
       limit: options.limit || 100,
-      before: options.before,
-      until: options.until,
-      commitment: 'confirmed',
-    });
+    };
+
+    // Only add pagination params if they have values
+    if (options.before) params.before = options.before;
+    if (options.until) params.until = options.until;
+
+    // Note: commitment parameter not supported by Enhanced Transactions API
+    const transactions = await helius.enhanced.getTransactionsByAddress(params);
 
     logger.info('Fetched enhanced transactions from Helius', {
       count: transactions.length,
