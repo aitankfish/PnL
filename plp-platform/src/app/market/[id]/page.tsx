@@ -56,6 +56,8 @@ interface MarketDetails {
   noVotes: number;
   totalYesStake: number;
   totalNoStake: number;
+  yesPercentage?: number;
+  noPercentage?: number;
   expiryTime: string;
   status: string;
   metadataUri?: string;
@@ -417,6 +419,9 @@ export default function MarketDetailsPage() {
         noVotes: socketMarketData.noVotes ?? prevMarket.noVotes,
         totalYesStake: parseStake(socketMarketData.totalYesStake, prevMarket.totalYesStake),
         totalNoStake: parseStake(socketMarketData.totalNoStake, prevMarket.totalNoStake),
+        // Store percentages directly from socket for real-time accuracy
+        yesPercentage: socketMarketData.yesPercentage ?? prevMarket.yesPercentage,
+        noPercentage: socketMarketData.noPercentage ?? prevMarket.noPercentage,
       };
 
       console.log('✅ [SOCKET] Market state updated', {
@@ -428,6 +433,10 @@ export default function MarketDetailsPage() {
         newYesStake: updated.totalYesStake,
         previousNoStake: prevMarket.totalNoStake,
         newNoStake: updated.totalNoStake,
+        previousYesPercentage: prevMarket.yesPercentage,
+        newYesPercentage: updated.yesPercentage,
+        previousNoPercentage: prevMarket.noPercentage,
+        newNoPercentage: updated.noPercentage,
       });
 
       return updated;
@@ -926,11 +935,13 @@ export default function MarketDetailsPage() {
     return now >= expiry;
   })();
 
-  // Calculate percentage based on SOL staked (user-friendly display)
-  // This matches Market Holders display and is more intuitive for users
-  const yesPercentage = market.totalYesStake + market.totalNoStake > 0
-    ? Math.round((market.totalYesStake / (market.totalYesStake + market.totalNoStake)) * 100)
-    : 50;
+  // Use percentage from market state (updated via Socket.IO for real-time accuracy)
+  // This ensures percentages update immediately without recalculation
+  const yesPercentage = market.yesPercentage ?? (
+    market.totalYesStake + market.totalNoStake > 0
+      ? Math.round((market.totalYesStake / (market.totalYesStake + market.totalNoStake)) * 100)
+      : 50
+  );
 
   // Calculate dynamic market status
   const marketStatus = getDetailedMarketStatus(market, onchainData);
