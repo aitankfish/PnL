@@ -2,7 +2,7 @@
  * API endpoint for fetching market position holders
  *
  * Returns YES and NO holders with their positions
- * Uses Helius on mainnet, MongoDB on devnet
+ * Uses MongoDB for both devnet and mainnet
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,7 +10,6 @@ import { connectToDatabase, PredictionMarket } from '@/lib/mongodb';
 import { connectToDatabase as connectRawDb, getDatabase } from '@/lib/database/index';
 import { COLLECTIONS } from '@/lib/database/models';
 import { createClientLogger } from '@/lib/logger';
-import { getMarketVoteHistory } from '@/lib/helius';
 import { SOLANA_NETWORK } from '@/config/solana';
 
 const logger = createClientLogger();
@@ -68,29 +67,23 @@ export async function GET(
       );
     }
 
-    // Fetch votes based on network
-    let votes;
-    if (isMainnet) {
-      // On mainnet: use Helius
-      votes = await getMarketVoteHistory(marketAddress, 1000, network);
-    } else {
-      // On devnet: use MongoDB
-      const db = getDatabase();
-      const trades = await db.collection(COLLECTIONS.TRADE_HISTORY)
-        .find({ marketAddress })
-        .sort({ createdAt: -1 })
-        .limit(1000)
-        .toArray();
+    // Fetch votes from MongoDB (both devnet and mainnet)
+    // Trade history is stored in MongoDB by /vote/complete endpoint
+    const db = getDatabase();
+    const trades = await db.collection(COLLECTIONS.TRADE_HISTORY)
+      .find({ marketAddress })
+      .sort({ createdAt: -1 })
+      .limit(1000)
+      .toArray();
 
-      votes = trades.map(trade => ({
-        signature: trade.signature,
-        traderWallet: trade.traderWallet,
-        voteType: trade.voteType as 'yes' | 'no',
-        amount: trade.amount,
-        timestamp: trade.createdAt.getTime(),
-        blockTime: Math.floor(trade.createdAt.getTime() / 1000),
-      }));
-    }
+    const votes = trades.map(trade => ({
+      signature: trade.signature,
+      traderWallet: trade.traderWallet,
+      voteType: trade.voteType as 'yes' | 'no',
+      amount: trade.amount,
+      timestamp: trade.createdAt.getTime(),
+      blockTime: Math.floor(trade.createdAt.getTime() / 1000),
+    }));
 
     // Aggregate positions by wallet and vote type from Helius data
     const yesHolders = new Map<string, { amount: number; count: number }>();

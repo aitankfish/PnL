@@ -2,7 +2,7 @@
  * API endpoint for fetching market trade history
  *
  * Returns time-series data for probability chart and recent trades
- * Uses Helius on mainnet, MongoDB on devnet
+ * Uses MongoDB for both devnet and mainnet
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -10,7 +10,7 @@ import { connectToDatabase, PredictionMarket } from '@/lib/mongodb';
 import { connectToDatabase as connectRawDb, getDatabase } from '@/lib/database/index';
 import { COLLECTIONS } from '@/lib/database/models';
 import { createClientLogger } from '@/lib/logger';
-import { getMarketVoteHistory, ParsedVote } from '@/lib/helius';
+import { ParsedVote } from '@/lib/helius';
 import { SOLANA_NETWORK } from '@/config/solana';
 
 const logger = createClientLogger();
@@ -63,35 +63,30 @@ export async function GET(
 
     let votes: ParsedVote[];
 
-    if (isMainnet) {
-      // On mainnet: use Helius Enhanced API
-      logger.info('Fetching votes from Helius (mainnet)', { marketId, marketAddress });
-      votes = await getMarketVoteHistory(marketAddress, 100, network);
-    } else {
-      // On devnet: use MongoDB (Helius doesn't index devnet)
-      logger.info('Fetching votes from MongoDB (devnet)', { marketId, marketAddress });
-      const db = getDatabase();
-      const trades = await db.collection(COLLECTIONS.TRADE_HISTORY)
-        .find({ marketAddress })
-        .sort({ createdAt: -1 })
-        .limit(100)
-        .toArray();
+    // Use MongoDB for both devnet and mainnet
+    // Trade history is stored in MongoDB by /vote/complete endpoint
+    logger.info('Fetching votes from MongoDB', { marketId, marketAddress, network });
+    const db = getDatabase();
+    const trades = await db.collection(COLLECTIONS.TRADE_HISTORY)
+      .find({ marketAddress })
+      .sort({ createdAt: -1 })
+      .limit(100)
+      .toArray();
 
-      votes = trades.map(trade => ({
-        signature: trade.signature,
-        traderWallet: trade.traderWallet,
-        voteType: trade.voteType as 'yes' | 'no',
-        amount: trade.amount,
-        timestamp: trade.createdAt.getTime(),
-        blockTime: Math.floor(trade.createdAt.getTime() / 1000),
-      }));
-    }
+    votes = trades.map(trade => ({
+      signature: trade.signature,
+      traderWallet: trade.traderWallet,
+      voteType: trade.voteType as 'yes' | 'no',
+      amount: trade.amount,
+      timestamp: trade.createdAt.getTime(),
+      blockTime: Math.floor(trade.createdAt.getTime() / 1000),
+    }));
 
     logger.info('Fetched votes', {
       marketId,
       marketAddress,
       voteCount: votes.length,
-      source: isMainnet ? 'helius' : 'mongodb',
+      source: 'mongodb',
     });
 
     // Calculate running probabilities for chart
