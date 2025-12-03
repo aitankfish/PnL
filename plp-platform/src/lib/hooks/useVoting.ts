@@ -132,10 +132,10 @@ export function useVoting() {
         logger.info('Transaction signed and sent', { signature });
 
         // Wait for confirmation and get transaction details
-        logger.info('Waiting for confirmation...');
+        console.log('⏳ [VOTE HOOK] Waiting for confirmation...', { signature });
         const connection = await getSolanaConnection();
         await connection.confirmTransaction(signature, 'confirmed');
-        logger.info('Transaction confirmed!');
+        console.log('✅ [VOTE HOOK] Transaction confirmed!', { signature });
 
         // Fetch transaction details to get actual amount spent (in case it was capped)
         try {
@@ -169,7 +169,12 @@ export function useVoting() {
       }
 
       // Step 5: Complete vote in MongoDB
-      logger.info('Updating database...');
+      console.log('💾 [VOTE HOOK] Updating database...', {
+        marketId: params.marketId,
+        voteType: params.voteType,
+        amount: actualAmountSpent,
+        signature,
+      });
       const completeResponse = await fetch('/api/markets/vote/complete', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -184,16 +189,17 @@ export function useVoting() {
       });
 
       const completeResult = await completeResponse.json();
+      console.log('📥 [VOTE HOOK] Database response:', completeResult);
 
       if (!completeResult.success) {
-        logger.warn('Database update failed, but on-chain vote succeeded', {
+        console.warn('⚠️ [VOTE HOOK] Database update failed, but on-chain vote succeeded', {
           signature,
           error: completeResult.error,
         });
         // Don't throw - the vote succeeded on-chain
       }
 
-      logger.info('Vote completed successfully!', {
+      console.log('✅ [VOTE HOOK] Vote completed successfully!', {
         signature,
         yesVoteCount: completeResult.data?.yesVoteCount,
         noVoteCount: completeResult.data?.noVoteCount,
