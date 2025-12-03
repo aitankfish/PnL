@@ -178,7 +178,23 @@ export class EventProcessor {
     // 5. Record time-series data
     await this.recordTimeSeries(market._id, marketData, derived);
 
-    // 6. Broadcast update to connected clients
+    // 6. Calculate vote counts from MongoDB for broadcast
+    let yesVoteCount = market.yesVotes || 0;
+    let noVoteCount = market.noVotes || 0;
+
+    try {
+      // Import here to avoid circular dependency
+      const { updateMarketVoteCounts } = await import('@/lib/vote-counts');
+      const voteCounts = await updateMarketVoteCounts(market._id.toString());
+      yesVoteCount = voteCounts.yesVoteCount;
+      noVoteCount = voteCounts.noVoteCount;
+    } catch (error) {
+      logger.warn('Failed to calculate vote counts for broadcast (using cached values)', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+    }
+
+    // 7. Broadcast update to connected clients
     broadcastMarketUpdate(event.address, {
       marketAddress: event.address,
       poolProgressPercentage: derived.poolProgressPercentage,
@@ -186,6 +202,8 @@ export class EventProcessor {
       sharesYesPercentage: derived.sharesYesPercentage,
       totalYesStake: derived.totalYesStake,
       totalNoStake: derived.totalNoStake,
+      yesVotes: yesVoteCount,
+      noVotes: noVoteCount,
       availableActions: derived.availableActions,
       resolution: this.getResolutionString(marketData.resolution),
       phase: marketData.phase,
@@ -194,7 +212,12 @@ export class EventProcessor {
       lastSyncedAt: new Date(),
     });
 
-    logger.info(`✅ Market updated: ${event.address.slice(0, 8)}...`);
+    logger.info(`✅ Market updated: ${event.address.slice(0, 8)}...`, {
+      yesVotes: yesVoteCount,
+      noVotes: noVoteCount,
+      totalYesStake: derived.totalYesStake,
+      totalNoStake: derived.totalNoStake,
+    });
   }
 
   /**
@@ -324,7 +347,9 @@ export class EventProcessor {
 
     } catch (error) {
       // Don't fail the whole update if time-series fails
-      logger.error('Failed to record time-series data:', error);
+      logger.error('Failed to record time-series data', {
+        error: error instanceof Error ? error.message : String(error)
+      });
     }
   }
 
