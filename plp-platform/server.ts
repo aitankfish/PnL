@@ -43,19 +43,20 @@ app.prepare().then(() => {
   initializeSocketServer(httpServer);
   console.log('✅ Socket.IO initialization complete');
 
-  // Start blockchain sync automatically (runs in the same process as Socket.IO)
-  setTimeout(() => {
-    startBlockchainSync()
-      .then(() => console.log('✅ Blockchain sync started'))
-      .catch((error) => console.error('❌ Failed to start blockchain sync:', error));
-  }, 2000); // Wait 2 seconds for Socket.IO to fully initialize
-
   // Start server
   httpServer.listen(port, hostname, () => {
     const displayHost = hostname === '0.0.0.0' ? 'localhost' : hostname;
     console.log(`> Ready on http://${displayHost}:${port}`);
     console.log(`> Environment: ${dev ? 'development' : 'production'}`);
     console.log(`> Socket.IO: ${dev ? 'http://localhost:3001' : 'enabled on same port'}`);
+
+    // Start blockchain sync after server is fully ready
+    // This ensures Socket.IO is listening before broadcasts start
+    setTimeout(() => {
+      startBlockchainSync()
+        .then(() => console.log('✅ Blockchain sync started'))
+        .catch((error) => console.error('❌ Failed to start blockchain sync:', error));
+    }, 3000); // Wait 3 seconds for server to be fully ready
   });
 
   // Graceful shutdown
