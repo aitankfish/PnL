@@ -21,10 +21,13 @@ class SocketClient {
       return;
     }
 
-    const socketPort = process.env.SOCKET_PORT || '3001';
+    // In production (unified server), both client and server run on same port
+    // In development, they may run on separate ports (3000 and 3001)
+    const isProduction = process.env.NODE_ENV === 'production';
+    const socketPort = isProduction ? (process.env.PORT || '3000') : (process.env.SOCKET_PORT || '3001');
     const socketUrl = `http://localhost:${socketPort}`;
 
-    logger.info(`🔌 Connecting to Socket.IO server at ${socketUrl}...`);
+    logger.info(`🔌 Connecting to Socket.IO server at ${socketUrl}... (${isProduction ? 'production' : 'development'})`);
 
     this.socket = io(socketUrl, {
       path: '/api/socket/io',
