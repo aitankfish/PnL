@@ -113,7 +113,7 @@ export class SocketServer {
    */
   broadcastMarketUpdate(marketAddress: string, data: any): void {
     if (!this.io) {
-      logger.warn('Socket.IO server not initialized');
+      // Silently skip if server not initialized yet (expected during startup)
       return;
     }
 
@@ -139,7 +139,7 @@ export class SocketServer {
    */
   broadcastPositionUpdate(walletAddress: string, marketAddress: string, data: any): void {
     if (!this.io) {
-      logger.warn('Socket.IO server not initialized');
+      // Silently skip if server not initialized yet (expected during startup)
       return;
     }
 
@@ -158,7 +158,7 @@ export class SocketServer {
    */
   broadcastNotification(walletAddress: string, notification: any): void {
     if (!this.io) {
-      logger.warn('Socket.IO server not initialized');
+      // Silently skip if server not initialized yet (expected during startup)
       return;
     }
 

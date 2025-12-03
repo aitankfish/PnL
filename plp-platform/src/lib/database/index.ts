@@ -87,33 +87,47 @@ class DatabaseManager {
   private async createIndexes(): Promise<void> {
     if (!this.db) return;
 
+    const createIndexSafely = async (collection: string, index: any) => {
+      try {
+        await this.db!.collection(collection).createIndex(index);
+      } catch (error: any) {
+        // Ignore IndexKeySpecsConflict (code 86) - index exists with different spec
+        // Ignore IndexOptionsConflict (code 85) - index exists with different options
+        if (error.code === 86 || error.code === 85 || error.codeName === 'IndexKeySpecsConflict' || error.codeName === 'IndexOptionsConflict') {
+          // Silently skip - index already exists
+          return;
+        }
+        throw error;
+      }
+    };
+
     try {
       // Create indexes for projects collection
       for (const index of INDEXES.PROJECTS) {
-        await this.db.collection(COLLECTIONS.PROJECTS).createIndex(index);
+        await createIndexSafely(COLLECTIONS.PROJECTS, index);
       }
 
       // Create indexes for prediction_markets collection
       for (const index of INDEXES.PREDICTION_MARKETS) {
-        await this.db.collection(COLLECTIONS.PREDICTION_MARKETS).createIndex(index);
+        await createIndexSafely(COLLECTIONS.PREDICTION_MARKETS, index);
       }
 
       // Create indexes for prediction_participants collection
       for (const index of INDEXES.PREDICTION_PARTICIPANTS) {
-        await this.db.collection(COLLECTIONS.PREDICTION_PARTICIPANTS).createIndex(index);
+        await createIndexSafely(COLLECTIONS.PREDICTION_PARTICIPANTS, index);
       }
 
       // Create indexes for user_profiles collection
       for (const index of INDEXES.USER_PROFILES) {
-        await this.db.collection(COLLECTIONS.USER_PROFILES).createIndex(index);
+        await createIndexSafely(COLLECTIONS.USER_PROFILES, index);
       }
 
       // Create indexes for transaction_history collection
       for (const index of INDEXES.TRANSACTION_HISTORY) {
-        await this.db.collection(COLLECTIONS.TRANSACTION_HISTORY).createIndex(index);
+        await createIndexSafely(COLLECTIONS.TRANSACTION_HISTORY, index);
       }
 
-      console.log('📊 Database indexes created successfully');
+      console.log('📊 Database indexes ensured');
     } catch (error) {
       console.error('❌ Failed to create database indexes:', error);
       // Don't throw here, as indexes might already exist
