@@ -85,12 +85,8 @@ function getMarketStatus(market: Market): { status: string; badgeClass: string }
   // Use resolution field from MongoDB (synced from blockchain)
   const resolution = market.resolution || 'Unresolved';
 
-  // Use poolProgressPercentage from MongoDB if available, otherwise calculate
-  const poolProgressPercentage = market.poolProgressPercentage || (() => {
-    const targetPoolValue = parseFloat(market.targetPool.replace(' SOL', ''));
-    const currentPool = (market.totalYesStake + market.totalNoStake) / 1_000_000_000;
-    return (currentPool / targetPoolValue) * 100;
-  })();
+  // Use poolProgressPercentage from MongoDB (calculated in backend)
+  const poolProgressPercentage = market.poolProgressPercentage || 0;
 
   // Check resolution status first (matches details page logic)
   if (resolution === 'YesWins') {
