@@ -240,17 +240,25 @@ export function calculateDerivedFields(market: ParsedMarketAccount) {
     : 50;
 
   // Calculate YES percentage based on SOL staked (user-friendly display)
-  // We need to calculate actual SOL staked from AMM state
+  // AMM mechanics: When buying YES, SOL goes to no_pool; when buying NO, SOL goes to yes_pool
   // Initial pools were both equal to target_pool
-  // When users buy YES, yes_pool decreases and no_pool increases
   const initialPool = targetPool;
-  const yesStaked = initialPool - yesPool; // SOL removed from YES pool = SOL invested in YES
-  const noStaked = noPool - initialPool; // SOL added to NO pool = SOL invested in NO
+
+  // YES buyers' SOL goes to no_pool (grows no_pool)
+  // NO buyers' SOL goes to yes_pool (grows yes_pool)
+  const yesStaked = noPool > initialPool ? noPool - initialPool : BigInt(0);
+  const noStaked = yesPool > initialPool ? yesPool - initialPool : BigInt(0);
 
   const totalStaked = yesStaked + noStaked;
-  const yesPercentage = totalStaked > 0n
-    ? Math.round(Number((yesStaked * 100n) / totalStaked))
+
+  // Calculate pool-based percentage (for active trading display)
+  const poolBasedYesPercentage = totalStaked > BigInt(0)
+    ? Math.round(Number((yesStaked * BigInt(100)) / totalStaked))
     : 50;
+
+  // For resolved markets, use frozen share-based percentage (doesn't change with claims)
+  // For active markets, use pool-based percentage (reflects current trading)
+  const yesPercentage = market.resolution !== 0 ? sharesYesPercentage : poolBasedYesPercentage;
 
   // Determine available actions based on state
   const currentTime = Math.floor(Date.now() / 1000);
