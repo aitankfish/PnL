@@ -54,10 +54,10 @@ export default function LaunchedPage() {
     return `${address.slice(0, 6)}...${address.slice(-4)}`;
   };
 
-  // Helper function to get Solscan link
+  // Helper function to get Helius Orb link
   const getSolscanLink = (address: string) => {
     const network = process.env.NEXT_PUBLIC_SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : '';
-    return `https://solscan.io/token/${address}${network}`;
+    return `https://orb.helius.dev/token/${address}${network}`;
   };
 
   // Helper function to get Pump.fun link

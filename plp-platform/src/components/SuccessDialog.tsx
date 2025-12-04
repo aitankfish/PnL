@@ -82,12 +82,12 @@ export default function SuccessDialog({
             </div>
 
             <a
-              href={`https://explorer.solana.com/tx/${signature}?cluster=${SOLANA_NETWORK}`}
+              href={`https://orb.helius.dev/tx/${signature}${SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : ''}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center space-x-2 w-full px-4 py-3 bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/30 hover:to-pink-500/30 border border-purple-400/30 rounded-lg transition-all hover:scale-[1.02] text-white font-medium"
             >
-              <span>View on Explorer</span>
+              <span>View on Helius Orb</span>
               <ExternalLink className="w-4 h-4" />
             </a>
           </div>

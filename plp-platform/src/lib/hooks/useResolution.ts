@@ -405,7 +405,7 @@ export function useResolution() {
 
       const signature = bs58.encode(result.signature);
       console.log(`✅ Atomic transaction sent: ${signature}`);
-      console.log(`   View on explorer: https://solscan.io/tx/${signature}`);
+      console.log(`   View on Helius Orb: https://orb.helius.dev/tx/${signature}`);
 
       console.log('⏳ Confirming atomic transaction...');
       await connection.confirmTransaction(signature, 'confirmed');
@@ -444,8 +444,8 @@ export function useResolution() {
       console.log('');
       console.log('🔗 LINKS:');
       console.log(`  • Pump.fun: https://pump.fun/${mintKeypair.publicKey.toBase58()}`);
-      console.log(`  • Solscan Token: https://solscan.io/token/${mintKeypair.publicKey.toBase58()}`);
-      console.log(`  • Transaction: https://solscan.io/tx/${signature}`);
+      console.log(`  • Helius Orb Token: https://orb.helius.dev/token/${mintKeypair.publicKey.toBase58()}`);
+      console.log(`  • Transaction: https://orb.helius.dev/tx/${signature}`);
       console.log('');
       console.log('✨ TOKEN DISTRIBUTION:');
       console.log('  • 79% to YES voters (claimable)');

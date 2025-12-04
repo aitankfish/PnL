@@ -2034,7 +2034,7 @@ export default function MarketDetailsPage() {
                 <div className="p-2 sm:p-3 bg-white/5 rounded-lg col-span-2">
                   <div className="text-xs text-gray-400 mb-0.5 sm:mb-1">Market Address</div>
                   <a
-                    href={`https://explorer.solana.com/address/${market.marketAddress}?cluster=${SOLANA_NETWORK}`}
+                    href={`https://orb.helius.dev/address/${market.marketAddress}${SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : ''}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center space-x-1 text-cyan-400 hover:text-cyan-300 transition-colors text-xs group"
@@ -2049,7 +2049,7 @@ export default function MarketDetailsPage() {
                   <div className="p-2 sm:p-3 bg-white/5 rounded-lg col-span-2">
                     <div className="text-xs text-gray-400 mb-0.5 sm:mb-1">Creator</div>
                     <a
-                      href={`https://explorer.solana.com/address/${onchainData.data.founder}?cluster=${SOLANA_NETWORK}`}
+                      href={`https://orb.helius.dev/address/${onchainData.data.founder}${SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : ''}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center space-x-1 text-purple-400 hover:text-purple-300 transition-colors text-xs group"
@@ -2071,7 +2071,7 @@ export default function MarketDetailsPage() {
                       <div className="p-2 sm:p-3 bg-white/5 rounded-lg col-span-2">
                         <div className="text-xs text-gray-400 mb-0.5 sm:mb-1">Your Position</div>
                         <a
-                          href={`https://explorer.solana.com/address/${positionPda.toBase58()}?cluster=${SOLANA_NETWORK}`}
+                          href={`https://orb.helius.dev/address/${positionPda.toBase58()}${SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : ''}`}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="flex items-center space-x-1 text-green-400 hover:text-green-300 transition-colors text-xs group"
@@ -2091,7 +2091,7 @@ export default function MarketDetailsPage() {
                   <div className="p-2 sm:p-3 bg-white/5 rounded-lg col-span-2">
                     <div className="text-xs text-gray-400 mb-0.5 sm:mb-1">Token Mint</div>
                     <a
-                      href={`https://explorer.solana.com/address/${onchainData.data.tokenMint}?cluster=${SOLANA_NETWORK}`}
+                      href={`https://orb.helius.dev/token/${onchainData.data.tokenMint}${SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : ''}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="flex items-center space-x-1 text-pink-400 hover:text-pink-300 transition-colors text-xs group"

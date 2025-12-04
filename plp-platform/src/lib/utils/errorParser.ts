@@ -204,9 +204,9 @@ export function formatSignature(signature: string): string {
 }
 
 /**
- * Get Solana Explorer URL for a transaction
+ * Get Helius Orb URL for a transaction
  */
 export function getExplorerUrl(signature: string, cluster: 'mainnet' | 'devnet' = 'devnet'): string {
   const clusterParam = cluster === 'devnet' ? '?cluster=devnet' : '';
-  return `https://explorer.solana.com/tx/${signature}${clusterParam}`;
+  return `https://orb.helius.dev/tx/${signature}${clusterParam}`;
 }

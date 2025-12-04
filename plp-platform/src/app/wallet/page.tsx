@@ -264,7 +264,7 @@ function VoteHistory({ marketId, walletAddress }: { marketId: string; walletAddr
                             </div>
                           </div>
                           <a
-                            href={`https://solscan.io/tx/${trade.signature}?cluster=${SOLANA_NETWORK}`}
+                            href={`https://orb.helius.dev/tx/${trade.signature}${SOLANA_NETWORK === 'devnet' ? '?cluster=devnet' : ''}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             className="text-cyan-400 hover:text-cyan-300 p-2 hover:bg-cyan-500/10 rounded transition-colors"
