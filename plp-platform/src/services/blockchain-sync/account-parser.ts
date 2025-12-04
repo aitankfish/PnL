@@ -233,32 +233,20 @@ export function calculateDerivedFields(market: ParsedMarketAccount) {
     ? Math.min(100, Number((poolBalance * 100n) / targetPool))
     : 0;
 
-  // Calculate YES percentage based on shares (for winner determination)
+  // Calculate YES percentage based on shares (accurate on-chain data)
+  // This represents actual shares distributed to users
   const totalShares = totalYesShares + totalNoShares;
-  const sharesYesPercentage = totalShares > 0n
-    ? Math.round(Number((totalYesShares * 100n) / totalShares))
+  const sharesYesPercentage = totalShares > BigInt(0)
+    ? Math.round(Number((totalYesShares * BigInt(100)) / totalShares))
     : 50;
 
-  // Calculate YES percentage based on SOL staked (user-friendly display)
-  // AMM mechanics: When buying YES, SOL goes to no_pool; when buying NO, SOL goes to yes_pool
-  // Initial pools were both equal to target_pool
-  const initialPool = targetPool;
+  // Use share-based percentage for display (single source of truth from blockchain)
+  const yesPercentage = sharesYesPercentage;
 
-  // YES buyers' SOL goes to no_pool (grows no_pool)
-  // NO buyers' SOL goes to yes_pool (grows yes_pool)
-  const yesStaked = noPool > initialPool ? noPool - initialPool : BigInt(0);
-  const noStaked = yesPool > initialPool ? yesPool - initialPool : BigInt(0);
-
-  const totalStaked = yesStaked + noStaked;
-
-  // Calculate pool-based percentage (for active trading display)
-  const poolBasedYesPercentage = totalStaked > BigInt(0)
-    ? Math.round(Number((yesStaked * BigInt(100)) / totalStaked))
-    : 50;
-
-  // For resolved markets, use frozen share-based percentage (doesn't change with claims)
-  // For active markets, use pool-based percentage (reflects current trading)
-  const yesPercentage = market.resolution !== 0 ? sharesYesPercentage : poolBasedYesPercentage;
+  // Calculate stake totals from shares (1:1 ratio in our implementation)
+  // These values are approximate and used for display purposes
+  const totalYesStake = Number(totalYesShares) / 1_000_000_000; // Convert to SOL
+  const totalNoStake = Number(totalNoShares) / 1_000_000_000;
 
   // Determine available actions based on state
   const currentTime = Math.floor(Date.now() / 1000);
@@ -288,10 +276,10 @@ export function calculateDerivedFields(market: ParsedMarketAccount) {
 
   return {
     poolProgressPercentage,
-    yesPercentage, // For display (based on SOL)
-    sharesYesPercentage, // For winner logic (based on shares)
-    totalYesStake: yesStaked.toString(),
-    totalNoStake: noStaked.toString(),
+    yesPercentage, // For display (based on shares - single source of truth)
+    sharesYesPercentage, // For winner logic (same as yesPercentage)
+    totalYesStake, // Approximate SOL amount for display
+    totalNoStake, // Approximate SOL amount for display
     isExpired,
     isResolved,
     availableActions,

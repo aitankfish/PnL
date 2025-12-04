@@ -159,6 +159,7 @@ export async function POST(request: NextRequest) {
 
     // Update vote counts from MongoDB as a fallback
     // (blockchain sync via WebSocket is primary, this is backup)
+    // NOTE: We do NOT calculate percentages here - blockchain sync is the single source of truth
     try {
       const voteCounts = await updateMarketVoteCounts(marketId);
       logger.info('✅ [MONGODB] Vote counts updated', {
@@ -167,76 +168,20 @@ export async function POST(request: NextRequest) {
         noVoteCount: voteCounts.noVoteCount,
       });
 
-      // Recalculate stakes from participants (fresh, accurate data)
-      const participants = await PredictionParticipant.find({ marketId: market._id });
-      let totalYesStake = 0;
-      let totalNoStake = 0;
-
-      for (const participant of participants) {
-        const yesShares = BigInt(participant.yesShares || '0');
-        const noShares = BigInt(participant.noShares || '0');
-        totalYesStake += Number(yesShares);
-        totalNoStake += Number(noShares);
-      }
-
-      // Calculate percentages based on actual stakes
-      const totalStake = totalYesStake + totalNoStake;
-      const yesPercentage = totalStake > 0 ? Math.round((totalYesStake / totalStake) * 100) : 50;
-      const noPercentage = totalStake > 0 ? Math.round((totalNoStake / totalStake) * 100) : 50;
-
-      // Note: poolProgressPercentage is calculated by blockchain sync from actual poolBalance
-      // We don't calculate it here because it needs to account for fees/treasury cuts
-      // Blockchain sync is the source of truth for pool progress
-
-      // Store calculated values in MongoDB for consistency across all pages
-      await PredictionMarket.updateOne(
-        { _id: market._id },
-        {
-          $set: {
-            totalYesStake,
-            totalNoStake,
-            yesPercentage,
-            noPercentage,
-            // poolProgressPercentage is NOT updated here - blockchain sync handles it
-          }
-        }
-      );
-
-      logger.info('✅ [MONGODB] Updated market with calculated stakes and percentages', {
-        marketId: market._id.toString(),
-        totalYesStake,
-        totalNoStake,
-        yesPercentage,
-        noPercentage,
-        note: 'poolProgressPercentage updated by blockchain sync',
-      });
-
-      // Refetch market to get all updated fields
-      const updatedMarket = await PredictionMarket.findById(marketId);
-      if (!updatedMarket) {
-        throw new Error('Market not found after update');
-      }
-
-      logger.info('📡 [SOCKET] Broadcasting market update', {
+      // Broadcast vote count update (percentages will be updated by blockchain sync)
+      logger.info('📡 [SOCKET] Broadcasting vote count update', {
         marketAddress: market.marketAddress.slice(0, 8) + '...',
         yesVotes: voteCounts.yesVoteCount,
         noVotes: voteCounts.noVoteCount,
-        totalYesStake: updatedMarket.totalYesStake,
-        totalNoStake: updatedMarket.totalNoStake,
-        yesPercentage: yesPercentage.toFixed(2),
-        noPercentage: noPercentage.toFixed(2),
+        note: 'Percentages will be updated by blockchain sync',
       });
 
       broadcastMarketUpdate(market.marketAddress, {
         yesVotes: voteCounts.yesVoteCount,
         noVotes: voteCounts.noVoteCount,
-        totalYesStake: updatedMarket.totalYesStake,
-        totalNoStake: updatedMarket.totalNoStake,
-        yesPercentage,
-        noPercentage,
       });
 
-      logger.info('✅ [SOCKET] Market update broadcasted successfully');
+      logger.info('✅ [SOCKET] Vote count update broadcasted successfully');
     } catch (error) {
       logger.error('Failed to update vote counts (non-fatal)', {
         error: error instanceof Error ? error.message : String(error)
