@@ -483,7 +483,7 @@ export default function MarketDetailsPage() {
     return now >= expiry;
   };
 
-  // Check if trading is disabled due to market resolution
+  // Check if trading is disabled due to market resolution or pool being full
   const isTradingDisabled = () => {
     if (!onchainData?.success || !onchainData?.data) return false;
 
@@ -497,6 +497,13 @@ export default function MarketDetailsPage() {
 
     // If market is refunded, trading is disabled
     if (resolution === 'Refund') return true;
+
+    // In Prediction phase, disable trading if pool is full (100%)
+    // In Funding phase, unlimited voting is allowed for YES side
+    if (phase === 'Prediction' && market) {
+      const poolProgressPercentage = market.poolProgressPercentage || 0;
+      if (poolProgressPercentage >= 100) return true;
+    }
 
     // Otherwise, trading is allowed
     return false;
@@ -518,6 +525,14 @@ export default function MarketDetailsPage() {
 
     if (resolution === 'Refund') {
       return 'Market Refunded';
+    }
+
+    // Check if pool is full in Prediction phase
+    if (phase === 'Prediction' && market) {
+      const poolProgressPercentage = market.poolProgressPercentage || 0;
+      if (poolProgressPercentage >= 100) {
+        return 'Pool Complete - Awaiting Resolution or Extension';
+      }
     }
 
     return '';
