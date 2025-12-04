@@ -115,14 +115,10 @@ export async function GET(_request: NextRequest) {
         totalNoStake: market.totalNoStake || 0,
       };
 
-      // Calculate percentages from actual stakes if not stored in MongoDB
-      const totalStake = stakeTotals.totalYesStake + stakeTotals.totalNoStake;
-      const yesPercentage = market.yesPercentage ?? (
-        totalStake > 0 ? Math.round((stakeTotals.totalYesStake / totalStake) * 100) : 50
-      );
-      const noPercentage = market.noPercentage ?? (
-        totalStake > 0 ? Math.round((stakeTotals.totalNoStake / totalStake) * 100) : 50
-      );
+      // Use percentages from blockchain sync (single source of truth)
+      // sharesYesPercentage is calculated from on-chain totalYesShares / totalShares
+      const yesPercentage = market.sharesYesPercentage ?? 50;
+      const noPercentage = 100 - yesPercentage;
 
       return {
         id: market._id.toString(),

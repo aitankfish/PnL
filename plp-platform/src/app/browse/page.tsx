@@ -64,15 +64,10 @@ function formatLabel(value: string): string {
     .join(' ');
 }
 
-// Get YES percentage from API (calculated and stored in MongoDB)
-// Fallback to local calculation if not available (backward compatibility)
+// Get YES percentage from API (calculated from blockchain sync)
+// This uses sharesYesPercentage from on-chain data (single source of truth)
 function getYesPercentage(market: Market): number {
-  if (market.yesPercentage !== undefined) {
-    return market.yesPercentage; // Use backend-calculated value
-  }
-  // Fallback calculation (should rarely be needed)
-  const total = market.totalYesStake + market.totalNoStake;
-  return total > 0 ? Math.round((market.totalYesStake / total) * 100) : 50;
+  return market.yesPercentage ?? 50;
 }
 
 // Determine detailed market status based on expiry time, pool, and resolution
