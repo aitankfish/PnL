@@ -13,7 +13,7 @@ const logger = createClientLogger();
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { marketId: string } }
+  { params }: { params: { id: string } }
 ) {
   try {
     const { searchParams } = new URL(request.url);
@@ -29,7 +29,7 @@ export async function GET(
       );
     }
 
-    const { marketId } = params;
+    const marketId = params.id;
 
     // Connect to database
     await connectToDatabase();
