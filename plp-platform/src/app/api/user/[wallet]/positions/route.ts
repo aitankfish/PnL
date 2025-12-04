@@ -6,7 +6,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { connectToDatabase, getDatabase } from '@/lib/database/index';
-import { COLLECTIONS, TradeHistory, PredictionMarket } from '@/lib/database/models';
+import { COLLECTIONS, TradeHistory, PredictionMarket, Project } from '@/lib/database/models';
 import { createClientLogger } from '@/lib/logger';
 
 const logger = createClientLogger();
@@ -26,6 +26,7 @@ interface UserPosition {
   winningOption?: boolean;
   canClaim: boolean;
   expiryTime: Date;
+  projectImageUrl?: string; // Add project image for display
 }
 
 export async function GET(
@@ -114,6 +115,40 @@ export async function GET(
     // Create market map for quick lookup
     const marketMap = new Map(markets.map((m) => [m._id!.toString(), m]));
 
+    // Fetch project data for all markets
+    const projectIds = [...new Set(markets.map((m) => m.projectId).filter(Boolean))];
+    console.log('[Positions API] Fetching projects:', projectIds.length);
+
+    const projects = await db
+      .collection<Project>(COLLECTIONS.PROJECTS)
+      .find({
+        _id: { $in: projectIds.map((id) => new (require('mongodb').ObjectId)(id)) },
+      })
+      .toArray();
+    console.log('[Positions API] Found projects:', projects.length);
+
+    // Create project map for quick lookup
+    const projectMap = new Map(projects.map((p) => [p._id!.toString(), p]));
+
+    // Helper function to convert IPFS URL to gateway URL
+    const convertToGatewayUrl = (imageUrl: string | undefined): string | undefined => {
+      if (!imageUrl) return undefined;
+
+      const gatewayUrl = process.env.PINATA_GATEWAY_URL;
+      if (!gatewayUrl) return imageUrl.startsWith('http') ? imageUrl : undefined;
+
+      if (imageUrl.startsWith('ipfs://')) {
+        const ipfsHash = imageUrl.replace('ipfs://', '');
+        return `https://${gatewayUrl}/ipfs/${ipfsHash}`;
+      }
+
+      if (imageUrl.startsWith('http')) {
+        return imageUrl;
+      }
+
+      return `https://${gatewayUrl}/ipfs/${imageUrl}`;
+    };
+
     // Build position list with market details
     const positions: UserPosition[] = Array.from(positionMap.values())
       .map((position) => {
@@ -134,6 +169,10 @@ export async function GET(
           ((market.winningOption && position.voteType === 'yes') ||
             (!market.winningOption && position.voteType === 'no'));
 
+        // Get project for image
+        const project = projectMap.get(market.projectId?.toString() || '');
+        const projectImageUrl = convertToGatewayUrl(project?.projectImageUrl);
+
         return {
           marketId: position.marketId,
           marketName: market.marketName,
@@ -152,6 +191,7 @@ export async function GET(
           winningOption: market.winningOption,
           canClaim,
           expiryTime: market.expiryTime,
+          projectImageUrl, // Add project image for simple display
         };
       })
       .filter((p): p is UserPosition => p !== null);
