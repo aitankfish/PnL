@@ -93,50 +93,53 @@ function FavoriteMarketCard({ marketId }: { marketId: string }) {
   };
 
   return (
-    <Card className="bg-white/5 border-white/10 hover:bg-white/10 transition-colors">
+    <Card className="bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm border-cyan-500/20 hover:border-cyan-400/40 transition-all hover:scale-[1.02] group overflow-hidden">
       <CardContent className="p-4">
-        <a href={`/market/${marketId}`} className="block group">
+        <a href={`/market/${marketId}`} className="block">
           <div className="flex items-start justify-between mb-3">
             <div className="flex items-center space-x-3 flex-1 min-w-0">
               {market.image ? (
-                <img
-                  src={market.image}
-                  alt={market.name}
-                  className="w-10 h-10 rounded-lg object-cover flex-shrink-0"
-                />
+                <div className="flex-shrink-0 relative">
+                  <div className="absolute inset-0 bg-cyan-500/30 rounded-lg blur-md opacity-50 animate-pulse"></div>
+                  <img
+                    src={market.image}
+                    alt={market.name}
+                    className="relative w-12 h-12 rounded-lg object-cover ring-2 ring-cyan-500/50 group-hover:ring-cyan-400 transition-all transform group-hover:scale-110"
+                  />
+                </div>
               ) : (
-                <div className="w-10 h-10 bg-gradient-to-r from-red-500 to-pink-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                  <Heart className="w-5 h-5 text-white fill-white" />
+                <div className="w-12 h-12 rounded-lg bg-gradient-to-br from-red-500 via-pink-500 to-purple-500 flex items-center justify-center ring-2 ring-pink-500/50 group-hover:ring-pink-400 transition-all transform group-hover:scale-110 flex-shrink-0">
+                  <span className="text-xl font-bold text-white/90">{market.name.charAt(0)}</span>
                 </div>
               )}
               <div className="flex-1 min-w-0">
                 <h4 className="text-white font-semibold group-hover:text-cyan-400 transition-colors truncate">
                   {market.name}
                 </h4>
-                <p className="text-xs text-gray-400">{market.tokenSymbol}</p>
+                <p className="text-xs text-gray-400 group-hover:text-gray-300 transition-colors">{market.tokenSymbol}</p>
               </div>
             </div>
-            <span className={`px-2 py-1 rounded text-xs border ${getStatusBadge()} whitespace-nowrap`}>
+            <span className={`px-2 py-1 rounded text-xs border ${getStatusBadge()} whitespace-nowrap flex-shrink-0`}>
               {getStatusText()}
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3 text-sm">
-            <div className="bg-white/5 rounded p-2 border border-white/10">
-              <div className="text-gray-400 text-xs">Pool Progress</div>
-              <div className="font-semibold text-white">
+            <div className="bg-gradient-to-br from-white/10 to-white/5 rounded-lg p-2.5 border border-white/20 group-hover:border-cyan-400/30 transition-all">
+              <div className="text-gray-400 text-xs mb-1">Pool Progress</div>
+              <div className="font-bold text-white text-base">
                 {(market.poolProgressPercentage || 0).toFixed(0)}%
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-gray-500 mt-0.5">
                 {((market.poolBalance || 0) / 1e9).toFixed(2)} / {((market.targetPool || 0) / 1e9).toFixed(0)} SOL
               </div>
             </div>
-            <div className="bg-white/5 rounded p-2 border border-white/10">
-              <div className="text-gray-400 text-xs">YES Rate</div>
-              <div className="font-semibold text-green-400">
+            <div className="bg-gradient-to-br from-green-500/10 to-emerald-500/5 rounded-lg p-2.5 border border-green-400/20 group-hover:border-green-400/40 transition-all">
+              <div className="text-gray-400 text-xs mb-1">YES Rate</div>
+              <div className="font-bold text-green-400 text-base">
                 {(market.sharesYesPercentage || 0).toFixed(1)}%
               </div>
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-gray-500 mt-0.5">
                 {(market.yesVoteCount || 0) + (market.noVoteCount || 0)} votes
               </div>
             </div>
