@@ -149,6 +149,90 @@ export async function GET(
       }
     }
 
+    // Calculate display status and vote button states (single source of truth)
+    const resolution = market.resolution || 'Unresolved';
+    const phase = market.phase || 'Prediction';
+    const poolProgressPercentage = market.poolProgressPercentage || 0;
+    const isExpired = now.getTime() > expiryTime.getTime();
+
+    let displayStatus = '✅ Active';
+    let badgeClass = 'bg-green-500/20 text-green-300 border-green-400/30';
+
+    // Resolved states
+    if (resolution === 'YesWins') {
+      displayStatus = '🎉 YES Wins';
+      badgeClass = 'bg-green-500/20 text-green-300 border-green-400/30';
+    } else if (resolution === 'NoWins') {
+      displayStatus = '❌ NO Wins';
+      badgeClass = 'bg-red-500/20 text-red-300 border-red-400/30';
+    } else if (resolution === 'Refund') {
+      displayStatus = '↩️ Refund';
+      badgeClass = 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30';
+    } else if (resolution === 'Unresolved') {
+      // Unresolved - check various states
+      if (isExpired) {
+        displayStatus = '⏳ Awaiting Resolution';
+        badgeClass = 'bg-orange-500/20 text-orange-300 border-orange-400/30';
+      } else if (phase === 'Funding') {
+        displayStatus = '💰 Funding Phase';
+        badgeClass = 'bg-purple-500/20 text-purple-300 border-purple-400/30';
+      } else if (poolProgressPercentage >= 100) {
+        displayStatus = '🎯 Pool Complete';
+        badgeClass = 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30';
+      }
+    }
+
+    // Calculate vote button states (single source of truth)
+    let isYesVoteEnabled = true;
+    let isNoVoteEnabled = true;
+    let yesVoteDisabledReason = '';
+    let noVoteDisabledReason = '';
+
+    // Resolved states - disable all voting
+    if (resolution === 'NoWins') {
+      isYesVoteEnabled = false;
+      isNoVoteEnabled = false;
+      yesVoteDisabledReason = 'NO Won';
+      noVoteDisabledReason = 'NO Won';
+    } else if (resolution === 'Refund') {
+      isYesVoteEnabled = false;
+      isNoVoteEnabled = false;
+      yesVoteDisabledReason = 'Refunded';
+      noVoteDisabledReason = 'Refunded';
+    } else if (resolution === 'YesWins') {
+      // YES won - check if extended to Funding
+      if (phase === 'Prediction') {
+        // Not extended yet - both disabled
+        isYesVoteEnabled = false;
+        isNoVoteEnabled = false;
+        yesVoteDisabledReason = 'Awaiting Extension';
+        noVoteDisabledReason = 'Awaiting Extension';
+      } else if (phase === 'Funding') {
+        // Extended - YES enabled, NO disabled
+        isYesVoteEnabled = true;
+        isNoVoteEnabled = false;
+        noVoteDisabledReason = 'YES Locked';
+      }
+    } else if (resolution === 'Unresolved') {
+      // Unresolved - check phase and pool
+      if (phase === 'Funding') {
+        // Funding phase - YES enabled, NO disabled
+        isYesVoteEnabled = true;
+        isNoVoteEnabled = false;
+        noVoteDisabledReason = 'YES Locked';
+      } else if (phase === 'Prediction') {
+        // Prediction phase - check pool
+        if (poolProgressPercentage >= 100) {
+          // Pool full - both disabled
+          isYesVoteEnabled = false;
+          isNoVoteEnabled = false;
+          yesVoteDisabledReason = 'Pool Complete';
+          noVoteDisabledReason = 'Pool Complete';
+        }
+        // Otherwise both enabled (default)
+      }
+    }
+
     const marketDetails = {
       id: market._id.toString(),
       marketAddress: market.marketAddress,
@@ -188,6 +272,16 @@ export async function GET(
       availableActions: market.availableActions,
       lastSyncedAt: market.lastSyncedAt,
       syncStatus: market.syncStatus,
+
+      // Display status (calculated once in API, used by all pages)
+      displayStatus,
+      badgeClass,
+
+      // Vote button states (calculated once in API, used by all pages)
+      isYesVoteEnabled,
+      isNoVoteEnabled,
+      yesVoteDisabledReason,
+      noVoteDisabledReason,
     };
 
     logger.info('Fetched market details', { marketId: id });
