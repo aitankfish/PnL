@@ -39,6 +39,9 @@ interface Market {
   phase?: string;
   poolProgressPercentage?: number;
   poolBalance?: number;
+  // Display status (calculated in API, single source of truth)
+  displayStatus?: string;
+  badgeClass?: string;
 }
 
 // Format category and stage for proper display
@@ -70,69 +73,11 @@ function getYesPercentage(market: Market): number {
   return market.yesPercentage ?? 50;
 }
 
-// Determine detailed market status based on expiry time, pool, and resolution
-// This function matches the logic in the details page (market/[id]/page.tsx)
+// Get market status from API (single source of truth calculated in backend)
 function getMarketStatus(market: Market): { status: string; badgeClass: string } {
-  const now = new Date().getTime();
-  const expiryTime = new Date(market.expiryTime).getTime();
-  const isExpired = now > expiryTime;
-
-  // Use resolution field from MongoDB (synced from blockchain)
-  const resolution = market.resolution || 'Unresolved';
-
-  // Use poolProgressPercentage from MongoDB (calculated in backend)
-  const poolProgressPercentage = market.poolProgressPercentage || 0;
-
-  // Check resolution status first (matches details page logic)
-  if (resolution === 'YesWins') {
-    return {
-      status: '🎉 YES Wins',
-      badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
-    };
-  }
-
-  if (resolution === 'NoWins') {
-    return {
-      status: '❌ NO Wins',
-      badgeClass: 'bg-red-500/20 text-red-300 border-red-400/30'
-    };
-  }
-
-  if (resolution === 'Refund') {
-    return {
-      status: '↩️ Refund',
-      badgeClass: 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30'
-    };
-  }
-
-  // Unresolved market - check if expired
-  if (resolution === 'Unresolved') {
-    if (isExpired) {
-      return {
-        status: '⏳ Awaiting Resolution',
-        badgeClass: 'bg-orange-500/20 text-orange-300 border-orange-400/30'
-      };
-    }
-
-    // Pool is full but not expired
-    if (poolProgressPercentage >= 100) {
-      return {
-        status: '🎯 Pool Complete',
-        badgeClass: 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30'
-      };
-    }
-
-    // Active market
-    return {
-      status: '✅ Active',
-      badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
-    };
-  }
-
-  // Fallback for any other status
   return {
-    status: '✅ Active',
-    badgeClass: 'bg-green-500/20 text-green-300 border-green-400/30'
+    status: market.displayStatus || '✅ Active',
+    badgeClass: market.badgeClass || 'bg-green-500/20 text-green-300 border-green-400/30'
   };
 }
 

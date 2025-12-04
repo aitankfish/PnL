@@ -120,6 +120,39 @@ export async function GET(_request: NextRequest) {
       const yesPercentage = market.sharesYesPercentage ?? 50;
       const noPercentage = 100 - yesPercentage;
 
+      // Calculate display status (single source of truth for all pages)
+      const resolution = market.resolution || 'Unresolved';
+      const phase = market.phase || 'Prediction';
+      const poolProgressPercentage = market.poolProgressPercentage || 0;
+      const isExpired = now.getTime() > expiryTime.getTime();
+
+      let displayStatus = '✅ Active';
+      let badgeClass = 'bg-green-500/20 text-green-300 border-green-400/30';
+
+      // Resolved states
+      if (resolution === 'YesWins') {
+        displayStatus = '🎉 YES Wins';
+        badgeClass = 'bg-green-500/20 text-green-300 border-green-400/30';
+      } else if (resolution === 'NoWins') {
+        displayStatus = '❌ NO Wins';
+        badgeClass = 'bg-red-500/20 text-red-300 border-red-400/30';
+      } else if (resolution === 'Refund') {
+        displayStatus = '↩️ Refund';
+        badgeClass = 'bg-yellow-500/20 text-yellow-300 border-yellow-400/30';
+      } else if (resolution === 'Unresolved') {
+        // Unresolved - check various states
+        if (isExpired) {
+          displayStatus = '⏳ Awaiting Resolution';
+          badgeClass = 'bg-orange-500/20 text-orange-300 border-orange-400/30';
+        } else if (phase === 'Funding') {
+          displayStatus = '💰 Funding Phase';
+          badgeClass = 'bg-purple-500/20 text-purple-300 border-purple-400/30';
+        } else if (poolProgressPercentage >= 100) {
+          displayStatus = '🎯 Pool Complete';
+          badgeClass = 'bg-cyan-500/20 text-cyan-300 border-cyan-400/30';
+        }
+      }
+
       return {
         id: market._id.toString(),
         marketAddress: market.marketAddress,
@@ -149,6 +182,10 @@ export async function GET(_request: NextRequest) {
         totalYesShares: market.totalYesShares?.toString() || '0',
         totalNoShares: market.totalNoShares?.toString() || '0',
         sharesYesPercentage: market.sharesYesPercentage || 0,
+
+        // Display status (calculated once in API, used by all pages)
+        displayStatus,
+        badgeClass,
       };
     });
 
