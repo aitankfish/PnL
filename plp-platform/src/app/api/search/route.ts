@@ -9,6 +9,9 @@ import { createClientLogger } from '@/lib/logger';
 
 const logger = createClientLogger();
 
+// Force dynamic rendering for API route with query parameters
+export const dynamic = 'force-dynamic';
+
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
