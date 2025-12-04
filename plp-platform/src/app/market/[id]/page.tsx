@@ -84,6 +84,11 @@ interface MarketDetails {
     additionalNotes?: string;
     documents?: string[];
   };
+  // Vote button states (calculated in API, single source of truth)
+  isYesVoteEnabled?: boolean;
+  isNoVoteEnabled?: boolean;
+  yesVoteDisabledReason?: string;
+  noVoteDisabledReason?: string;
 }
 
 // Format category and stage for proper display
@@ -483,59 +488,25 @@ export default function MarketDetailsPage() {
     return now >= expiry;
   };
 
-  // Check if trading is disabled due to market resolution or pool being full
-  const isTradingDisabled = () => {
-    if (!onchainData?.success || !onchainData?.data) return false;
-
-    const { resolution, phase } = onchainData.data;
-
-    // If NO wins, trading is always disabled
-    if (resolution === 'NoWins') return true;
-
-    // If YES wins but not extended to Funding phase yet, trading is disabled
-    if (resolution === 'YesWins' && phase === 'Prediction') return true;
-
-    // If market is refunded, trading is disabled
-    if (resolution === 'Refund') return true;
-
-    // In Prediction phase, disable trading if pool is full (100%)
-    // In Funding phase, unlimited voting is allowed for YES side
-    if (phase === 'Prediction' && market) {
-      const poolProgressPercentage = market.poolProgressPercentage || 0;
-      if (poolProgressPercentage >= 100) return true;
-    }
-
-    // Otherwise, trading is allowed
-    return false;
+  // Read vote button states from API (single source of truth)
+  const isYesVoteDisabled = (): boolean => {
+    return market?.isYesVoteEnabled === false;
   };
 
-  // Get reason why trading is disabled (for display)
-  const getTradingDisabledReason = () => {
-    if (!onchainData?.success || !onchainData?.data) return '';
+  const isNoVoteDisabled = (): boolean => {
+    return market?.isNoVoteEnabled === false;
+  };
 
-    const { resolution, phase } = onchainData.data;
+  const getVoteDisabledReason = (voteType: 'yes' | 'no'): string => {
+    if (!market) return '';
+    return voteType === 'yes'
+      ? (market.yesVoteDisabledReason || 'Disabled')
+      : (market.noVoteDisabledReason || 'Disabled');
+  };
 
-    if (resolution === 'NoWins') {
-      return 'Market Resolved - NO Won';
-    }
-
-    if (resolution === 'YesWins' && phase === 'Prediction') {
-      return 'Waiting for Funding Extension';
-    }
-
-    if (resolution === 'Refund') {
-      return 'Market Refunded';
-    }
-
-    // Check if pool is full in Prediction phase
-    if (phase === 'Prediction' && market) {
-      const poolProgressPercentage = market.poolProgressPercentage || 0;
-      if (poolProgressPercentage >= 100) {
-        return 'Pool Complete - Awaiting Resolution or Extension';
-      }
-    }
-
-    return '';
+  // Helper to check if the currently selected side is disabled
+  const isSelectedSideDisabled = (): boolean => {
+    return selectedSide === 'yes' ? isYesVoteDisabled() : isNoVoteDisabled();
   };
 
   const handleVote = async (voteType: 'yes' | 'no') => {
@@ -1880,7 +1851,7 @@ export default function MarketDetailsPage() {
             <div className="grid grid-cols-2 gap-2 sm:gap-3 p-1 bg-white/5 rounded-lg">
               <button
                 onClick={() => setSelectedSide('yes')}
-                disabled={isTradingDisabled() || isMarketExpired()}
+                disabled={isYesVoteDisabled() || isMarketExpired()}
                 className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg font-semibold transition-all ${
                   selectedSide === 'yes'
                     ? 'bg-gradient-to-r from-green-500 to-cyan-500 text-white shadow-lg'
@@ -1895,7 +1866,7 @@ export default function MarketDetailsPage() {
               </button>
               <button
                 onClick={() => setSelectedSide('no')}
-                disabled={isTradingDisabled() || isMarketExpired()}
+                disabled={isNoVoteDisabled() || isMarketExpired()}
                 className={`py-2.5 sm:py-3 px-3 sm:px-4 rounded-lg font-semibold transition-all ${
                   selectedSide === 'no'
                     ? 'bg-gradient-to-r from-red-500 to-pink-500 text-white shadow-lg'
@@ -1920,7 +1891,7 @@ export default function MarketDetailsPage() {
                   onChange={(e) => setAmount(e.target.value)}
                   min={QUICK_VOTE_AMOUNT}
                   step="0.01"
-                  disabled={isTradingDisabled() || isMarketExpired()}
+                  disabled={isSelectedSideDisabled() || isMarketExpired()}
                   className={`w-full px-3 sm:px-4 py-3 sm:py-4 bg-white/10 border-2 rounded-lg text-white text-base sm:text-lg font-mono focus:outline-none transition-all ${
                     selectedSide === 'yes'
                       ? 'border-green-500/30 focus:border-green-500 focus:ring-2 focus:ring-green-500/50'
@@ -1937,7 +1908,7 @@ export default function MarketDetailsPage() {
                   <button
                     key={quickAmount}
                     onClick={() => setAmount(quickAmount)}
-                    disabled={isTradingDisabled() || isMarketExpired()}
+                    disabled={isSelectedSideDisabled() || isMarketExpired()}
                     className={`py-1.5 sm:py-2 px-2 sm:px-3 text-xs sm:text-sm font-semibold rounded-lg border-2 transition-all ${
                       amount === quickAmount
                         ? selectedSide === 'yes'
@@ -1982,12 +1953,12 @@ export default function MarketDetailsPage() {
                   ? 'bg-gradient-to-r from-green-500 to-cyan-500 hover:from-green-600 hover:to-cyan-600'
                   : 'bg-gradient-to-r from-red-500 to-pink-500 hover:from-red-600 hover:to-pink-600'
               } text-white shadow-lg transition-all hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed`}
-              disabled={isProcessingVote || !amount || parseFloat(amount) < QUICK_VOTE_AMOUNT || isMarketExpired() || isTradingDisabled()}
+              disabled={isProcessingVote || !amount || parseFloat(amount) < QUICK_VOTE_AMOUNT || isMarketExpired() || isSelectedSideDisabled()}
             >
-              {isTradingDisabled() ? (
+              {isSelectedSideDisabled() ? (
                 <>
                   <XCircle className="w-4 h-4 sm:w-5 sm:h-5 mr-1.5 sm:mr-2" />
-                  <span className="text-sm sm:text-lg">{getTradingDisabledReason()}</span>
+                  <span className="text-sm sm:text-lg">{getVoteDisabledReason(selectedSide)}</span>
                 </>
               ) : isMarketExpired() ? (
                 <>
