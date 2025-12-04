@@ -29,7 +29,9 @@ import {
   TrendingUp,
   Trophy,
   XCircle,
-  ArrowLeftRight
+  ArrowLeftRight,
+  ExternalLink,
+  History
 } from 'lucide-react';
 import { Connection, PublicKey, LAMPORTS_PER_SOL, SystemProgram, VersionedTransaction, TransactionMessage } from '@solana/web3.js';
 import { RPC_ENDPOINT, SOLANA_NETWORK } from '@/config/solana';
@@ -147,6 +149,145 @@ function FavoriteMarketCard({ marketId }: { marketId: string }) {
         </a>
       </CardContent>
     </Card>
+  );
+}
+
+// Component to display vote history for a market
+function VoteHistory({ marketId, walletAddress }: { marketId: string; walletAddress: string }) {
+  const [isOpen, setIsOpen] = useState(false);
+  const { data: voteHistory } = useSWR(
+    isOpen ? `/api/markets/${marketId}/vote-history?wallet=${walletAddress}` : null,
+    fetcher
+  );
+
+  return (
+    <>
+      <button
+        onClick={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          setIsOpen(!isOpen);
+        }}
+        className="p-1.5 rounded-lg bg-white/5 hover:bg-cyan-500/20 border border-white/10 hover:border-cyan-400/30 transition-all group"
+        title="View vote history"
+      >
+        <History className="w-4 h-4 text-gray-400 group-hover:text-cyan-400 transition-colors" />
+      </button>
+
+      {/* Vote History Modal/Dropdown */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setIsOpen(false)}
+        >
+          <div
+            className="bg-gradient-to-br from-gray-900 to-gray-800 border border-cyan-500/30 rounded-lg max-w-lg w-full max-h-[80vh] overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="p-4 border-b border-white/10 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="w-5 h-5 text-cyan-400" />
+                <h3 className="text-lg font-semibold text-white">Vote History</h3>
+              </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                className="p-1 hover:bg-white/10 rounded transition-colors"
+              >
+                <X className="w-5 h-5 text-gray-400" />
+              </button>
+            </div>
+
+            <div className="p-4 overflow-y-auto max-h-[calc(80vh-80px)]">
+              {voteHistory?.success ? (
+                <div className="space-y-4">
+                  {/* Summary */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-green-500/10 border border-green-500/20 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 mb-1">YES Votes</div>
+                      <div className="font-bold text-green-400 text-lg">
+                        {voteHistory.data.summary.yesTradeCount}
+                      </div>
+                      <div className="text-xs text-gray-300">
+                        {voteHistory.data.summary.totalYesAmount.toFixed(2)} SOL
+                      </div>
+                    </div>
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-lg p-3">
+                      <div className="text-xs text-gray-400 mb-1">NO Votes</div>
+                      <div className="font-bold text-red-400 text-lg">
+                        {voteHistory.data.summary.noTradeCount}
+                      </div>
+                      <div className="text-xs text-gray-300">
+                        {voteHistory.data.summary.totalNoAmount.toFixed(2)} SOL
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Total */}
+                  <div className="bg-white/5 border border-white/10 rounded-lg p-3">
+                    <div className="text-sm text-gray-400">Total Invested</div>
+                    <div className="font-bold text-white text-xl">
+                      {voteHistory.data.summary.totalInvested.toFixed(2)} SOL
+                    </div>
+                    <div className="text-xs text-gray-400">
+                      {voteHistory.data.summary.totalTrades} {voteHistory.data.summary.totalTrades === 1 ? 'trade' : 'trades'}
+                    </div>
+                  </div>
+
+                  {/* Individual trades */}
+                  <div>
+                    <h4 className="text-sm font-medium text-gray-400 mb-2">Transaction History</h4>
+                    <div className="space-y-2">
+                      {voteHistory.data.trades.map((trade: any, index: number) => (
+                        <div
+                          key={index}
+                          className="flex items-center justify-between text-sm bg-white/5 rounded-lg p-3 hover:bg-white/10 transition-colors border border-white/10"
+                        >
+                          <div className="flex items-center gap-3 flex-1">
+                            <span className={`px-2 py-1 rounded font-medium text-xs ${
+                              trade.voteType === 'yes'
+                                ? 'bg-green-500/20 text-green-400 border border-green-500/30'
+                                : 'bg-red-500/20 text-red-400 border border-red-500/30'
+                            }`}>
+                              {trade.voteType.toUpperCase()}
+                            </span>
+                            <div className="flex-1">
+                              <div className="text-white font-medium">{trade.amount.toFixed(3)} SOL</div>
+                              <div className="text-xs text-gray-500">
+                                {new Date(trade.timestamp).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                  year: 'numeric',
+                                  hour: '2-digit',
+                                  minute: '2-digit'
+                                })}
+                              </div>
+                            </div>
+                          </div>
+                          <a
+                            href={`https://solscan.io/tx/${trade.signature}?cluster=${SOLANA_NETWORK}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-cyan-400 hover:text-cyan-300 p-2 hover:bg-cyan-500/10 rounded transition-colors"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <ExternalLink className="w-4 h-4" />
+                          </a>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-8 text-gray-500">
+                  <RefreshCw className="w-8 h-8 mx-auto mb-2 animate-spin" />
+                  <p>Loading vote history...</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1184,13 +1325,16 @@ export default function WalletPage() {
                                   <p className="text-xs text-gray-400">{position.tokenSymbol || 'TKN'}</p>
                                 </div>
                               </div>
-                              <span className={`px-2 py-1 rounded text-xs border whitespace-nowrap ${
-                                position.voteType === 'yes'
-                                  ? 'bg-green-500/20 text-green-400 border-green-400/30'
-                                  : 'bg-red-500/20 text-red-400 border-red-400/30'
-                              }`}>
-                                {position.voteType.toUpperCase()}
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className={`px-2 py-1 rounded text-xs border whitespace-nowrap ${
+                                  position.voteType === 'yes'
+                                    ? 'bg-green-500/20 text-green-400 border-green-400/30'
+                                    : 'bg-red-500/20 text-red-400 border-red-400/30'
+                                }`}>
+                                  {position.voteType.toUpperCase()}
+                                </span>
+                                <VoteHistory marketId={position.marketId} walletAddress={primaryWallet?.address!} />
+                              </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1252,9 +1396,12 @@ export default function WalletPage() {
                                   <p className="text-xs text-gray-400">{position.tokenSymbol || 'TKN'}</p>
                                 </div>
                               </div>
-                              <span className="px-2 py-1 rounded text-xs border bg-green-500/20 text-green-400 border-green-400/30 whitespace-nowrap">
-                                WON
-                              </span>
+                              <div className="flex items-center gap-2">
+                                <span className="px-2 py-1 rounded text-xs border bg-green-500/20 text-green-400 border-green-400/30 whitespace-nowrap">
+                                  WON
+                                </span>
+                                <VoteHistory marketId={position.marketId} walletAddress={primaryWallet?.address!} />
+                              </div>
                             </div>
 
                             <div className="grid grid-cols-2 gap-3 text-sm mb-3">

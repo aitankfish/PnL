@@ -3,7 +3,9 @@
  * Handles creating notifications for various platform events
  */
 
-import { connectToDatabase, Notification, PredictionMarket, TradeHistory } from '@/lib/mongodb';
+import { connectToDatabase, Notification, PredictionMarket, TradeHistory, PredictionParticipant } from '@/lib/mongodb';
+import { getDatabase } from '@/lib/database/index';
+import { COLLECTIONS } from '@/lib/database/models';
 import logger from '@/lib/logger';
 
 interface CreateNotificationParams {
@@ -47,6 +49,57 @@ export async function createNotification(params: CreateNotificationParams) {
   } catch (error) {
     logger.error('Failed to create notification:', error);
     throw error;
+  }
+}
+
+/**
+ * Send notifications when pool is completed (target reached)
+ */
+export async function notifyPoolCompletion(marketId: string) {
+  try {
+    await connectToDatabase();
+
+    // Get market and project details
+    const market = await PredictionMarket.findById(marketId).populate('projectId');
+    if (!market) {
+      logger.error('Market not found for pool completion notification', { marketId });
+      return;
+    }
+
+    const project = market.projectId as any;
+    const projectName = project?.name || 'Unknown Project';
+    const tokenSymbol = project?.tokenSymbol || 'TKN';
+
+    // Get all users who participated in this market
+    const participants = await PredictionParticipant.find({ marketId: market._id }).distinct('participantWallet');
+
+    // Send pool completion notification to all participants
+    const notificationPromises = participants.map(async (userWallet: string) => {
+      await createNotification({
+        userId: userWallet,
+        type: 'pool_complete',
+        title: `Pool Filled - ${projectName}`,
+        message: `The prediction pool for ${projectName} (${tokenSymbol}) has reached its target. Launch decision pending.`,
+        priority: 'high',
+        marketId: marketId,
+        projectId: project?._id?.toString(),
+        actionUrl: `/market/${marketId}`,
+        metadata: {
+          poolBalance: market.poolBalance,
+          targetPool: market.targetPool,
+          action: 'view_market',
+        },
+      });
+    });
+
+    await Promise.all(notificationPromises);
+
+    logger.info('Pool completion notifications sent', {
+      marketId,
+      participantCount: participants.length,
+    });
+  } catch (error) {
+    logger.error('Failed to send pool completion notifications:', error);
   }
 }
 
