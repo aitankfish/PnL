@@ -153,6 +153,57 @@ export async function GET(_request: NextRequest) {
         }
       }
 
+      // Calculate vote button states (single source of truth)
+      let isYesVoteEnabled = true;
+      let isNoVoteEnabled = true;
+      let yesVoteDisabledReason = '';
+      let noVoteDisabledReason = '';
+
+      // Resolved states - disable all voting
+      if (resolution === 'NoWins') {
+        isYesVoteEnabled = false;
+        isNoVoteEnabled = false;
+        yesVoteDisabledReason = 'NO Won';
+        noVoteDisabledReason = 'NO Won';
+      } else if (resolution === 'Refund') {
+        isYesVoteEnabled = false;
+        isNoVoteEnabled = false;
+        yesVoteDisabledReason = 'Refunded';
+        noVoteDisabledReason = 'Refunded';
+      } else if (resolution === 'YesWins') {
+        // YES won - check if extended to Funding
+        if (phase === 'Prediction') {
+          // Not extended yet - both disabled
+          isYesVoteEnabled = false;
+          isNoVoteEnabled = false;
+          yesVoteDisabledReason = 'Awaiting Extension';
+          noVoteDisabledReason = 'Awaiting Extension';
+        } else if (phase === 'Funding') {
+          // Extended - YES enabled, NO disabled
+          isYesVoteEnabled = true;
+          isNoVoteEnabled = false;
+          noVoteDisabledReason = 'YES Locked';
+        }
+      } else if (resolution === 'Unresolved') {
+        // Unresolved - check phase and pool
+        if (phase === 'Funding') {
+          // Funding phase - YES enabled, NO disabled
+          isYesVoteEnabled = true;
+          isNoVoteEnabled = false;
+          noVoteDisabledReason = 'YES Locked';
+        } else if (phase === 'Prediction') {
+          // Prediction phase - check pool
+          if (poolProgressPercentage >= 100) {
+            // Pool full - both disabled
+            isYesVoteEnabled = false;
+            isNoVoteEnabled = false;
+            yesVoteDisabledReason = 'Pool Complete';
+            noVoteDisabledReason = 'Pool Complete';
+          }
+          // Otherwise both enabled (default)
+        }
+      }
+
       return {
         id: market._id.toString(),
         marketAddress: market.marketAddress,
@@ -186,6 +237,12 @@ export async function GET(_request: NextRequest) {
         // Display status (calculated once in API, used by all pages)
         displayStatus,
         badgeClass,
+
+        // Vote button states (calculated once in API, used by all pages)
+        isYesVoteEnabled,
+        isNoVoteEnabled,
+        yesVoteDisabledReason,
+        noVoteDisabledReason,
       };
     });
 
