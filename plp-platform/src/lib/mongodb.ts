@@ -290,6 +290,10 @@ const PredictionMarketSchema = new mongoose.Schema({
     type: Number, // Based on SOL staked (user-friendly)
     default: 50,
   },
+  noPercentage: {
+    type: Number, // Based on SOL staked (complement of yesPercentage)
+    default: 50,
+  },
   sharesYesPercentage: {
     type: Number, // Based on shares (winner logic)
     default: 50,

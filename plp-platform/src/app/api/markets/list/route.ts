@@ -115,6 +115,15 @@ export async function GET(_request: NextRequest) {
         totalNoStake: market.totalNoStake || 0,
       };
 
+      // Calculate percentages from actual stakes if not stored in MongoDB
+      const totalStake = stakeTotals.totalYesStake + stakeTotals.totalNoStake;
+      const yesPercentage = market.yesPercentage ?? (
+        totalStake > 0 ? Math.round((stakeTotals.totalYesStake / totalStake) * 100) : 50
+      );
+      const noPercentage = market.noPercentage ?? (
+        totalStake > 0 ? Math.round((stakeTotals.totalNoStake / totalStake) * 100) : 50
+      );
+
       return {
         id: market._id.toString(),
         marketAddress: market.marketAddress,
@@ -128,6 +137,8 @@ export async function GET(_request: NextRequest) {
         noVotes: voteCounts.noVoteCount,
         totalYesStake: stakeTotals.totalYesStake,
         totalNoStake: stakeTotals.totalNoStake,
+        yesPercentage, // Add calculated percentage
+        noPercentage, // Add calculated percentage
         timeLeft,
         expiryTime: market.expiryTime,
         status: market.resolution || (market.marketState === 0 ? 'active' : 'resolved'),

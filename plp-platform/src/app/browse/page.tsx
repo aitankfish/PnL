@@ -32,6 +32,8 @@ interface Market {
   status: string;
   metadataUri?: string;
   projectImageUrl?: string;
+  yesPercentage?: number; // Calculated and stored in MongoDB
+  noPercentage?: number; // Calculated and stored in MongoDB
   // On-chain fields from MongoDB (synced via WebSocket)
   resolution?: string;
   phase?: string;
@@ -62,9 +64,13 @@ function formatLabel(value: string): string {
     .join(' ');
 }
 
-// Calculate YES percentage based on SOL staked (user-friendly display)
-// This matches Market Holders and the details page for consistency
-function calculateYesPercentage(market: Market): number {
+// Get YES percentage from API (calculated and stored in MongoDB)
+// Fallback to local calculation if not available (backward compatibility)
+function getYesPercentage(market: Market): number {
+  if (market.yesPercentage !== undefined) {
+    return market.yesPercentage; // Use backend-calculated value
+  }
+  // Fallback calculation (should rarely be needed)
   const total = market.totalYesStake + market.totalNoStake;
   return total > 0 ? Math.round((market.totalYesStake / total) * 100) : 50;
 }
@@ -435,12 +441,12 @@ export default function BrowsePage() {
                     <div className="w-full bg-gray-700 rounded-full h-1.5 sm:h-2">
                       <div
                         className="bg-gradient-to-r from-green-500 to-cyan-500 h-1.5 sm:h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${calculateYesPercentage(hotProject)}%` }}
+                        style={{ width: `${getYesPercentage(hotProject)}%` }}
                       ></div>
                     </div>
                     <div className="text-center">
                       <span className="text-base sm:text-lg font-bold text-white">
-                        {calculateYesPercentage(hotProject)}%
+                        {getYesPercentage(hotProject)}%
                       </span>
                       <span className="text-xs sm:text-sm text-gray-400 ml-1">YES</span>
                     </div>
@@ -676,12 +682,12 @@ export default function BrowsePage() {
                     <div className="w-full bg-gray-700 rounded-full h-1.5 sm:h-2">
                       <div
                         className="bg-gradient-to-r from-green-500 to-cyan-500 h-1.5 sm:h-2 rounded-full transition-all duration-500"
-                        style={{ width: `${calculateYesPercentage(project)}%` }}
+                        style={{ width: `${getYesPercentage(project)}%` }}
                       ></div>
                     </div>
                     <div className="text-center">
                       <span className="text-base sm:text-lg font-bold text-white">
-                        {calculateYesPercentage(project)}%
+                        {getYesPercentage(project)}%
                       </span>
                       <span className="text-xs sm:text-sm text-gray-400 ml-1">YES</span>
                     </div>

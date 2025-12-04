@@ -56,8 +56,9 @@ interface MarketDetails {
   noVotes: number;
   totalYesStake: number;
   totalNoStake: number;
-  yesPercentage?: number;
-  noPercentage?: number;
+  yesPercentage?: number; // Calculated and stored in MongoDB
+  noPercentage?: number; // Calculated and stored in MongoDB
+  poolProgressPercentage?: number; // Calculated and stored in MongoDB
   expiryTime: string;
   status: string;
   metadataUri?: string;
@@ -170,10 +171,9 @@ function getDetailedMarketStatus(
   }
 
   // Fallback to basic expiry check if no on-chain data
-  // Parse target pool
-  const targetPoolValue = parseFloat(market.targetPool.replace(' SOL', ''));
-  const currentPool = (market.totalYesStake + market.totalNoStake) / 1_000_000_000;
-  const isPoolFull = currentPool >= targetPoolValue;
+  // Check if pool is full using MongoDB-calculated poolProgressPercentage
+  const poolProgressPercentage = market.poolProgressPercentage || 0;
+  const isPoolFull = poolProgressPercentage >= 100;
 
   if (isExpired || isPoolFull) {
     return {
@@ -419,7 +419,7 @@ export default function MarketDetailsPage() {
         noVotes: socketMarketData.noVotes ?? prevMarket.noVotes,
         totalYesStake: parseStake(socketMarketData.totalYesStake, prevMarket.totalYesStake),
         totalNoStake: parseStake(socketMarketData.totalNoStake, prevMarket.totalNoStake),
-        // Store percentages directly from socket for real-time accuracy
+        // Update percentages from socket (calculated in backend)
         yesPercentage: socketMarketData.yesPercentage ?? prevMarket.yesPercentage,
         noPercentage: socketMarketData.noPercentage ?? prevMarket.noPercentage,
       };
@@ -935,13 +935,13 @@ export default function MarketDetailsPage() {
     return now >= expiry;
   })();
 
-  // Use percentage from market state (updated via Socket.IO for real-time accuracy)
-  // This ensures percentages update immediately without recalculation
-  const yesPercentage = market.yesPercentage ?? (
-    market.totalYesStake + market.totalNoStake > 0
-      ? Math.round((market.totalYesStake / (market.totalYesStake + market.totalNoStake)) * 100)
-      : 50
-  );
+  // Use percentage from MongoDB (calculated and stored in backend)
+  // Fallback to local calculation if not available (backward compatibility)
+  const yesPercentage = market.yesPercentage !== undefined
+    ? market.yesPercentage
+    : (market.totalYesStake + market.totalNoStake > 0
+        ? Math.round((market.totalYesStake / (market.totalYesStake + market.totalNoStake)) * 100)
+        : 50);
 
   // Calculate dynamic market status
   const marketStatus = getDetailedMarketStatus(market, onchainData);
@@ -2104,6 +2104,8 @@ export default function MarketDetailsPage() {
             totalYesStake={holdersData?.data?.totalYesStake || 0}
             totalNoStake={holdersData?.data?.totalNoStake || 0}
             uniqueHolders={holdersData?.data?.uniqueHolders || 0}
+            yesPercentage={market.yesPercentage} // Use backend-calculated percentage
+            noPercentage={market.noPercentage} // Use backend-calculated percentage
             currentUserWallet={primaryWallet?.address}
             className="w-full"
           />

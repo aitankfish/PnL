@@ -192,19 +192,58 @@ export async function POST(request: NextRequest) {
         noVoteCount: voteCounts.noVoteCount,
       });
 
-      // Refetch market to get updated stakes from MongoDB
+      // Recalculate stakes from participants (fresh, accurate data)
+      const participants = await PredictionParticipant.find({ marketId: market._id });
+      let totalYesStake = 0;
+      let totalNoStake = 0;
+
+      for (const participant of participants) {
+        const yesShares = BigInt(participant.yesShares || '0');
+        const noShares = BigInt(participant.noShares || '0');
+        totalYesStake += Number(yesShares);
+        totalNoStake += Number(noShares);
+      }
+
+      // Calculate percentages based on actual stakes
+      const totalStake = totalYesStake + totalNoStake;
+      const yesPercentage = totalStake > 0 ? Math.round((totalYesStake / totalStake) * 100) : 50;
+      const noPercentage = totalStake > 0 ? Math.round((totalNoStake / totalStake) * 100) : 50;
+
+      // Calculate pool progress percentage
+      const targetPoolLamports = market.targetPool; // Already in lamports
+      const currentPoolLamports = totalYesStake + totalNoStake;
+      const poolProgressPercentage = targetPoolLamports > 0
+        ? Math.min(100, Math.round((currentPoolLamports / targetPoolLamports) * 100))
+        : 0;
+
+      // Store calculated values in MongoDB for consistency across all pages
+      await PredictionMarket.updateOne(
+        { _id: market._id },
+        {
+          $set: {
+            totalYesStake,
+            totalNoStake,
+            yesPercentage,
+            noPercentage,
+            poolProgressPercentage,
+          }
+        }
+      );
+
+      logger.info('✅ [MONGODB] Updated market with calculated stakes and percentages', {
+        marketId: market._id.toString(),
+        totalYesStake,
+        totalNoStake,
+        yesPercentage,
+        noPercentage,
+        poolProgressPercentage,
+      });
+
+      // Refetch market to get all updated fields
       const updatedMarket = await PredictionMarket.findById(marketId);
       if (!updatedMarket) {
         throw new Error('Market not found after update');
       }
-
-      // Broadcast real-time update to all connected clients
-      // This ensures vote counts and stakes update without page refresh
-      const totalStake = updatedMarket.totalYesStake + updatedMarket.totalNoStake;
-
-      // Calculate percentages
-      const yesPercentage = totalStake > 0 ? (updatedMarket.totalYesStake / totalStake) * 100 : 50;
-      const noPercentage = totalStake > 0 ? (updatedMarket.totalNoStake / totalStake) * 100 : 50;
 
       logger.info('📡 [SOCKET] Broadcasting market update', {
         marketAddress: market.marketAddress.slice(0, 8) + '...',

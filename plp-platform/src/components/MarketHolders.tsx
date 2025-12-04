@@ -18,6 +18,8 @@ interface MarketHoldersProps {
   totalYesStake: number;
   totalNoStake: number;
   uniqueHolders: number;
+  yesPercentage?: number; // Pre-calculated from backend
+  noPercentage?: number; // Pre-calculated from backend
   currentUserWallet?: string;
   className?: string;
 }
@@ -28,6 +30,8 @@ export default function MarketHolders({
   totalYesStake,
   totalNoStake,
   uniqueHolders,
+  yesPercentage,
+  noPercentage,
   currentUserWallet,
   className,
 }: MarketHoldersProps) {
@@ -42,10 +46,14 @@ export default function MarketHolders({
     return currentUserWallet && wallet === currentUserWallet;
   };
 
-  // Calculate YES/NO split percentage
+  // Use backend-calculated percentages if available, otherwise calculate
   const totalStake = totalYesStake + totalNoStake;
-  const yesPoolPercentage = totalStake > 0 ? (totalYesStake / totalStake) * 100 : 50;
-  const noPoolPercentage = 100 - yesPoolPercentage;
+  const yesPoolPercentage = yesPercentage !== undefined
+    ? yesPercentage
+    : (totalStake > 0 ? (totalYesStake / totalStake) * 100 : 50);
+  const noPoolPercentage = noPercentage !== undefined
+    ? noPercentage
+    : (100 - yesPoolPercentage);
 
   return (
     <Card className={`bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm border-gray-700/50 ${className}`}>

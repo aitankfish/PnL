@@ -166,6 +166,46 @@ export class EventProcessor {
       logger.info(`✅ Market resolved: ${this.getResolutionString(marketData.resolution)}`);
     }
 
+    // Calculate stake-based percentages from participants (consistent with vote/complete API)
+    try {
+      const participants = await this.db.collection('predictionparticipants').find({
+        marketId: market._id
+      }).toArray();
+
+      let totalYesStake = 0;
+      let totalNoStake = 0;
+
+      for (const participant of participants) {
+        const yesShares = BigInt(participant.yesShares || '0');
+        const noShares = BigInt(participant.noShares || '0');
+        totalYesStake += Number(yesShares);
+        totalNoStake += Number(noShares);
+      }
+
+      const totalStake = totalYesStake + totalNoStake;
+      const stakeYesPercentage = totalStake > 0 ? Math.round((totalYesStake / totalStake) * 100) : 50;
+      const stakeNoPercentage = totalStake > 0 ? Math.round((totalNoStake / totalStake) * 100) : 50;
+
+      // Override pool-based percentage with stake-based percentage for consistency
+      updateData.yesPercentage = stakeYesPercentage;
+      updateData.noPercentage = stakeNoPercentage;
+      updateData.totalYesStake = totalYesStake;
+      updateData.totalNoStake = totalNoStake;
+
+      logger.info('📊 Calculated stake-based percentages', {
+        marketAddress: event.address.slice(0, 8) + '...',
+        yesPercentage: stakeYesPercentage,
+        noPercentage: stakeNoPercentage,
+        totalYesStake,
+        totalNoStake,
+      });
+    } catch (error) {
+      logger.warn('Failed to calculate stake-based percentages, using pool-based', {
+        error: error instanceof Error ? error.message : String(error)
+      });
+      // Keep pool-based percentages if calculation fails
+    }
+
     // 4. Update MongoDB
     await this.db.collection('predictionmarkets').updateOne(
       { _id: market._id },
@@ -194,14 +234,15 @@ export class EventProcessor {
       });
     }
 
-    // 7. Broadcast update to connected clients
+    // 7. Broadcast update to connected clients with stake-based percentages
     broadcastMarketUpdate(event.address, {
       marketAddress: event.address,
       poolProgressPercentage: derived.poolProgressPercentage,
-      yesPercentage: derived.yesPercentage,
+      yesPercentage: updateData.yesPercentage, // Use stake-based percentage (consistent everywhere)
+      noPercentage: updateData.noPercentage, // Add noPercentage for completeness
       sharesYesPercentage: derived.sharesYesPercentage,
-      totalYesStake: derived.totalYesStake,
-      totalNoStake: derived.totalNoStake,
+      totalYesStake: updateData.totalYesStake, // Use recalculated stake totals
+      totalNoStake: updateData.totalNoStake,
       yesVotes: yesVoteCount,
       noVotes: noVoteCount,
       availableActions: derived.availableActions,
@@ -215,8 +256,10 @@ export class EventProcessor {
     logger.info(`✅ Market updated: ${event.address.slice(0, 8)}...`, {
       yesVotes: yesVoteCount,
       noVotes: noVoteCount,
-      totalYesStake: derived.totalYesStake,
-      totalNoStake: derived.totalNoStake,
+      totalYesStake: updateData.totalYesStake,
+      totalNoStake: updateData.totalNoStake,
+      yesPercentage: updateData.yesPercentage,
+      noPercentage: updateData.noPercentage,
     });
   }
 
@@ -243,7 +286,36 @@ export class EventProcessor {
       return;
     }
 
-    // 3. Update or create participant record
+    // 3. Update or create participant record (blockchain is source of truth)
+    // Check for discrepancies between optimistic MongoDB values and blockchain
+    const existingParticipant = await this.db.collection('predictionparticipants').findOne({
+      marketId: market._id,
+      participantWallet: positionData.user,
+    });
+
+    if (existingParticipant) {
+      const mongoYesShares = existingParticipant.yesShares || '0';
+      const mongoNoShares = existingParticipant.noShares || '0';
+      const blockchainYesShares = positionData.yesShares;
+      const blockchainNoShares = positionData.noShares;
+
+      // Log discrepancies (optimistic update vs blockchain reality)
+      if (mongoYesShares !== blockchainYesShares || mongoNoShares !== blockchainNoShares) {
+        logger.warn('⚠️  Reconciling participant data: MongoDB vs Blockchain mismatch', {
+          user: positionData.user.slice(0, 8) + '...',
+          market: positionData.market.slice(0, 8) + '...',
+          mongoYesShares,
+          blockchainYesShares,
+          mongoNoShares,
+          blockchainNoShares,
+          difference: {
+            yes: BigInt(blockchainYesShares) - BigInt(mongoYesShares),
+            no: BigInt(blockchainNoShares) - BigInt(mongoNoShares),
+          }
+        });
+      }
+    }
+
     const updateResult = await this.db.collection('predictionparticipants').updateOne(
       {
         marketId: market._id,
@@ -251,8 +323,8 @@ export class EventProcessor {
       },
       {
         $set: {
-          yesShares: positionData.yesShares,
-          noShares: positionData.noShares,
+          yesShares: positionData.yesShares, // Blockchain is source of truth
+          noShares: positionData.noShares,   // Blockchain is source of truth
           totalInvested: positionData.totalInvested,
           claimed: positionData.claimed,
           positionPdaAddress: event.address,
