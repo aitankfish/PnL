@@ -43,15 +43,15 @@ export default function LiveActivityFeed({ trades, className }: LiveActivityFeed
   if (!trades || trades.length === 0) {
     return (
       <Card className={`bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm border-gray-700/50 ${className}`}>
-        <CardHeader>
-          <CardTitle className="text-white">Recent Activity</CardTitle>
+        <CardHeader className="pb-3 sm:pb-4">
+          <CardTitle className="text-base sm:text-lg md:text-xl text-white">Recent Activity</CardTitle>
         </CardHeader>
         <CardContent>
-          <div className="h-[300px] flex items-center justify-center">
-            <div className="text-center space-y-2">
-              <div className="text-4xl">💬</div>
-              <p className="text-gray-400">No activity yet</p>
-              <p className="text-sm text-gray-500">Votes will appear here</p>
+          <div className="h-[250px] sm:h-[300px] md:h-[350px] flex items-center justify-center">
+            <div className="text-center space-y-1.5 sm:space-y-2">
+              <div className="text-3xl sm:text-4xl">💬</div>
+              <p className="text-sm sm:text-base text-gray-400">No activity yet</p>
+              <p className="text-xs sm:text-sm text-gray-500">Votes will appear here</p>
             </div>
           </div>
         </CardContent>
@@ -61,43 +61,43 @@ export default function LiveActivityFeed({ trades, className }: LiveActivityFeed
 
   return (
     <Card className={`bg-gradient-to-br from-gray-900/50 to-gray-800/30 backdrop-blur-sm border-gray-700/50 ${className}`}>
-      <CardHeader>
-        <CardTitle className="text-white">Recent Activity</CardTitle>
-        <p className="text-sm text-gray-400">Live feed of the latest votes</p>
+      <CardHeader className="pb-3 sm:pb-4">
+        <CardTitle className="text-base sm:text-lg md:text-xl text-white">Recent Activity</CardTitle>
+        <p className="text-xs sm:text-sm text-gray-400">Live feed of the latest votes</p>
       </CardHeader>
       <CardContent>
-        <div className="space-y-3 max-h-[300px] overflow-y-auto pr-2 custom-scrollbar">
+        <div className="space-y-2 sm:space-y-3 max-h-[250px] sm:max-h-[300px] md:max-h-[350px] overflow-y-auto pr-1 sm:pr-2 custom-scrollbar">
           {uniqueTrades.map((trade) => (
             <div
               key={trade.id}
-              className="flex items-start gap-3 p-3 rounded-lg bg-gray-800/30 border border-gray-700/30 hover:border-gray-600/50 transition-all"
+              className="flex items-start gap-2 sm:gap-3 p-2 sm:p-3 rounded-lg bg-gray-800/30 border border-gray-700/30 hover:border-gray-600/50 transition-all"
             >
               {/* Vote indicator */}
-              <div className={`mt-1 ${trade.voteType === 'yes' ? 'text-green-500' : 'text-red-500'}`}>
+              <div className={`mt-0.5 sm:mt-1 flex-shrink-0 ${trade.voteType === 'yes' ? 'text-green-500' : 'text-red-500'}`}>
                 {trade.voteType === 'yes' ? (
-                  <TrendingUp className="w-5 h-5" />
+                  <TrendingUp className="w-4 h-4 sm:w-5 sm:h-5" />
                 ) : (
-                  <TrendingDown className="w-5 h-5" />
+                  <TrendingDown className="w-4 h-4 sm:w-5 sm:h-5" />
                 )}
               </div>
 
               {/* Trade details */}
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-sm text-gray-300 font-medium">
+                <div className="flex items-center justify-between gap-1 sm:gap-2 mb-0.5 sm:mb-1">
+                  <span className="text-xs sm:text-sm text-gray-300 font-medium truncate">
                     {shortenAddress(trade.traderWallet)}
                   </span>
-                  <span className="text-xs text-gray-500">{trade.timeAgo}</span>
+                  <span className="text-[10px] sm:text-xs text-gray-500 flex-shrink-0">{trade.timeAgo}</span>
                 </div>
 
-                <p className="text-sm text-gray-400">
+                <p className="text-xs sm:text-sm text-gray-400">
                   Voted <span className={`font-semibold ${trade.voteType === 'yes' ? 'text-green-400' : 'text-red-400'}`}>
                     {trade.voteType.toUpperCase()}
                   </span> with{' '}
                   <span className="text-cyan-400 font-medium">{trade.amount.toFixed(3)} SOL</span>
                 </p>
 
-                <div className="flex items-center gap-3 mt-1 text-xs text-gray-500">
+                <div className="flex items-center gap-2 sm:gap-3 mt-0.5 sm:mt-1 text-[10px] sm:text-xs text-gray-500">
                   <span>YES: {trade.yesPrice}%</span>
                   <span>•</span>
                   <span>NO: {trade.noPrice}%</span>
