@@ -173,7 +173,7 @@ export async function GET(
       if (isExpired) {
         displayStatus = '⏳ Awaiting Resolution';
         badgeClass = 'bg-orange-500/20 text-orange-300 border-orange-400/30';
-      } else if (phase === 'Funding') {
+      } else if (phase === 1) { // 1 = Funding
         displayStatus = '💰 Funding Phase';
         badgeClass = 'bg-purple-500/20 text-purple-300 border-purple-400/30';
       } else if (poolProgressPercentage >= 100) {
@@ -201,13 +201,13 @@ export async function GET(
       noVoteDisabledReason = 'Refunded';
     } else if (resolution === 'YesWins') {
       // YES won - check if extended to Funding
-      if (phase === 'Prediction') {
+      if (phase === 0) { // 0 = Prediction
         // Not extended yet - both disabled
         isYesVoteEnabled = false;
         isNoVoteEnabled = false;
         yesVoteDisabledReason = 'Awaiting Extension';
         noVoteDisabledReason = 'Awaiting Extension';
-      } else if (phase === 'Funding') {
+      } else if (phase === 1) { // 1 = Funding
         // Extended - YES enabled, NO disabled
         isYesVoteEnabled = true;
         isNoVoteEnabled = false;
@@ -215,12 +215,12 @@ export async function GET(
       }
     } else if (resolution === 'Unresolved') {
       // Unresolved - check phase and pool
-      if (phase === 'Funding') {
+      if (phase === 1) { // 1 = Funding
         // Funding phase - YES enabled, NO disabled
         isYesVoteEnabled = true;
         isNoVoteEnabled = false;
         noVoteDisabledReason = 'YES Locked';
-      } else if (phase === 'Prediction') {
+      } else if (phase === 0) { // 0 = Prediction
         // Prediction phase - check pool
         if (poolProgressPercentage >= 100) {
           // Pool full - both disabled
