@@ -209,12 +209,9 @@ export async function POST(request: NextRequest) {
       const yesPercentage = totalStake > 0 ? Math.round((totalYesStake / totalStake) * 100) : 50;
       const noPercentage = totalStake > 0 ? Math.round((totalNoStake / totalStake) * 100) : 50;
 
-      // Calculate pool progress percentage
-      const targetPoolLamports = market.targetPool; // Already in lamports
-      const currentPoolLamports = totalYesStake + totalNoStake;
-      const poolProgressPercentage = targetPoolLamports > 0
-        ? Math.min(100, Math.round((currentPoolLamports / targetPoolLamports) * 100))
-        : 0;
+      // Note: poolProgressPercentage is calculated by blockchain sync from actual poolBalance
+      // We don't calculate it here because it needs to account for fees/treasury cuts
+      // Blockchain sync is the source of truth for pool progress
 
       // Store calculated values in MongoDB for consistency across all pages
       await PredictionMarket.updateOne(
@@ -225,7 +222,7 @@ export async function POST(request: NextRequest) {
             totalNoStake,
             yesPercentage,
             noPercentage,
-            poolProgressPercentage,
+            // poolProgressPercentage is NOT updated here - blockchain sync handles it
           }
         }
       );
@@ -236,7 +233,7 @@ export async function POST(request: NextRequest) {
         totalNoStake,
         yesPercentage,
         noPercentage,
-        poolProgressPercentage,
+        note: 'poolProgressPercentage updated by blockchain sync',
       });
 
       // Refetch market to get all updated fields
