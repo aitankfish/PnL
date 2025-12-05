@@ -152,15 +152,29 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
 
     match resolution {
         MarketResolution::YesWins => {
-            // Calculate 5% completion fee and net amount for token purchase
+            // Calculate 5% completion fee
             let completion_fee = (market.pool_balance * COMPLETION_FEE_BPS) / BPS_DIVISOR;
+
+            // CRITICAL: Reserve rent-exempt balance for Market PDA
+            // Pump.fun validates the buyer remains rent-exempt after purchase
+            let rent = Rent::get()?;
+            let market_rent_exempt = rent.minimum_balance(Market::SPACE);
+
+            // Reserve: rent-exempt + completion fee
+            let total_reserved = market_rent_exempt
+                .checked_add(completion_fee)
+                .ok_or(ErrorCode::MathError)?;
+
+            // Net amount for token purchase = pool - reserved
             let net_amount_for_token = market
                 .pool_balance
-                .checked_sub(completion_fee)
+                .checked_sub(total_reserved)
                 .ok_or(ErrorCode::MathError)?;
 
             msg!("✅ YES WINS - Initiating token launch");
+            msg!("   Market rent-exempt: {} lamports", market_rent_exempt);
             msg!("   Completion fee: {} lamports (5%)", completion_fee);
+            msg!("   Total reserved: {} lamports", total_reserved);
             msg!("   SOL for token launch: {} lamports", net_amount_for_token);
 
             // -------------------------
@@ -275,8 +289,10 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
             // Set token mint in market state
             market.token_mint = Some(ctx.accounts.token_mint.key());
 
-            // Update pool balance to 0 (all SOL was used: 95% for tokens, 5% for fee)
-            market.pool_balance = 0;
+            // Update pool balance to rent-exempt amount (reserved for account)
+            // Total spent: net_amount_for_token + completion_fee
+            // Remaining: market_rent_exempt
+            market.pool_balance = market_rent_exempt;
 
             // -------------------------
             // Calculate token distribution (79% / 20% / 1%)
