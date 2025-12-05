@@ -1,5 +1,6 @@
 use anchor_lang::prelude::*;
-use anchor_spl::token::{self, Token, TokenAccount};
+use anchor_spl::token::{TokenAccount};
+use anchor_spl::token_2022::Token2022;
 use anchor_spl::associated_token::AssociatedToken;
 use crate::constants::*;
 use crate::errors::ErrorCode;
@@ -84,7 +85,7 @@ pub struct ResolveMarket<'info> {
     pub caller: Signer<'info>,
 
     pub system_program: Program<'info, System>,
-    pub token_program: Program<'info, Token>,
+    pub token_program: Program<'info, Token2022>,
     pub associated_token_program: Program<'info, AssociatedToken>,
     pub rent: Sysvar<'info, Rent>,
 }

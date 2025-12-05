@@ -127,7 +127,7 @@ export async function POST(request: NextRequest) {
         // Remaining accounts
         { pubkey: callerPubkey, isSigner: true, isWritable: true },        // caller
         { pubkey: SystemProgram.programId, isSigner: false, isWritable: false }, // system_program
-        { pubkey: TOKEN_PROGRAM_ID, isSigner: false, isWritable: false },  // token_program
+        { pubkey: TOKEN_2022_PROGRAM_ID, isSigner: false, isWritable: false },  // token_program (Token2022 for Pump.fun)
         { pubkey: ASSOCIATED_TOKEN_PROGRAM_ID, isSigner: false, isWritable: false }, // associated_token_program
         { pubkey: SYSVAR_RENT_PUBKEY, isSigner: false, isWritable: false }, // rent
       ],
