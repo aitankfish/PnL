@@ -191,33 +191,36 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
             // - 0x28: token_total_supply (8 bytes, u64)
             // - 0x30: complete (1 byte, bool)
 
-            let bonding_curve_data = ctx.accounts.bonding_curve.try_borrow_data()?;
+            let tokens_to_buy = {
+                let bonding_curve_data = ctx.accounts.bonding_curve.try_borrow_data()?;
 
-            // Read virtual_token_reserves (offset 8, u64 little-endian)
-            let virtual_token_reserves = u64::from_le_bytes(
-                bonding_curve_data[8..16]
-                    .try_into()
-                    .map_err(|_| ErrorCode::MathError)?
-            );
+                // Read virtual_token_reserves (offset 8, u64 little-endian)
+                let virtual_token_reserves = u64::from_le_bytes(
+                    bonding_curve_data[8..16]
+                        .try_into()
+                        .map_err(|_| ErrorCode::MathError)?
+                );
 
-            // Read virtual_sol_reserves (offset 16, u64 little-endian)
-            let virtual_sol_reserves = u64::from_le_bytes(
-                bonding_curve_data[16..24]
-                    .try_into()
-                    .map_err(|_| ErrorCode::MathError)?
-            );
+                // Read virtual_sol_reserves (offset 16, u64 little-endian)
+                let virtual_sol_reserves = u64::from_le_bytes(
+                    bonding_curve_data[16..24]
+                        .try_into()
+                        .map_err(|_| ErrorCode::MathError)?
+                );
 
-            msg!("   📊 Bonding Curve State:");
-            msg!("      Virtual token reserves: {}", virtual_token_reserves);
-            msg!("      Virtual SOL reserves: {} lamports", virtual_sol_reserves);
+                msg!("   📊 Bonding Curve State:");
+                msg!("      Virtual token reserves: {}", virtual_token_reserves);
+                msg!("      Virtual SOL reserves: {} lamports", virtual_sol_reserves);
 
-            // Calculate tokens we can buy with our SOL using constant product formula
-            // tokens_out = (sol_in × virtual_token_reserves) / (virtual_sol_reserves + sol_in)
-            let sol_in = net_amount_for_token as u128;
-            let vtr = virtual_token_reserves as u128;
-            let vsr = virtual_sol_reserves as u128;
+                // Calculate tokens we can buy with our SOL using constant product formula
+                // tokens_out = (sol_in × virtual_token_reserves) / (virtual_sol_reserves + sol_in)
+                let sol_in = net_amount_for_token as u128;
+                let vtr = virtual_token_reserves as u128;
+                let vsr = virtual_sol_reserves as u128;
 
-            let tokens_to_buy = ((sol_in * vtr) / (vsr + sol_in)) as u64;
+                ((sol_in * vtr) / (vsr + sol_in)) as u64
+                // bonding_curve_data borrow is dropped here when scope ends
+            };
 
             msg!("   💰 Calculated token purchase:");
             msg!("      Tokens to buy: {}", tokens_to_buy);
