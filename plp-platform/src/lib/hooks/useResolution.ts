@@ -242,7 +242,7 @@ export function useResolution() {
       console.log(`   ↳ Branded with PNL platform signature!`);
       console.log('');
 
-      // Step 2: Upload metadata to Pump.fun IPFS
+      // Step 2: Upload metadata to Pump.fun IPFS (with retry logic)
       console.log('📤 Uploading metadata to Pump.fun IPFS...');
       const metadata = {
         name: params.tokenMetadata.name,
@@ -263,25 +263,51 @@ export function useResolution() {
       formData.append('website', '');
       formData.append('showName', 'true');
 
-      const ipfsResponse = await fetch('https://pump.fun/api/ipfs', {
-        method: 'POST',
-        body: formData,
-      });
+      // Retry logic with exponential backoff (3 attempts)
+      let metadataUri: string | null = null;
+      let lastError: Error | null = null;
+      const maxRetries = 3;
 
-      if (!ipfsResponse.ok) {
-        throw new Error(`IPFS upload failed: ${ipfsResponse.status} ${ipfsResponse.statusText}`);
+      for (let attempt = 1; attempt <= maxRetries; attempt++) {
+        try {
+          console.log(`   Attempt ${attempt}/${maxRetries}...`);
+          const ipfsResponse = await fetch('https://pump.fun/api/ipfs', {
+            method: 'POST',
+            body: formData,
+          });
+
+          if (!ipfsResponse.ok) {
+            throw new Error(`IPFS upload failed: ${ipfsResponse.status} ${ipfsResponse.statusText}`);
+          }
+
+          const ipfsResult = await ipfsResponse.json();
+          metadataUri = ipfsResult.metadataUri;
+          console.log(`✅ Metadata uploaded to IPFS`);
+          console.log(`   URI: ${metadataUri}`);
+          console.log('');
+          break; // Success, exit retry loop
+
+        } catch (error) {
+          lastError = error as Error;
+          console.warn(`   ⚠️  Attempt ${attempt} failed: ${lastError.message}`);
+
+          if (attempt < maxRetries) {
+            // Exponential backoff: 1s, 2s, 4s
+            const backoffMs = Math.pow(2, attempt - 1) * 1000;
+            console.log(`   Retrying in ${backoffMs / 1000}s...`);
+            await new Promise(resolve => setTimeout(resolve, backoffMs));
+          }
+        }
       }
 
-      const ipfsResult = await ipfsResponse.json();
-      const metadataUri = ipfsResult.metadataUri;
-      console.log(`✅ Metadata uploaded to IPFS`);
-      console.log(`   URI: ${metadataUri}`);
-      console.log('');
+      if (!metadataUri) {
+        throw new Error(`IPFS upload failed after ${maxRetries} attempts: ${lastError?.message || 'Unknown error'}`);
+      }
 
       // Step 3: Create Pump.fun createV2 instruction using official SDK
       console.log('🔧 Building Pump.fun createV2 instruction...');
       const connection = await getSolanaConnection();
-      const pumpSdk = new PumpSdk(connection);
+      const pumpSdk = new PumpSdk(); // SDK now manages connection internally
 
       const { PublicKey } = await import('@solana/web3.js');
       const createInstruction = await pumpSdk.createV2Instruction({
@@ -346,7 +372,7 @@ export function useResolution() {
 
       // Build atomic transaction with high compute units
       const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
-        units: 800_000, // High limit for create + resolve + buy CPI
+        units: 1_000_000, // Extra margin for complex operations (create ~300k + resolve ~200k + buy CPI ~200k + buffer ~300k)
       });
 
       const atomicTx = new Transaction()
@@ -390,6 +416,24 @@ export function useResolution() {
       } else {
         throw new Error('No Solana wallet found');
       }
+
+      // Simulate transaction before sending to catch errors early
+      console.log('🔍 Simulating transaction...');
+      try {
+        const simulation = await connection.simulateTransaction(atomicTx);
+        if (simulation.value.err) {
+          console.error('❌ Simulation failed:', simulation.value.err);
+          console.error('   Logs:', simulation.value.logs);
+          throw new Error(`Transaction simulation failed: ${JSON.stringify(simulation.value.err)}`);
+        }
+        console.log('✅ Simulation successful - transaction should execute correctly');
+        console.log('   Compute units used:', simulation.value.unitsConsumed);
+      } catch (simError) {
+        console.warn('⚠️  Simulation warning (proceeding anyway):', simError);
+        // Don't fail on simulation errors - they can be false positives
+        // Real validation happens on-chain
+      }
+      console.log('');
 
       // Sign and send atomic transaction
       console.log('📤 Signing and sending ATOMIC transaction...');

@@ -67,38 +67,71 @@ export async function POST(request: NextRequest) {
       winningOption: marketAccount.winningOption,
     });
 
-    // Update database with resolution
-    await connectToDatabase();
-    const db = await getDatabase();
+    // Update database with resolution (with retry logic)
+    let dbUpdateSuccess = false;
+    let lastDbError: Error | null = null;
+    const maxRetries = 3;
 
-    // Prepare update data
-    const updateData: any = {
-      marketState: marketAccount.marketState,
-      winningOption: marketAccount.winningOption,
-      resolution: resolutionOutcome,
-      resolvedAt: new Date(),
-      updatedAt: new Date(),
-    };
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        logger.info(`Database update attempt ${attempt}/${maxRetries}`);
 
-    // If tokenMint is provided (YES wins, token launched), save it immediately
-    if (tokenMint) {
-      updateData.pumpFunTokenAddress = tokenMint;
-      logger.info('Saving token mint address to database (immediate write)', {
-        tokenMint,
-        marketId,
-      });
+        await connectToDatabase();
+        const db = await getDatabase();
+
+        // Prepare update data
+        const updateData: any = {
+          marketState: marketAccount.marketState,
+          winningOption: marketAccount.winningOption,
+          resolution: resolutionOutcome,
+          resolvedAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        // If tokenMint is provided (YES wins, token launched), save it immediately
+        if (tokenMint) {
+          updateData.pumpFunTokenAddress = tokenMint;
+          logger.info('Saving token mint address to database (immediate write)', {
+            tokenMint,
+            marketId,
+          });
+        }
+
+        await db.collection(COLLECTIONS.PREDICTION_MARKETS).updateOne(
+          { _id: new ObjectId(marketId) },
+          { $set: updateData }
+        );
+
+        logger.info('Database updated with resolution', {
+          marketId,
+          resolution: resolutionOutcome,
+          pumpFunTokenAddress: tokenMint || 'none',
+        });
+
+        dbUpdateSuccess = true;
+        break; // Success, exit retry loop
+
+      } catch (dbError) {
+        lastDbError = dbError as Error;
+        logger.warn(`Database update attempt ${attempt} failed: ${lastDbError.message}`);
+
+        if (attempt < maxRetries) {
+          // Exponential backoff: 1s, 2s
+          const backoffMs = Math.pow(2, attempt - 1) * 1000;
+          logger.info(`Retrying database update in ${backoffMs / 1000}s...`);
+          await new Promise(resolve => setTimeout(resolve, backoffMs));
+        }
+      }
     }
 
-    await db.collection(COLLECTIONS.PREDICTION_MARKETS).updateOne(
-      { _id: new ObjectId(marketId) },
-      { $set: updateData }
-    );
-
-    logger.info('Database updated with resolution', {
-      marketId,
-      resolution: resolutionOutcome,
-      pumpFunTokenAddress: tokenMint || 'none',
-    });
+    if (!dbUpdateSuccess) {
+      logger.error('Database update failed after all retries', {
+        error: lastDbError?.message,
+        marketId,
+      });
+      // Don't throw error - transaction already succeeded on-chain
+      // Blockchain sync will eventually update the database
+    }
 
     // Create notifications for all participants
     try {
