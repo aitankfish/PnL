@@ -26,6 +26,7 @@ import useSWR from 'swr';
 import ErrorDialog from '@/components/ErrorDialog';
 import SuccessDialog from '@/components/SuccessDialog';
 import { useMarketSocket } from '@/lib/hooks/useSocket';
+import { TokenLaunchAnimation } from '@/components/TokenLaunchAnimation';
 
 // Lazy load heavy components to reduce initial bundle size
 const ProbabilityChart = dynamic(() => import('@/components/ProbabilityChart'), {
@@ -2207,6 +2208,12 @@ export default function MarketDetailsPage() {
             </div>
           </div>
         )}
+
+        {/* Token Launch Animation Overlay */}
+        <TokenLaunchAnimation
+          isVisible={isResolving}
+          tokenSymbol={market?.tokenSymbol}
+        />
       </div>
   );
 }
