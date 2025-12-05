@@ -93,7 +93,7 @@ async function testPumpfunLaunch() {
 
     // Step 3: Initialize Pump.fun SDK
     console.log('🚀 Step 3: Initializing Pump.fun SDK...');
-    const pumpSdk = new PumpSdk(connection);
+    const pumpSdk = new PumpSdk(); // SDK manages connection internally (no parameters needed)
     console.log('✅ SDK initialized');
     console.log('');
 

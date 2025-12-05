@@ -194,38 +194,58 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
             msg!("   Buying tokens with {} lamports", net_amount_for_token);
 
             // -------------------------
-            // Calculate token amount using Pump.fun INITIAL bonding curve constants
+            // Read REAL bonding curve parameters from Pump.fun Global PDA
             // -------------------------
-            // We can't read the bonding curve account in the same transaction it's created.
-            // Instead, use Pump.fun's well-known initial constants:
-            //
-            // - virtual_token_reserves: 1,073,000,000,000,000 (with 6 decimals)
-            // - virtual_sol_reserves: 30,000,000,000,000 lamports (30 SOL)
-            // - real_token_reserves: 793,100,000 tokens (actual tradeable supply)
-            //
-            // Formula: tokens_out = (sol_in × virtual_token_reserves) / (virtual_sol_reserves + sol_in)
+            // Global Account structure (Borsh serialized):
+            // - 0-7: discriminator (8 bytes)
+            // - 8: initialized (1 byte, bool)
+            // - 9-40: authority (32 bytes, Pubkey)
+            // - 41-72: feeRecipient (32 bytes, Pubkey)
+            // - 73-80: initialVirtualTokenReserves (8 bytes, u64)
+            // - 81-88: initialVirtualSolReserves (8 bytes, u64)
+            // - 89-96: initialRealTokenReserves (8 bytes, u64)
+            // - 97-104: tokenTotalSupply (8 bytes, u64)
+            // - 105-112: feeBasisPoints (8 bytes, u64)
 
-            const INITIAL_VIRTUAL_TOKEN_RESERVES: u128 = 1_073_000_000_000_000;
-            const INITIAL_VIRTUAL_SOL_RESERVES: u128 = 30_000_000_000_000; // 30 SOL
-            const INITIAL_REAL_TOKEN_RESERVES: u64 = 793_100_000;
+            let global_data = ctx.accounts.pump_global.try_borrow_data()?;
 
+            // Read initial bonding curve parameters from Global PDA
+            let initial_virtual_token_reserves = u64::from_le_bytes(
+                global_data[73..81]
+                    .try_into()
+                    .map_err(|_| ErrorCode::MathError)?
+            ) as u128;
+
+            let initial_virtual_sol_reserves = u64::from_le_bytes(
+                global_data[81..89]
+                    .try_into()
+                    .map_err(|_| ErrorCode::MathError)?
+            ) as u128;
+
+            let initial_real_token_reserves = u64::from_le_bytes(
+                global_data[89..97]
+                    .try_into()
+                    .map_err(|_| ErrorCode::MathError)?
+            );
+
+            msg!("   📊 Bonding Curve (from Global PDA):");
+            msg!("      Initial virtual token reserves: {}", initial_virtual_token_reserves);
+            msg!("      Initial virtual SOL reserves: {} lamports", initial_virtual_sol_reserves);
+            msg!("      Initial real token reserves: {} tokens", initial_real_token_reserves);
+
+            // Calculate tokens using constant product formula
+            // tokens_out = (sol_in × virtual_token_reserves) / (virtual_sol_reserves + sol_in)
             let sol_in = net_amount_for_token as u128;
+            let tokens_calculated = (sol_in * initial_virtual_token_reserves)
+                / (initial_virtual_sol_reserves + sol_in);
 
-            // Calculate expected tokens using constant product formula
-            let tokens_calculated = (sol_in * INITIAL_VIRTUAL_TOKEN_RESERVES)
-                / (INITIAL_VIRTUAL_SOL_RESERVES + sol_in);
+            // Cap at real token reserves (can't buy more than available on new curve)
+            let tokens_to_buy = tokens_calculated.min(initial_real_token_reserves as u128) as u64;
 
-            // Cap at real token reserves (can't buy more than available)
-            let tokens_to_buy = tokens_calculated.min(INITIAL_REAL_TOKEN_RESERVES as u128) as u64;
-
-            msg!("   📊 Bonding Curve (INITIAL STATE):");
-            msg!("      Virtual token reserves: {}", INITIAL_VIRTUAL_TOKEN_RESERVES);
-            msg!("      Virtual SOL reserves: {} lamports", INITIAL_VIRTUAL_SOL_RESERVES);
-            msg!("      Real token reserves: {} tokens", INITIAL_REAL_TOKEN_RESERVES);
             msg!("   💰 Token purchase calculation:");
+            msg!("      SOL to spend: {} lamports", net_amount_for_token);
             msg!("      Formula result: {} tokens", tokens_calculated);
             msg!("      Capped at real reserves: {} tokens", tokens_to_buy);
-            msg!("      SOL to spend: {} lamports", net_amount_for_token);
 
             // Call pump.fun buy via CPI
             // Market PDA buys tokens with NET amount (after 5% fee reserved)
