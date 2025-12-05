@@ -244,8 +244,17 @@ export function useResolution() {
 
       // Step 2: Upload metadata to Pump.fun IPFS (with retry logic)
       console.log('📤 Uploading metadata to Pump.fun IPFS...');
+
+      // Pump.fun limits token names to 32 characters - truncate if needed
+      const tokenName = params.tokenMetadata.name.slice(0, 32);
+      if (params.tokenMetadata.name.length > 32) {
+        console.log(`⚠️  Token name truncated from ${params.tokenMetadata.name.length} to 32 characters`);
+        console.log(`   Original: ${params.tokenMetadata.name}`);
+        console.log(`   Truncated: ${tokenName}`);
+      }
+
       const metadata = {
-        name: params.tokenMetadata.name,
+        name: tokenName,
         symbol: params.tokenMetadata.symbol,
         description: params.tokenMetadata.description,
         image: params.tokenMetadata.imageUrl,
@@ -255,7 +264,7 @@ export function useResolution() {
 
       const formData = new FormData();
       formData.append('file', new Blob([JSON.stringify(metadata)], { type: 'application/json' }), 'metadata.json');
-      formData.append('name', params.tokenMetadata.name);
+      formData.append('name', tokenName);
       formData.append('symbol', params.tokenMetadata.symbol);
       formData.append('description', params.tokenMetadata.description);
       formData.append('twitter', '');
@@ -320,7 +329,7 @@ export function useResolution() {
       const { PublicKey } = await import('@solana/web3.js');
       const createInstruction = await pumpSdk.createV2Instruction({
         mint: mintKeypair.publicKey,
-        name: params.tokenMetadata.name,
+        name: tokenName, // Use truncated name (max 32 chars)
         symbol: params.tokenMetadata.symbol,
         uri: metadataUri, // Use IPFS metadata URI
         creator: new PublicKey(primaryWallet!.address),

@@ -454,6 +454,10 @@ export default function CreatePage() {
                     onChange={(e) => handleInputChange('name', e.target.value)}
                     className={`bg-white/10 border-white/20 text-white placeholder:text-white/50 ${errors.name ? 'border-red-500' : ''}`}
                   />
+                  <p className="text-xs text-white/60">
+                    Token names are limited to 32 characters for Pump.fun token launch
+                    {formData.name.length > 0 && ` (${formData.name.length} characters)`}
+                  </p>
                   {errors.name && <p className="text-sm text-red-400">{errors.name}</p>}
                 </div>
 
