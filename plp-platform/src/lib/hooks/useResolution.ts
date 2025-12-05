@@ -381,27 +381,34 @@ export function useResolution() {
       console.log('⚡ Building atomic transaction (create + resolve)...');
       console.log('   This prevents front-running and ensures best token price');
 
-      // Deserialize the resolve transaction to extract the instruction
+      // Deserialize the resolve transaction to extract instructions
       const { VersionedTransaction, ComputeBudgetProgram } = await import('@solana/web3.js');
       const resolveTxBuffer = Buffer.from(prepareResult.data.serializedTransaction, 'base64');
       const resolveVersionedTx = VersionedTransaction.deserialize(resolveTxBuffer);
 
-      // Extract the resolve instruction (skip compute budget if present)
-      const resolveInstructions = resolveVersionedTx.message.compiledInstructions;
-      const resolveIx = resolveInstructions[resolveInstructions.length - 1]; // Last instruction is resolve_market
-
-      // Get the resolve instruction in proper format
-      const { PublicKey: PK } = await import('@solana/web3.js');
+      // Extract instructions: [compute_budget, create_ata, resolve_market]
+      const compiledInstructions = resolveVersionedTx.message.compiledInstructions;
       const accountKeys = resolveVersionedTx.message.staticAccountKeys;
-      const resolveInstruction = new TransactionInstruction({
-        programId: accountKeys[resolveIx.programIdIndex],
-        keys: resolveIx.accountKeyIndexes.map((idx) => ({
-          pubkey: accountKeys[idx],
-          isSigner: resolveVersionedTx.message.isAccountSigner(idx),
-          isWritable: resolveVersionedTx.message.isAccountWritable(idx),
-        })),
-        data: Buffer.from(resolveIx.data),
-      });
+
+      // Convert compiled instructions to TransactionInstruction format
+      const { PublicKey: PK } = await import('@solana/web3.js');
+      const convertInstruction = (compiledIx: any) => {
+        return new TransactionInstruction({
+          programId: accountKeys[compiledIx.programIdIndex],
+          keys: compiledIx.accountKeyIndexes.map((idx: number) => ({
+            pubkey: accountKeys[idx],
+            isSigner: resolveVersionedTx.message.isAccountSigner(idx),
+            isWritable: resolveVersionedTx.message.isAccountWritable(idx),
+          })),
+          data: Buffer.from(compiledIx.data),
+        });
+      };
+
+      // Extract ATA creation instruction (index 1, after compute budget)
+      const createATAInstruction = convertInstruction(compiledInstructions[1]);
+
+      // Extract resolve_market instruction (index 2, last instruction)
+      const resolveInstruction = convertInstruction(compiledInstructions[2]);
 
       // Build atomic transaction with high compute units
       const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
@@ -409,19 +416,21 @@ export function useResolution() {
       });
 
       const atomicTx = new Transaction()
-        .add(computeBudgetIx)      // Compute budget
-        .add(createInstruction)     // Pump.fun create
-        .add(resolveInstruction);   // Your program resolve (does buy CPI)
+        .add(computeBudgetIx)       // Compute budget
+        .add(createInstruction)      // Pump.fun create token
+        .add(createATAInstruction)   // Create market's token account (for receiving tokens)
+        .add(resolveInstruction);    // Your program resolve (does buy CPI)
 
       // Get recent blockhash
       const { blockhash } = await connection.getLatestBlockhash('confirmed');
       atomicTx.recentBlockhash = blockhash;
       atomicTx.feePayer = new PK(primaryWallet!.address);
 
-      console.log('✅ Atomic transaction built with 3 instructions:');
-      console.log('   1. Compute budget (800k units)');
+      console.log('✅ Atomic transaction built with 4 instructions:');
+      console.log('   1. Compute budget (1M units)');
       console.log('   2. Pump.fun createV2 (Token2022)');
-      console.log('   3. Market resolve (with buy CPI)');
+      console.log('   3. Create market token account (ATA)');
+      console.log('   4. Market resolve (buy CPI + fee transfer)');
       console.log('');
 
       // Sign with mint keypair first

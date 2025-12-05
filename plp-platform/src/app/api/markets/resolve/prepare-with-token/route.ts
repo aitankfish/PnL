@@ -18,6 +18,7 @@ import {
   TOKEN_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
+  createAssociatedTokenAccountInstruction,
 } from '@solana/spl-token';
 import { getTreasuryPDA, getProgramIdForNetwork } from '@/lib/anchor-program';
 import { derivePumpPDAs, PUMP_PROGRAM_ID } from '@/lib/pumpfun';
@@ -131,19 +132,35 @@ export async function POST(request: NextRequest) {
       data,
     });
 
-    // Build compute budget instruction (increase units for CPI)
+    // Create instruction to initialize market's token account (ATA)
+    // This MUST be done before resolve_market to avoid ATA rent being deducted from pool
+    const createATAIx = createAssociatedTokenAccountInstruction(
+      callerPubkey,           // payer (caller pays ATA rent)
+      marketTokenAccount,     // ata address to create
+      marketPubkey,          // owner (market PDA owns the token account)
+      tokenMintPubkey        // mint
+    );
+
+    logger.info('ATA creation instruction added', {
+      payer: callerPubkey.toBase58(),
+      ata: marketTokenAccount.toBase58(),
+      owner: marketPubkey.toBase58(),
+      mint: tokenMintPubkey.toBase58(),
+    });
+
+    // Build compute budget instruction (increase units for CPI + ATA creation)
     const computeBudgetIx = ComputeBudgetProgram.setComputeUnitLimit({
-      units: 600_000, // Higher than normal due to pump.fun CPI
+      units: 800_000, // Higher than normal due to ATA creation + pump.fun CPI
     });
 
     // Get recent blockhash
     const { blockhash, lastValidBlockHeight } = await connection.getLatestBlockhash('confirmed');
 
-    // Create VersionedTransaction
+    // Create VersionedTransaction with ATA creation BEFORE resolve
     const messageV0 = new TransactionMessage({
       payerKey: callerPubkey,
       recentBlockhash: blockhash,
-      instructions: [computeBudgetIx, resolveIx],
+      instructions: [computeBudgetIx, createATAIx, resolveIx], // ATA first, then resolve
     }).compileToV0Message();
 
     const transaction = new VersionedTransaction(messageV0);
