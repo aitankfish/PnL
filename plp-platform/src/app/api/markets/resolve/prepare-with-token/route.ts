@@ -16,6 +16,7 @@ import {
 } from '@solana/web3.js';
 import {
   TOKEN_PROGRAM_ID,
+  TOKEN_2022_PROGRAM_ID,
   ASSOCIATED_TOKEN_PROGRAM_ID,
   getAssociatedTokenAddress,
   createAssociatedTokenAccountInstruction,
@@ -65,18 +66,20 @@ export async function POST(request: NextRequest) {
     // Derive pump.fun PDAs
     const pumpPDAs = derivePumpPDAs(tokenMintPubkey);
 
-    // Get market's token account (ATA)
+    // Get market's token account (ATA) - using Token2022 program for Pump.fun tokens
     const marketTokenAccount = await getAssociatedTokenAddress(
       tokenMintPubkey,
       marketPubkey,
-      true // allowOwnerOffCurve
+      true, // allowOwnerOffCurve
+      TOKEN_2022_PROGRAM_ID // Pump.fun uses Token Extensions (Token2022)
     );
 
-    // Get bonding curve's token account (ATA)
+    // Get bonding curve's token account (ATA) - using Token2022 program
     const bondingCurveTokenAccount = await getAssociatedTokenAddress(
       tokenMintPubkey,
       pumpPDAs.bondingCurve,
-      true
+      true, // allowOwnerOffCurve
+      TOKEN_2022_PROGRAM_ID // Pump.fun uses Token Extensions (Token2022)
     );
 
     logger.info('All accounts derived', {
@@ -134,11 +137,13 @@ export async function POST(request: NextRequest) {
 
     // Create instruction to initialize market's token account (ATA)
     // This MUST be done before resolve_market to avoid ATA rent being deducted from pool
+    // IMPORTANT: Use Token2022 program since Pump.fun creates tokens with Token Extensions
     const createATAIx = createAssociatedTokenAccountInstruction(
       callerPubkey,           // payer (caller pays ATA rent)
       marketTokenAccount,     // ata address to create
       marketPubkey,          // owner (market PDA owns the token account)
-      tokenMintPubkey        // mint
+      tokenMintPubkey,       // mint
+      TOKEN_2022_PROGRAM_ID  // Pump.fun uses Token Extensions (Token2022), not legacy SPL Token
     );
 
     logger.info('ATA creation instruction added', {
@@ -188,7 +193,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Failed to prepare resolution with token launch:', error);
+    logger.error('Failed to prepare resolution with token launch:', {
+      error: error instanceof Error ? error.message : String(error),
+    });
 
     console.error('=== FULL ERROR DETAILS ===');
     console.error('Error:', error);
