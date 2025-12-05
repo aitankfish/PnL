@@ -152,28 +152,16 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
 
     match resolution {
         MarketResolution::YesWins => {
-            // Deduct 5% completion fee from pool
+            // Calculate 5% completion fee and net amount for token purchase
             let completion_fee = (market.pool_balance * COMPLETION_FEE_BPS) / BPS_DIVISOR;
-
-            // Transfer fee from market to treasury
-            **market.to_account_info().try_borrow_mut_lamports()? -= completion_fee;
-            **treasury.to_account_info().try_borrow_mut_lamports()? += completion_fee;
-
-            // Update treasury total fees
-            treasury.total_fees = treasury
-                .total_fees
-                .checked_add(completion_fee)
-                .ok_or(ErrorCode::MathError)?;
-
-            // Update market pool balance (95% remains for token creation)
-            market.pool_balance = market
+            let net_amount_for_token = market
                 .pool_balance
                 .checked_sub(completion_fee)
                 .ok_or(ErrorCode::MathError)?;
 
             msg!("✅ YES WINS - Initiating token launch");
             msg!("   Completion fee: {} lamports (5%)", completion_fee);
-            msg!("   SOL for token launch: {} lamports", market.pool_balance);
+            msg!("   SOL for token launch: {} lamports", net_amount_for_token);
 
             // -------------------------
             // Buy tokens on Pump.fun with remaining SOL
@@ -189,10 +177,10 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
             );
 
             msg!("   Token mint: {}", ctx.accounts.token_mint.key());
-            msg!("   Buying tokens with {} lamports", market.pool_balance);
+            msg!("   Buying tokens with {} lamports", net_amount_for_token);
 
             // Call pump.fun buy via CPI
-            // Market PDA buys tokens with its pool SOL
+            // Market PDA buys tokens with NET amount (after 5% fee reserved)
             let founder_key = market.founder;
             let ipfs_hash = anchor_lang::solana_program::hash::hash(market.ipfs_cid.as_bytes());
             let market_seeds = &[
@@ -222,8 +210,8 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
                     },
                     signer_seeds,
                 ),
-                market.pool_balance, // amount of tokens to buy (in lamports of SOL)
-                market.pool_balance, // max SOL cost (use all pool SOL)
+                net_amount_for_token, // amount of tokens to buy (95% of pool after fee)
+                net_amount_for_token, // max SOL cost (exact net amount)
             )?;
 
             // Get total tokens bought by checking market's token account balance
@@ -232,13 +220,29 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
             )?;
             let total_tokens = market_token_acct.amount;
 
+            msg!("   Total tokens acquired: {}", total_tokens);
+
+            // -------------------------
+            // Now transfer completion fee (AFTER CPI completes)
+            // -------------------------
+            // Market PDA now has: rent_exempt + (original_pool - net_amount) = rent_exempt + completion_fee
+            // Transfer this fee to treasury
+            **market.to_account_info().try_borrow_mut_lamports()? -= completion_fee;
+            **treasury.to_account_info().try_borrow_mut_lamports()? += completion_fee;
+
+            // Update treasury total fees
+            treasury.total_fees = treasury
+                .total_fees
+                .checked_add(completion_fee)
+                .ok_or(ErrorCode::MathError)?;
+
+            msg!("   Completion fee transferred: {} lamports", completion_fee);
+
             // Set token mint in market state
             market.token_mint = Some(ctx.accounts.token_mint.key());
 
-            // Update pool balance to 0 (all SOL was used to buy tokens)
+            // Update pool balance to 0 (all SOL was used: 95% for tokens, 5% for fee)
             market.pool_balance = 0;
-
-            msg!("   Total tokens acquired: {}", total_tokens);
 
             // -------------------------
             // Calculate token distribution (79% / 20% / 1%)
