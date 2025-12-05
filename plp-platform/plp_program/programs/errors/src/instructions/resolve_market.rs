@@ -254,7 +254,10 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
                 // global_data borrow is DROPPED here
             };
 
-            // Call pump.fun buy via CPI
+            // -------------------------
+            // Call pump.fun buy via MANUAL CPI (not using pump-anchor crate)
+            // This allows us to pass Token2022 program instead of legacy Token
+            // -------------------------
             // Market PDA buys tokens with NET amount (after 5% fee reserved)
             let founder_key = market.founder;
             let ipfs_hash = anchor_lang::solana_program::hash::hash(market.ipfs_cid.as_bytes());
@@ -266,27 +269,60 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
             ];
             let signer_seeds = &[&market_seeds[..]];
 
-            pump::cpi::buy(
-                CpiContext::new_with_signer(
+            // Build buy instruction manually
+            // Discriminator = sha256("global:buy")[0..8]
+            let mut buy_discriminator = [0u8; 8];
+            buy_discriminator.copy_from_slice(
+                &anchor_lang::solana_program::hash::hash(b"global:buy").to_bytes()[0..8]
+            );
+
+            // Instruction data: [discriminator(8), amount(8), max_sol_cost(8)]
+            let mut instruction_data = Vec::with_capacity(24);
+            instruction_data.extend_from_slice(&buy_discriminator);
+            instruction_data.extend_from_slice(&tokens_to_buy.to_le_bytes());
+            instruction_data.extend_from_slice(&net_amount_for_token.to_le_bytes());
+
+            // Build accounts (same order as pump::cpi::accounts::Buy)
+            use anchor_lang::solana_program::{instruction::AccountMeta, instruction::Instruction};
+            let accounts = vec![
+                AccountMeta::new_readonly(ctx.accounts.pump_global.key(), false),
+                AccountMeta::new(ctx.accounts.pump_fee_recipient.key(), false),
+                AccountMeta::new_readonly(ctx.accounts.token_mint.key(), false),
+                AccountMeta::new(ctx.accounts.bonding_curve.key(), false),
+                AccountMeta::new(ctx.accounts.bonding_curve_token_account.key(), false),
+                AccountMeta::new(ctx.accounts.market_token_account.key(), false),
+                AccountMeta::new(market.key(), true), // signer via PDA
+                AccountMeta::new_readonly(ctx.accounts.system_program.key(), false),
+                AccountMeta::new_readonly(ctx.accounts.token_program.key(), false), // Token2022!
+                AccountMeta::new_readonly(ctx.accounts.rent.key(), false),
+                AccountMeta::new_readonly(ctx.accounts.pump_event_authority.key(), false),
+                AccountMeta::new_readonly(ctx.accounts.pump_program.key(), false),
+            ];
+
+            let buy_ix = Instruction {
+                program_id: ctx.accounts.pump_program.key(),
+                accounts,
+                data: instruction_data,
+            };
+
+            // Invoke with PDA signer
+            anchor_lang::solana_program::program::invoke_signed(
+                &buy_ix,
+                &[
+                    ctx.accounts.pump_global.to_account_info(),
+                    ctx.accounts.pump_fee_recipient.to_account_info(),
+                    ctx.accounts.token_mint.to_account_info(),
+                    ctx.accounts.bonding_curve.to_account_info(),
+                    ctx.accounts.bonding_curve_token_account.to_account_info(),
+                    ctx.accounts.market_token_account.to_account_info(),
+                    market.to_account_info(),
+                    ctx.accounts.system_program.to_account_info(),
+                    ctx.accounts.token_program.to_account_info(), // Token2022 program!
+                    ctx.accounts.rent.to_account_info(),
+                    ctx.accounts.pump_event_authority.to_account_info(),
                     ctx.accounts.pump_program.to_account_info(),
-                    pump::cpi::accounts::Buy {
-                        global: ctx.accounts.pump_global.to_account_info(),
-                        fee_recipient: ctx.accounts.pump_fee_recipient.to_account_info(),
-                        mint: ctx.accounts.token_mint.to_account_info(),
-                        bonding_curve: ctx.accounts.bonding_curve.to_account_info(),
-                        associated_bonding_curve: ctx.accounts.bonding_curve_token_account.to_account_info(),
-                        associated_user: ctx.accounts.market_token_account.to_account_info(),
-                        user: market.to_account_info(),
-                        system_program: ctx.accounts.system_program.to_account_info(),
-                        token_program: ctx.accounts.token_program.to_account_info(),
-                        rent: ctx.accounts.rent.to_account_info(),
-                        event_authority: ctx.accounts.pump_event_authority.to_account_info(),
-                        program: ctx.accounts.pump_program.to_account_info(),
-                    },
-                    signer_seeds,
-                ),
-                tokens_to_buy,        // amount: calculated tokens from bonding curve formula
-                net_amount_for_token, // maxSolCost: spend exactly this much SOL (95% of pool)
+                ],
+                signer_seeds,
             )?;
 
             // Get total tokens bought by checking market's token account balance
