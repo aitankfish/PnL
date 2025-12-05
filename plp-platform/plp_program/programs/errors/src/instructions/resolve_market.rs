@@ -210,8 +210,8 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
                     },
                     signer_seeds,
                 ),
-                net_amount_for_token, // amount of tokens to buy (95% of pool after fee)
-                net_amount_for_token, // max SOL cost (exact net amount)
+                u64::MAX,             // amount: buy maximum tokens possible
+                net_amount_for_token, // maxSolCost: spend exactly this much SOL (95% of pool)
             )?;
 
             // Get total tokens bought by checking market's token account balance
