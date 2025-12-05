@@ -180,50 +180,37 @@ pub fn handler(ctx: Context<ResolveMarket>) -> Result<()> {
             msg!("   Buying tokens with {} lamports", net_amount_for_token);
 
             // -------------------------
-            // Read bonding curve state to calculate token amount
+            // Calculate token amount using Pump.fun INITIAL bonding curve constants
             // -------------------------
-            // Bonding curve account structure (Borsh serialized):
-            // - 0x00: discriminator (8 bytes)
-            // - 0x08: virtual_token_reserves (8 bytes, u64)
-            // - 0x10: virtual_sol_reserves (8 bytes, u64)
-            // - 0x18: real_token_reserves (8 bytes, u64)
-            // - 0x20: real_sol_reserves (8 bytes, u64)
-            // - 0x28: token_total_supply (8 bytes, u64)
-            // - 0x30: complete (1 byte, bool)
+            // We can't read the bonding curve account in the same transaction it's created.
+            // Instead, use Pump.fun's well-known initial constants:
+            //
+            // - virtual_token_reserves: 1,073,000,000,000,000 (with 6 decimals)
+            // - virtual_sol_reserves: 30,000,000,000,000 lamports (30 SOL)
+            // - real_token_reserves: 793,100,000 tokens (actual tradeable supply)
+            //
+            // Formula: tokens_out = (sol_in × virtual_token_reserves) / (virtual_sol_reserves + sol_in)
 
-            let tokens_to_buy = {
-                let bonding_curve_data = ctx.accounts.bonding_curve.try_borrow_data()?;
+            const INITIAL_VIRTUAL_TOKEN_RESERVES: u128 = 1_073_000_000_000_000;
+            const INITIAL_VIRTUAL_SOL_RESERVES: u128 = 30_000_000_000_000; // 30 SOL
+            const INITIAL_REAL_TOKEN_RESERVES: u64 = 793_100_000;
 
-                // Read virtual_token_reserves (offset 8, u64 little-endian)
-                let virtual_token_reserves = u64::from_le_bytes(
-                    bonding_curve_data[8..16]
-                        .try_into()
-                        .map_err(|_| ErrorCode::MathError)?
-                );
+            let sol_in = net_amount_for_token as u128;
 
-                // Read virtual_sol_reserves (offset 16, u64 little-endian)
-                let virtual_sol_reserves = u64::from_le_bytes(
-                    bonding_curve_data[16..24]
-                        .try_into()
-                        .map_err(|_| ErrorCode::MathError)?
-                );
+            // Calculate expected tokens using constant product formula
+            let tokens_calculated = (sol_in * INITIAL_VIRTUAL_TOKEN_RESERVES)
+                / (INITIAL_VIRTUAL_SOL_RESERVES + sol_in);
 
-                msg!("   📊 Bonding Curve State:");
-                msg!("      Virtual token reserves: {}", virtual_token_reserves);
-                msg!("      Virtual SOL reserves: {} lamports", virtual_sol_reserves);
+            // Cap at real token reserves (can't buy more than available)
+            let tokens_to_buy = tokens_calculated.min(INITIAL_REAL_TOKEN_RESERVES as u128) as u64;
 
-                // Calculate tokens we can buy with our SOL using constant product formula
-                // tokens_out = (sol_in × virtual_token_reserves) / (virtual_sol_reserves + sol_in)
-                let sol_in = net_amount_for_token as u128;
-                let vtr = virtual_token_reserves as u128;
-                let vsr = virtual_sol_reserves as u128;
-
-                ((sol_in * vtr) / (vsr + sol_in)) as u64
-                // bonding_curve_data borrow is dropped here when scope ends
-            };
-
-            msg!("   💰 Calculated token purchase:");
-            msg!("      Tokens to buy: {}", tokens_to_buy);
+            msg!("   📊 Bonding Curve (INITIAL STATE):");
+            msg!("      Virtual token reserves: {}", INITIAL_VIRTUAL_TOKEN_RESERVES);
+            msg!("      Virtual SOL reserves: {} lamports", INITIAL_VIRTUAL_SOL_RESERVES);
+            msg!("      Real token reserves: {} tokens", INITIAL_REAL_TOKEN_RESERVES);
+            msg!("   💰 Token purchase calculation:");
+            msg!("      Formula result: {} tokens", tokens_calculated);
+            msg!("      Capped at real reserves: {} tokens", tokens_to_buy);
             msg!("      SOL to spend: {} lamports", net_amount_for_token);
 
             // Call pump.fun buy via CPI
