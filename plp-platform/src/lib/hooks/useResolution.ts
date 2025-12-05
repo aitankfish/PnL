@@ -245,12 +245,28 @@ export function useResolution() {
       // Step 2: Upload metadata to Pump.fun IPFS (with retry logic)
       console.log('📤 Uploading metadata to Pump.fun IPFS...');
 
-      // Pump.fun limits token names to 32 characters - truncate if needed
-      const tokenName = params.tokenMetadata.name.slice(0, 32);
-      if (params.tokenMetadata.name.length > 32) {
-        console.log(`⚠️  Token name truncated from ${params.tokenMetadata.name.length} to 32 characters`);
+      // Pump.fun limits token names to 32 BYTES (not characters!) - truncate if needed
+      // Must use byte length because Unicode characters can be multiple bytes
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+      let tokenName = params.tokenMetadata.name;
+
+      // Check byte length and truncate if needed
+      let nameBytes = encoder.encode(tokenName);
+      if (nameBytes.length > 32) {
+        console.log(`⚠️  Token name exceeds 32 bytes (${nameBytes.length} bytes)`);
         console.log(`   Original: ${params.tokenMetadata.name}`);
-        console.log(`   Truncated: ${tokenName}`);
+
+        // Truncate to 32 bytes, being careful not to cut multi-byte characters
+        nameBytes = nameBytes.slice(0, 32);
+
+        // Decode - this might produce invalid UTF-8 if we cut a multi-byte char
+        tokenName = decoder.decode(nameBytes, { stream: false });
+
+        // Clean up any invalid characters at the end (from partial multi-byte chars)
+        tokenName = tokenName.replace(/[\uFFFD]+$/, '').trim();
+
+        console.log(`   Truncated: ${tokenName} (${encoder.encode(tokenName).length} bytes)`);
       }
 
       const metadata = {

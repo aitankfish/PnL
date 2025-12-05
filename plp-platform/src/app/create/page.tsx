@@ -455,8 +455,12 @@ export default function CreatePage() {
                     className={`bg-white/10 border-white/20 text-white placeholder:text-white/50 ${errors.name ? 'border-red-500' : ''}`}
                   />
                   <p className="text-xs text-white/60">
-                    Token names are limited to 32 characters for Pump.fun token launch
-                    {formData.name.length > 0 && ` (${formData.name.length} characters)`}
+                    Token names are limited to 32 bytes for Pump.fun token launch
+                    {formData.name.length > 0 && (() => {
+                      const byteLength = new TextEncoder().encode(formData.name).length;
+                      const color = byteLength > 32 ? 'text-yellow-400' : 'text-white/60';
+                      return <span className={color}> ({byteLength}/32 bytes{byteLength > 32 ? ' - will be truncated' : ''})</span>;
+                    })()}
                   </p>
                   {errors.name && <p className="text-sm text-red-400">{errors.name}</p>}
                 </div>
