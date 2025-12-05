@@ -6,6 +6,7 @@
  */
 
 import { useState } from 'react';
+import { flushSync } from 'react-dom';
 import { useWallet } from '@/hooks/useWallet';
 import { Transaction, TransactionInstruction } from '@solana/web3.js';
 import { getSolanaConnection } from '@/lib/solana';
@@ -39,7 +40,10 @@ export function useResolution() {
     }
 
     try {
-      setIsResolving(true);
+      // Use flushSync to immediately show animation (synchronous state update)
+      flushSync(() => {
+        setIsResolving(true);
+      });
 
       // -------------------------
       // Step 1: Check if this is a token launch (YES wins)
