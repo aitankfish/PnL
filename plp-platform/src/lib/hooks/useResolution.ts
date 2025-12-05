@@ -264,6 +264,7 @@ export function useResolution() {
       formData.append('showName', 'true');
 
       // Retry logic with exponential backoff (3 attempts)
+      // Use backend proxy to avoid CORS issues
       let metadataUri: string | null = null;
       let lastError: Error | null = null;
       const maxRetries = 3;
@@ -271,17 +272,24 @@ export function useResolution() {
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
           console.log(`   Attempt ${attempt}/${maxRetries}...`);
-          const ipfsResponse = await fetch('https://pump.fun/api/ipfs', {
+
+          // Use backend proxy endpoint to avoid CORS
+          const ipfsResponse = await fetch('/api/pump/upload-ipfs', {
             method: 'POST',
             body: formData,
           });
 
           if (!ipfsResponse.ok) {
-            throw new Error(`IPFS upload failed: ${ipfsResponse.status} ${ipfsResponse.statusText}`);
+            const errorData = await ipfsResponse.json();
+            throw new Error(errorData.error || `IPFS upload failed: ${ipfsResponse.status}`);
           }
 
           const ipfsResult = await ipfsResponse.json();
-          metadataUri = ipfsResult.metadataUri;
+          if (!ipfsResult.success || !ipfsResult.data) {
+            throw new Error('Invalid IPFS response');
+          }
+
+          metadataUri = ipfsResult.data.metadataUri;
           console.log(`✅ Metadata uploaded to IPFS`);
           console.log(`   URI: ${metadataUri}`);
           console.log('');
