@@ -30,7 +30,12 @@ function WalletProviderInner({ children }: WalletProviderProps) {
   const appId = process.env.NEXT_PUBLIC_PRIVY_APP_ID || '';
 
   if (!appId) {
-    console.warn('NEXT_PUBLIC_PRIVY_APP_ID is not set. Wallet functionality will be limited.');
+    // Local dev without secrets: PrivyProvider throws on an empty appId and
+    // takes the whole tree down with it. Render without the wallet layer
+    // instead — routes that don't touch wallet hooks (e.g. /terminal) still
+    // work; wallet-dependent pages need the real env either way.
+    console.warn('NEXT_PUBLIC_PRIVY_APP_ID is not set. Rendering without wallet provider.');
+    return <>{children}</>;
   }
 
   // Absolute origin for the /api/rpc proxy URL — createSolanaRpc requires an

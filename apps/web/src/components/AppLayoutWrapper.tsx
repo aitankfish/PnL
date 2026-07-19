@@ -30,8 +30,10 @@ export default function AppLayoutWrapper({ children, footer }: AppLayoutWrapperP
     }
   }, []);
 
-  // Hide navbar and footer on the landing page
-  const isLandingPage = pathname === '/';
+  // Hide navbar and footer on the landing page and full-screen bare routes
+  // (/terminal is the minimal trading-terminal concept — it owns the whole
+  // viewport, no chrome).
+  const isLandingPage = pathname === '/' || pathname === '/terminal';
 
   // Map pathnames to page IDs for sidebar active state
   const getCurrentPage = (): string | undefined => {
